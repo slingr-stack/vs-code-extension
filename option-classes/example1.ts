@@ -1,13 +1,11 @@
 import { DataModel, Field } from './backend';
 import { DatabaseSettings, findById, registerDatabase, registerPersistentData } from './storage';
 import {
-    GridView, SimpleRecordView,
-    Menu, MenuView, AppLayout,
-    DataUISettings
+    DataModelUISettings
 } from './frontend';
 import { PersistentDataPermissions, DataPermissions, Role, Group } from './security';
 import { formatDateTime } from './utils';
-import { MongoRecord } from './storage';
+import { MongoRecord, CopiedField } from './storage';
 import * as context from './libs/context';
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,54 +63,12 @@ class TaskNote {
     })
     addedBy: string;
 
-    @CopiedField({
-        
+    @CopiedField<TaskNote, User>({
+        relationshipField: 'addedBy',
+        copiedField: 'fullName'
     })
     addedByFullName: string;
 }
-
-
-
-/*
-interface TaskNote {
-    label: string,
-    note: string,
-    timestamp: number,
-    addedBy: string,
-    addedByFullName: string
-}
-
-const TaskNoteDefinition: DataDefinition<TaskNote> & DataUISettings<TaskNote> = {
-    defaultLabel: 'label',
-    fields: {
-        label: {
-            type: 'text',
-            required: {type: 'always'},
-            calculation: calculateTaskNoteLabel
-        },
-        note: {
-            type: 'text',
-            required: {type: 'always'}
-        },
-        timestamp: {
-            type: 'datetime',
-            required: {type: 'always'},
-            defaultValue: () => new Date().getTime()
-        },
-        addedBy: {
-            type: 'relationship',
-            required: {type: 'always'},
-        },
-        addedByFullName: {
-            type: 'text',
-            calculation: (taskNote: TaskNote) => {
-                const user = findById<User>(taskNote.addedBy);
-                return user.fullName;
-            }
-        }
-    }
-}
-*/
 
 function calculateTaskNoteLabel(taskNote: TaskNote) : string {
     return `${taskNote.addedBy} wrote on ${formatDateTime(new Date(taskNote.timestamp), 'MM/dd yy')} at ${formatDateTime(new Date(taskNote.timestamp), 'HH:mm')}`;
@@ -120,6 +76,35 @@ function calculateTaskNoteLabel(taskNote: TaskNote) : string {
 
 // Task
 
+@DataModel()
+@DataModelUISettings<Task>({
+    defaultLabel: 'label'
+})
+class Task extends MongoRecord {
+    @Field({
+        required: {type: 'always'},
+        calculation: (task: Task) => `#${task.number}. ${task.title}`
+    })
+    label: string;
+
+    @Field({
+        type: 'auto-incremental'
+    })
+    number: number;
+
+    @Field({
+        required: {type: 'always'}
+    })
+    title: string;
+
+    @Field({
+        type: 'array',
+        itemType: 'relationship'
+    })
+    notes: TaskNote[];
+}
+
+/*
 interface Task {
     id: string,
     label: string,
@@ -152,6 +137,7 @@ const TaskDefinition: DataDefinition<Task> & DataUISettings<Task> = {
         }
     }
 }
+*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Views

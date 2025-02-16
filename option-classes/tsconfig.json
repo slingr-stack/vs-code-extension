@@ -1,6 +1,8 @@
 {
     "compilerOptions": {
       "target": "ES2024",
-      "experimentalDecorators": true
+      "experimentalDecorators": true,
+      "emitDecoratorMetadata": true,
+      "moduleResolution": "node"
     }
   }
