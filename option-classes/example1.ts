@@ -1,8 +1,6 @@
 import { DataModel, Field } from './backend';
 import { DatabaseSettings, findById, registerDatabase, registerPersistentData } from './storage';
-import {
-    DataModelUISettings
-} from './frontend';
+import { DataModelUISettings } from './frontend';
 import { PersistentDataPermissions, DataPermissions, Role, Group } from './security';
 import { formatDateTime } from './utils';
 import { MongoRecord, CopiedField } from './storage';
@@ -15,6 +13,9 @@ import * as context from './libs/context';
 // User
 
 @DataModel()
+@DataModelUISettings<User>({
+    defaultLabel: 'fullName'
+})
 class User extends MongoRecord {
     @Field({
         required: {type: 'always'},
@@ -40,6 +41,9 @@ class User extends MongoRecord {
 // TaskNote
 
 @DataModel()
+@DataModelUISettings<TaskNote>({
+    defaultLabel: 'label'
+})
 class TaskNote {
     @Field({
         calculation: calculateTaskNoteLabel
@@ -103,41 +107,6 @@ class Task extends MongoRecord {
     })
     notes: TaskNote[];
 }
-
-/*
-interface Task {
-    id: string,
-    label: string,
-    number: number,
-    title: string,
-    notes: TaskNote[]
-}
-
-const TaskDefinition: DataDefinition<Task> & DataUISettings<Task> = {
-    defaultLabel: 'label',
-    fields: {
-        id: {
-            type: 'id'
-        },
-        label: {
-            type: 'text',
-            required: {type: 'always'},
-            calculation: (task: Task) => `#${task.number}. ${task.title}`
-        },
-        number: {
-            type: 'auto-incremental'
-        },
-        title: {
-            type: 'text',
-            required: {type: 'always'}
-        },
-        notes: {
-            type: 'array',
-            itemType: 'relationship'
-        }
-    }
-}
-*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Views
