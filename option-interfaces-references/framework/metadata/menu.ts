@@ -6,6 +6,6 @@ interface MenuItem {
     view: FormView;
 }
 
-interface Menu {
+export interface Menu {
     items: MenuItem[];
 }
