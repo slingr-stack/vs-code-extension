@@ -1,4 +1,4 @@
-import { NumberField, RelationshipField, TextField } from "./baseRules";
+import { NumberField, RelationshipField, TextField } from "./entityField";
 
 
 export const text = (config: Partial<TextField>): TextField => {

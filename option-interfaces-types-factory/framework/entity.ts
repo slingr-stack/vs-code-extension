@@ -1,7 +1,7 @@
-import {Field} from "./baseRules";
+import {EntityField} from "./entityField";
 
 export interface Entity {
   label: string;
   name: string;
-  fields: Record<string, Field>;
+  fields: Record<string, EntityField>;
 }

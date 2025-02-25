@@ -34,4 +34,4 @@ export interface RelationshipField extends BaseField {
   entity: string;
 }
 
-export type Field = TextField | NumberField | RelationshipField;
+export type EntityField = TextField | NumberField | RelationshipField;

@@ -1,7 +1,7 @@
 import { Entity } from "../../../framework/entity";
-import { relationship, text } from "../../../framework/types";
+import { relationship, text } from "../../../framework/typesFactory";
 
-const contactEntity: Entity = {
+export const contactEntity: Entity = {
     label: 'Contact',
     name: 'contact',
     fields: {
@@ -14,6 +14,11 @@ const contactEntity: Entity = {
             label: 'Last Name',
             name: 'lastName',
             rules: { required: true, maxLength: 50 }
+        }),
+        fullName: text({
+            label: 'Last Name',
+            name: 'lastName',
+            
         }),
         email: text({
             label: 'Email',
