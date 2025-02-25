@@ -1,12 +1,12 @@
-import { gridColumn, gridView } from "../../../framework/viewFactory";
-import { contactEntity } from "../../model/entities/contacts";
+import { gridColumn, gridView } from "../../../framework/factories/viewFactory";
+import { contactsEntity } from "../../model/entities/contacts";
 
 export const contactGridView = gridView({
-    entity: contactEntity,
+    entity: contactsEntity,
     columns: {
-        firstName: gridColumn({ field: contactEntity.fields.firstName }),
-        lastName: gridColumn({ field: contactEntity.fields.lastName }),
-        email: gridColumn({ field: contactEntity.fields.email }),
-        company: gridColumn({ field: contactEntity.fields.company })
+        firstName: gridColumn({ field: contactsEntity.fields.firstName }),
+        lastName: gridColumn({ field: contactsEntity.fields.lastName }),
+        email: gridColumn({ field: contactsEntity.fields.email }),
+        company: gridColumn({ field: contactsEntity.fields.company })
     }
 })

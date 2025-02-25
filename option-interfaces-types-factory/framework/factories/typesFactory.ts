@@ -1,4 +1,4 @@
-import { NumberField, RelationshipField, TextField } from "./entityField";
+import { NumberField, RelationshipField, TextField } from "../entityField";
 
 
 export const text = (config: Partial<TextField>): TextField => {
@@ -14,7 +14,7 @@ export const text = (config: Partial<TextField>): TextField => {
     };
 };
 
-export const numberField = (config: Partial<NumberField>): NumberField => {
+export const number = (config: Partial<NumberField>): NumberField => {
     if (config.rules?.maxDecimals && config.rules.maxDecimals < 0) {
         throw new Error('maxDecimals cannot be negative');
     }

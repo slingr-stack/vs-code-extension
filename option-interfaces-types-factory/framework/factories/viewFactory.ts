@@ -1,4 +1,4 @@
-import { GridColumn, GridView } from "./gridView";
+import { GridColumn, GridView } from "../gridView";
 
 export const gridColumn = (config: Partial<GridColumn>): GridColumn => {
     if (!config.field) {

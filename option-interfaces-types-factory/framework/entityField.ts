@@ -9,6 +9,7 @@ interface BaseField {
   type: string;
   multiplicity?: 'one' | 'many';
   rules?: FieldRules;
+  
 }
 
 interface TextRules extends FieldRules {
