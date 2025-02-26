@@ -3,7 +3,7 @@ import 'reflect-metadata';
 interface DataModelConfig {
 }
 
-export function DataModel(config: DataModelConfig): ClassDecorator {
+export function DataModel(config?: DataModelConfig): ClassDecorator {
   return function <T extends Function>(constructor: T) {
     Reflect.defineMetadata('dataModelConfig', config, constructor);
     return constructor;

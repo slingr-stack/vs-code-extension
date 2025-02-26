@@ -33,8 +33,37 @@ export interface DataUISettings<T> {
     defaultLabel: keyof T
 }
 
+export interface Widget {
+
+}
+
+export interface DataWidget extends Widget {
+
+}
+
+export interface TextWidget extends DataWidget {
+
+}
+
+export interface FormFieldWidget extends Widget {
+    label: string,
+    data: DataWidget
+}
+
+export interface ViewModel {
+
+}
+
+export type LayoutType = 'vertical' | 'horizontal';
+
+export interface Layout {
+    type: LayoutType,
+    widgets: Widget[]
+}
+
 export interface View {
-    name: string
+    name: string,
+    model?: ViewModel
 }
 
 export interface RecordView extends View {
