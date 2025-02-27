@@ -14,34 +14,70 @@ import { formatDateTime } from './utils';
 
 // User
 
+type UserStatus = 'active' | 'inactive' | 'blocked';
+
+
 interface User {
     firstName: string,
     lastName: string,
     fullName: string,
-    email: string
+    email: string,
+    status: UserStatus,
+    department: string
 }
 
 const userModel = model<User>({
     fields: {
-        firstName: textField({required: {type: 'always'}}),
-        lastName: textField({required: {type: 'always'}}),
+        firstName: textField({
+            required: {type: 'always'},
+            ui: {
+                label: 'First Name'
+            }
+        }),
+        lastName: textField({
+            required: {type: 'always'},
+            ui: {
+                label: 'Last Name'
+            }
+        }),
         fullName: textField({
             calculation: (user: User) => {
                 return `${user.firstName} ${user.lastName}`;
-            }),
+            },
+            ui: {
+                label: 'Full Name'
+            }
         }),
         email: textField({
             required: {type: 'always'},
             validation: emailValidation,
             ui: {
+                label: 'Email',
                 readOnly: emailLabelWidget(),
-                edit: textInputWidget()
+                edit: textInputWidget()    
             }
-        })
+        }),
+        status: choiceField<UserStatus>({
+            required: required.ALWAYS,
+            defaultValue: 'active',
+            ui: {
+                label: 'Status',
+                optionLabels: {
+                    active: 'Active',
+                    inactive: 'Inactive',
+                    blocked: 'Blocked'
+                }
+            }
+        }),
+        department: textField({required: {type: 'always'}})
     },
-    ui: modelUi<User>({
-        defaultLabel: 'fullName'
-    }),
+    ui: {
+        recordLabelField: 'fullName',
+        sorting: {
+            fields: 'fullName',
+            direction: 'asc'
+        }
+    },
     dataSource: modelDataSource<User>({
         database: mainDb,
         indexes: [
@@ -50,38 +86,6 @@ const userModel = model<User>({
         ]
     })
 });
-
-const backend = defineBackend([userModel]);
-
-const users = backend.dataSources.mainDb.getCollection('users');
-let user = users.findById('...');
-users.save(user);
-users.remove(user);
-let cursor = users.find({});
-cursor = users.find({email: {$in: [email1, email2]}});
-let result = users.aggregate([]);
-
-const UserDefinition: DataDefinition<User> & DataUISettings<User> = {
-    defaultLabel: 'fullName',
-    fields: {
-        firstName: {
-            type: 'text',
-            required: {type: 'always'},
-        },
-        lastName: {
-            type: 'text',
-            required: {type: 'always'}
-        },
-        fullName: {
-            type: 'text',
-            calculation: (user: User) => `${user.firstName} ${user.lastName}`
-        },
-        email: {
-            type: 'email',
-            required: {type: 'always'}
-        }
-    }
-};
 
 // TaskNote
 
@@ -93,36 +97,52 @@ interface TaskNote {
     addedByFullName: string
 }
 
-const TaskNoteDefinition: DataDefinition<TaskNote> & DataUISettings<TaskNote> = {
-    defaultLabel: 'label',
+const taskNoteModel = model<TaskNote>({
     fields: {
-        label: {
-            type: 'text',
+        label: textField({
             required: {type: 'always'},
             calculation: calculateTaskNoteLabel
-        },
-        note: {
-            type: 'text',
-            required: {type: 'always'}
-        },
-        timestamp: {
-            type: 'datetime',
+        }),
+        note: longTextField({
             required: {type: 'always'},
-            defaultValue: () => new Date().getTime()
-        },
-        addedBy: {
-            type: 'relationship',
-            required: {type: 'always'},
-        },
-        addedByFullName: {
-            type: 'text',
-            calculation: (taskNote: TaskNote) => {
-                const user = findById<User>(taskNote.addedBy);
-                return user.fullName;
+            ui: {
+                readOnly: markdownWidget(),
+                editor: markdownEditor()
             }
-        }
+        }),
+        timestamp: datetimeField({
+            required: required.ALWAYS,
+            defaultValue: () => new Date().getTime(),
+            ui: {
+                readOnly: datatimeFormatWidget({format: 'MM/dd yy HH:mm'})
+            }
+        }),
+        addedBy: relationshipField({
+            required: required.ALWAYS,
+            target: userModel,
+            filter: () => {
+                const users = backend.dataSources.mainDb.users();
+                return users.query({status: 'active'});
+            },
+            ui: {
+                label: 'Added By (ID)',
+                visibility: visibility.NEVER
+            }
+        }),
+        addedByFullName: textField({
+            copiedField: copiedField<User>({
+                from: 'addedBy',
+                field: 'fullName'
+            }),
+            ui: {
+                label: 'Added By'
+            }
+        })
+    },
+    ui: {
+        recordLabelField: 'label'
     }
-}
+});
 
 function calculateTaskNoteLabel(taskNote: TaskNote) : string {
     return `${taskNote.addedBy} wrote on ${formatDateTime(new Date(taskNote.timestamp), 'MM/dd yy')} at ${formatDateTime(new Date(taskNote.timestamp), 'HH:mm')}`;
@@ -138,48 +158,66 @@ interface Task {
     notes: TaskNote[]
 }
 
-const TaskDefinition: DataDefinition<Task> & DataUISettings<Task> = {
-    defaultLabel: 'label',
+const taskModel = model<Task>({
     fields: {
-        id: {
-            type: 'id'
-        },
-        label: {
-            type: 'text',
+        label: textField({
             required: {type: 'always'},
-            calculation: (task: Task) => `#${task.number}. ${task.title}`
-        },
-        number: {
-            type: 'auto-incremental'
-        },
-        title: {
-            type: 'text',
-            required: {type: 'always'}
-        },
-        notes: {
-            type: 'array',
-            itemType: 'relationship'
+            ui: {
+                label: 'Label'
+            }
+        }),
+        number: autoIncrementalField({
+            ui: {
+                label: 'Number'
+            }
+        }),
+        title: textField({
+            required: {type: 'always'},
+            ui: {
+                label: 'Title'
+            }
+        }),
+        notes: arrayField<TakeNote>({
+            itemType: taskNoteModel,
+            ui: {
+                label: 'Notes',
+                sorting: 'natural'
+            }
+        })
+    },
+    ui: {
+        label: 'label',
+        sorting: {
+            field: 'createAt',
+            direction: 'desc'
         }
-    }
-}
+    },
+    dataSource: modelDataSource<Task>({
+        database: mainDb,
+        indexes: [
+            regularIndex(['number']),
+            regularIndex(['title'])
+        ]
+    })
+});
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Views
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-const CreateTaskView: SimpleRecordView<Task> = {
+const CreateTaskView = simpleRecordView<Task>({
     name: 'Create Task',
     mode: 'create',
     managed: true
-};
+});
 
-const EditTaskView: SimpleRecordView<Task> = {
+const EditTaskView = simpleRecordView<Task>({
     name: 'Edit Task',
     mode: 'edit',
     managed: true
-};
+});
 
-const TasksGridView: GridView<Task> = {
+const TasksGridView = gridView<Task>({
     name: 'Tasks',
     columns: [
         'number',
@@ -193,7 +231,34 @@ const TasksGridView: GridView<Task> = {
         enabled: true,
         view: EditTaskView
     }
+});
+
+interface DashboardModel {
+    project: Relationship<Project>,
+    tasks: Relationship<Task>[]
 }
+
+const DashboardView = flexView({
+    model: {
+        project: relationshipField({
+            target: projectModel,
+            ui: {
+                label: 'Project'
+            }
+        })
+    },
+    layout: {
+
+    },
+    events: {
+        onShow: () => {
+
+        },
+        onChange: (model, view) => {
+            model.widgets.taskTable.filters.
+        }
+    }
+})
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -269,9 +334,21 @@ const MainDatabase: DatabaseSettings = {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// Libs
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+function test() {
+    const users = dataSources.mainDb.users;
+    let user = users.findById('...');
+    users.save(user);
+    users.remove(user);
+    let cursor = users.find({});
+    cursor = users.find({email: {$in: [email1, email2]}});
+    let result = users.aggregate([]);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // App Init
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-registerDatabase(MainDatabase);
-registerPersistentData(MainDatabase, UserDefinition);
-registerPersistentData(MainDatabase, TaskDefinition);
+initApp();
