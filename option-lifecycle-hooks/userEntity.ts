@@ -1,4 +1,5 @@
 class UserEntity extends AbstractEntity {
+  
   name: string;
   email: string;
   age: number;
@@ -44,14 +45,13 @@ class UserEntity extends AbstractEntity {
     console.log('After save: Changes saved successfully.');
   }
 
-  async beforeValidate() {
-    console.log('Before validate: Checking data integrity...');
+  async validate() {
     if (!this.email.includes('@')) throw new Error('Invalid email address.');
     if (this.age < 18) throw new Error('User must be at least 18 years old.');
   }
-
-  async afterValidate() {
-    console.log('After validate: Entity data is valid.');
+  
+  async onChange() {
+    console.log('On change: User data has been modified.');
   }
 
   async beforeRead() {
