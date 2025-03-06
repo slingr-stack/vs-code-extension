@@ -202,6 +202,56 @@ const taskModel = model<Task>({
 });
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// Agents
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+const visitSummarizationAgent = agent({
+    modelSettings: {
+        model: 'gemini-2.0-flash'
+    },
+    inputs: [
+        {
+            name: 'text',
+            type: 'string'
+        }
+    ],
+    instructions: `
+    You are a doctor and need to summarize the medical record in no more than 100.
+    `,
+    prompt: `
+    Please, summarize the following text: {text}
+    `
+});
+
+const expressionSolver = tool({
+    name: 'expressionSolver',
+    description: 'Solves a math expression and returns the result',
+    params: {
+        expression: textField({})
+    },
+    script: (params: object) => {
+        // do something
+    }
+})
+
+const mathSolverAgent = agent({
+    modelSettings: {
+        model: 'gpt-3.5-turbo'
+    },
+    inputs: {
+        question: textField({})
+    }
+    instructions: `
+    You need to solve a mathematical expression and provide the result.
+    `,
+    prompt: `
+    Please, solve the following mathematical expression: {question}
+    `,
+    tools: [ expressionSolver ]
+});
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Views
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -233,29 +283,88 @@ const TasksGridView = gridView<Task>({
     }
 });
 
-interface DashboardModel {
-    project: Relationship<Project>,
-    tasks: Relationship<Task>[]
+interface TaskRelationship {
+    task: string,
+    number: number,
+    title: string
 }
 
-const DashboardView = flexView({
-    model: {
+interface DashboardModel extends ViewModel {
+    project: string,
+    tasks: TaskRelationship[]
+}
+
+const DashboardView = flexView<DashboardModel>({
+    fields: {
         project: relationshipField({
             target: projectModel,
             ui: {
                 label: 'Project'
             }
+        }),
+        tasks: arrayField<TaskRelationship>({
+            fields: {
+                task: relationshipField({
+                    target: taskModel,
+                    ui: {
+                        label: 'Task'
+                    }
+                }),
+                number: textField({
+                    copiedField: copiedField<Task>({
+                        from: 'task',
+                        field: 'number'
+                    }),
+                    ui: {
+                        label: 'Number'
+                    }
+                }),
+                title: textField({
+                    copiedField: copiedField<Task>({
+                        from: 'task',
+                        field: 'title'
+                    }),
+                    ui: {
+                        label: 'Title'
+                    }
+                })
+            },
+            ui: {
+                label: 'Tasks'
+            }
         })
     },
     layout: {
-
+        rows: [
+            {
+                columns: [
+                    {
+                        widgets: [
+                            dataFormFieldWidget({
+                                name: 'projectField',
+                                field: 'project'
+                            }),
+                            dynamicTableWidget({
+                                name: 'tasksTable',
+                                data: (model: DashboardModel) => {
+                                    return model.tasks;
+                                }
+                            }),
+                        ]
+                    }
+                ]
+            }
+        ]
     },
     events: {
-        onShow: () => {
-
+        onShow: (model: DashboardModel) => {
+            model.project = dataSources.mainDb.projects.findById('...');
         },
-        onChange: (model, view) => {
-            model.widgets.taskTable.filters.
+        onChange: (model: DashboardModel) => {
+            if (model.project) {
+                const table = model.widgets['tasksTable'];
+                table.refresh();
+            }
         }
     }
 })

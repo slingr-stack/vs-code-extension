@@ -50,8 +50,12 @@ export interface FormFieldWidget extends Widget {
     data: DataWidget
 }
 
-export interface ViewModel {
+export interface WidgetModel {
+    
+}
 
+export interface ViewModel {
+    widgets: { [key: string]: WidgetModel }
 }
 
 export type LayoutType = 'vertical' | 'horizontal';
