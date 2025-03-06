@@ -63,8 +63,11 @@ export interface Layout {
 
 export interface View {
     name: string,
-    model?: ViewModel
+    model?: ViewModel,
+    layout?: Layout
 }
+
+
 
 export interface RecordView extends View {
     mode: 'readOnly' | 'edit' | 'create'
