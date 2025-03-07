@@ -107,6 +107,18 @@ ui.defaultUiForSchema<User>({
     }
 });
 
+export const defaultUserRelationshipWidgets = [{
+    context: ui.context.readOnly,
+    widget: w.relationshipLabelWidget<User>({
+        labelField: 'fullName'
+    })
+}, {
+    context: ui.context.edit,
+    widget: w.relationshipDropDownWidget<User>({
+        labelField: 'fullName'
+    })
+}];
+
 export const userRepository = mongo.repositoryForSchema<User>({
     collectionName: 'users',
     managed: true,
