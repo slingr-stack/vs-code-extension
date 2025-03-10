@@ -1,28 +1,23 @@
-import { User } from './user';
-import { 
-    model as m, 
-    types as t, 
-    validators as v, 
-    widgets as w, 
-    ui, mongo, api, } from 'slingr';
+import { User } from './user.schema';
+import * as s from '../../framework/backend/schemas';
 
-const resetPasswordSchema = m.schema({
-    newPassword: t.text({
-        required: m.required.always
+const resetPasswordSchema = s.schema({
+    newPassword: s.string({
+        required: true
     }),
-    confirmNewPassword: t.text({
-        required: m.required.always
+    confirmNewPassword: s.string({
+        required: true
     })
 }).validate((data: ResetPassword) => {
     if (data.newPassword != data.confirmNewPassword) {
-        return {
+        return [{
             message: "Passwords don't match",
-            path: ['confirmNewPassword']
-        }
+            path: 'confirmNewPassword'
+        }];
     }
 });
 
-type ResetPassword = m.infer<typeof resetPasswordSchema>;
+type ResetPassword = s.InferType<typeof resetPasswordSchema>;
 
 ui.defaultUiForSchema<ResetPassword>({
     newPassword: {
