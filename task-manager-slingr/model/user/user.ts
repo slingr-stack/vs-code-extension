@@ -1,37 +1,41 @@
+import * as s from '../../framework/backend/schemas';
+import * as ui from '../../framework/frontend/ui';
+import * as w from '../../framework/frontend/widgets';
 import { 
     model as m, 
     types as t, 
     validators as v, 
-    widgets as w, 
-    ui, mongo, api, } from 'slingr';
+    mongo, api, } from 'slingr';
 
-export const userSchema = m.schema({
-    firstName: t.text({
-        required: m.required.always
+export const userSchema = s.schema({
+    firstName: s.string({
+        required: true
     }),
-    lastName: t.text({
-        required: m.required.always
+    lastName: s.string({
+        required: true
     }),
-    fullName: t.text({
+    fullName: s.string({
         calculation: (user: User) => {
             return `${user.firstName} ${user.lastName}`;
         }
     }),
-    email: t.email({
-        required: m.required.always,
-        validators: [v.email()]
+    email: s.email({
+        required: true
     }),
-    age: t.number({
-        validators: [v.integer(), v.positive(), v.lessThan(150)]
+    age: s.number({
+        integer: true,
+        min: 0,
+        max: 150
     }),
-    password: t.text({
-        required: m.required.always,
-        validators: [v.minLength(8), v.maxLength(16)]
+    password: s.string({        
+        required: true,
+        min: 8,
+        max: 16
     }),
-    notes: t.longText()
+    notes: s.string({})
 });
 
-export type User = m.infer<typeof userSchema>;
+export type User = s.infer<typeof userSchema>;
 
 ui.defaultUiForSchema<User>({
     label: 'Users',
@@ -43,64 +47,64 @@ ui.defaultUiForSchema<User>({
     fields: {
         firstName: {
             label: 'First Name',
-            visibility: ui.visibility.always,
+            visibility: 'always',
             dataWidget: [{
-                context: ui.context.readOnly,
+                context: 'readOnly',
                 widget: w.textWidget()
             }, {
-                context: ui.context.edit,
+                context: 'edit',
                 widget: w.inputWidget()
             }]
         },
         lastName: {
             label: 'Last Name',
-            visibility: {type: 'always'},
+            visibility: 'always',
             dataWidget: [{
-                context: ui.context.readOnly,
+                context: 'readOnly',
                 widget: w.textWidget()
             }, {
-                context: ui.context.edit,
+                context: 'edit',
                 widget: w.inputWidget()
             }]
         },
         fullName: {
             label: 'Last Name',
             dataWidget: [{
-                context: ui.context.all,
+                context: 'all',
                 widget: w.textWidget()
             }]
         },
         email: {
             label: 'Email',
             dataWidget: [{
-                context: ui.context.readOnly,
+                context: 'readOnly',
                 widget: w.emailWidget()
             }, {
-                context: ui.context.edit,
+                context: 'edit',
                 widget: w.inputWidget()
             }]
         },
         age: {
             label: 'Age',
             dataWidget: [{
-                context: ui.context.readOnly,
+                context: 'readOnly',
                 widget: w.textWidget()
             }, {
-                context: ui.context.edit,
+                context: 'edit',
                 widget: w.inputWidget()
             }]
         },
         password: {
             label: 'Password',
-            visibility: ui.visibility.never
+            visibility: 'never'
         },
         notes: {
             label: 'Notes',
             dataWidget: [{
-                context: ui.context.readOnly,
+                context: 'readOnly',
                 widget: w.textWidget()
             }, {
-                context: ui.context.edit,
+                context: 'edit',
                 widget: w.textAreaWidget()
             }]
         }
