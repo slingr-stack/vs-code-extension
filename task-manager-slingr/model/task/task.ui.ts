@@ -5,7 +5,7 @@ import {
     widgets as w, 
     context as ctx,
     ui, mongo, api, } from 'slingr';
-import { defaultUserRelationshipWidgets, User, userRepository, userSchema } from '../user/user';
+import { defaultUserRelationshipWidgets, User, userRepository, userSchema } from '../user/user.schema';
 import { format } from 'date-fns';
 import { Tag, tagSchema } from '../tags/tag';
 import { Task, TaskNote, TaskStatus } from './task.schema';

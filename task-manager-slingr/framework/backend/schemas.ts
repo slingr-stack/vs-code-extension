@@ -13,27 +13,25 @@ export function schema(def: Schema) {
     return def;
 }
 
-// Utility type to infer the TypeScript type from a TypeDefinition
-export type InferType<TypeDef extends Schema> =
-    TypeDef extends StringFieldDefinition ? string :
-    TypeDef extends NumberFieldDefinition ? number :
-    TypeDef extends BooleanFieldDefinition ? boolean :
-    TypeDef extends LongTextTypeDefinition ? string :
-    any; // Default to 'any' if the type is not recognized (should ideally be more robust)
+// Helper type to determine if a field is required
+type IsRequired<T extends FieldDefinition> = T['required'] extends true ? true : T['required'] extends false ? false : boolean;
 
-
-// Utility type to infer the schema type from a SchemaDefinition
-export type InferSchemaType<SchemaDef extends SchemaDefinition<any>> = {
-    [Key in keyof SchemaDef]: InferFieldType<SchemaDef[Key]>;
+// Main type inference utility
+export type InferType<T extends Schema> = {
+    [K in keyof T as IsRequired<T[K]> extends false ? never : K]: InferFieldType<T[K]>;
+} & {
+    [K in keyof T as IsRequired<T[K]> extends true ? never : K]?: InferFieldType<T[K]>;
 };
 
-// Helper type to determine if a field is optional based on 'required' property
-type InferFieldType<TypeDef extends TypeDefinition> =
-    TypeDef extends { required: RequiredDefinition }
-    ? TypeDef['required'] extends typeof required.always
-        ? InferType<TypeDef>
-        : InferType<TypeDef> | undefined // If not always required, make it optional (add undefined)
-    : InferType<TypeDef> | undefined; // If 'required' is not specified, default to optional
+type InferFieldType<F extends FieldDefinition> =
+    F extends StringFieldDefinition ? string :
+    F extends NumberFieldDefinition ? number :
+    F extends BooleanFieldDefinition ? boolean :
+    F extends EnumFieldDefinition ? F['values'][number] :
+    F extends ObjectFieldDefinition ? InferType<F['schema']> :
+    F extends ArrayFieldDefinition ? InferFieldType<F['items']>[] :
+    F extends RelationshipFieldDefinition ? InferType<F['targetSchema']> :
+    any; // Fallback, ideally should be never or handle more cases
 
 export interface FieldDefinition {
     type: FieldType;
@@ -55,6 +53,9 @@ export interface NumberFieldDefinition extends FieldDefinition {
     integer?: boolean;
     min?: number;
     max?: number;
+}
+
+export interface BooleanFieldDefinition extends FieldDefinition {
 }
 
 export interface EnumFieldDefinition extends FieldDefinition {
