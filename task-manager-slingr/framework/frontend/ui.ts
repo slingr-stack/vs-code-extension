@@ -89,9 +89,9 @@ export let fields = {
 };
 
 export interface DefaultUiForSchema<T> {
-    label: string,
-    recordLabelField: keyof T,
-    sorting: {
+    label?: string,
+    recordLabelField?: keyof T,
+    sorting?: {
         field: keyof T,
         direction: 'asc' | 'desc'
     },

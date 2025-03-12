@@ -15,6 +15,11 @@ export const userSchema = s.schema({
     email: s.email({
         required: true
     }),
+    status: s.enumeration({
+        required: true,
+        defaultValue: (data: User) => 'active',
+        values: ['active', 'inactive'],
+    }),
     age: s.number({
         integer: true,
         min: 0,

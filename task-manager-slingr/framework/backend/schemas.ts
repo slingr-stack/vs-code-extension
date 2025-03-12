@@ -9,7 +9,7 @@ export interface Schema {
     [key: string]: FieldDefinition
 }
 
-export function schema(def: Schema) {
+export function schema(def: Schema, validator?: (data: any) => {path: string, message: string}[]) {
     return def;
 }
 
@@ -125,7 +125,7 @@ export function datatime(def?: Partial<FieldDefinition>) : FieldDefinition {
     return field;
 }
 
-export function enumType(def?: Partial<EnumFieldDefinition>) : FieldDefinition {
+export function enumeration(def?: Partial<EnumFieldDefinition>) : FieldDefinition {
     let field = {
         type: 'enum',
         required: false,

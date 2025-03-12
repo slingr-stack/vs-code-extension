@@ -1,5 +1,7 @@
 import { User } from './user.schema';
 import * as s from '../../framework/backend/schemas';
+import * as a from '../../framework/backend/actions';
+import * as ui from '../../framework/frontend/ui';
 
 const resetPasswordSchema = s.schema({
     newPassword: s.string({
@@ -8,37 +10,28 @@ const resetPasswordSchema = s.schema({
     confirmNewPassword: s.string({
         required: true
     })
-}).validate((data: ResetPassword) => {
+}, (data: ResetPassword) => {
     if (data.newPassword != data.confirmNewPassword) {
         return [{
             message: "Passwords don't match",
             path: 'confirmNewPassword'
         }];
     }
+    return [];
 });
 
 type ResetPassword = s.InferType<typeof resetPasswordSchema>;
 
 ui.defaultUiForSchema<ResetPassword>({
-    newPassword: {
-        label: 'New Password',
-        dataWidget: [{
-            context: ui.context.all, 
-            widget: w.passwordWidget()
-        }]
-    },
-    confirmNewPassword: {
-        label: 'Confirm New Password',
-        dataWidget: [{
-            context: ui.context.all, 
-            widget: w.passwordWidget()
-        }]
+    fields: {
+        newPassword: ui.fields.password({label: 'New Password'}),
+        confirmNewPassword: ui.fields.password({label: 'Confirm New Password'})
     }
 });
 
-export const resetPasswordAction = m.recordAction<User, ResetPassword>({
-    precondition: (record: User) => {
-        return record.status == 'active';
+export const resetPasswordAction = a.recordAction<User, ResetPassword>({
+    precondition: (data: User) => {
+        return data.status == 'active';
     },
     script: (record: User, params: ResetPassword) => {
         // do something
