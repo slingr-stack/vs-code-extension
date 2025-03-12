@@ -13,6 +13,17 @@ export function text(def?: Partial<TextWidget>): TextWidget {
     } as TextWidget;
 }
 
+export interface EmailWidget extends Widget {
+    type: 'email'
+}
+
+export function email(def?: Partial<EmailWidget>): EmailWidget {
+    return {
+        type: 'email',
+        ...def
+    } as EmailWidget;
+}
+
 export interface InputWidget extends Widget {
     type: 'input'
 }
@@ -44,4 +55,47 @@ export function passwordInput(def?: Partial<PasswordInputWidget>): PasswordInput
         type: 'passwordInput',
         ...def
     } as PasswordInputWidget;
+}
+
+export interface DropDownWidget<T> extends Widget {
+    type: 'dropDown',
+    options: {
+        value: T,
+        label: string
+    }[]
+}
+
+export function dropDown<T>(def?: Partial<DropDownWidget<T>>): DropDownWidget<T> {
+    return {
+        type: 'dropDown',
+        ...def
+    } as DropDownWidget<T>;
+}
+
+export interface ChipWidget extends Widget {
+    type: 'chip',
+    color: string
+}
+
+export function chip(def?: Partial<ChipWidget>): ChipWidget {
+    return {
+        type: 'chip',
+        ...def
+    } as ChipWidget;
+}
+
+
+export interface EnumerationChipWidget<T> extends Widget {
+    type: 'enumeration',
+    options: {
+        value: T,
+        label: string
+    }[]
+}
+
+export function enumerationChip<T>(def?: Partial<EnumerationChipWidget<T>>): EnumerationChipWidget<T> {
+    return {
+        type: 'enumerationChip',
+        ...def
+    } as EnumerationChipWidget<T>;
 }

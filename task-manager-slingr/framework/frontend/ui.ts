@@ -48,6 +48,23 @@ function text(def: Partial<TextUiFieldDefinition>): UiFieldDefinition {
     } as UiFieldDefinition;
 }
 
+export interface EmailUiFieldDefinition extends UiFieldDefinition {
+}
+
+function email(def: Partial<EmailUiFieldDefinition>): UiFieldDefinition {
+    return {
+        visible: true,
+        dataWidgets: [{
+            context: 'readOnly',
+            widget: w.email()
+        }, {
+            context: 'edit',
+            widget: w.input()
+        }],
+        ...def
+    } as UiFieldDefinition;
+}
+
 export interface NumberUiFieldDefinition extends UiFieldDefinition {
 }
 
@@ -83,10 +100,38 @@ function password(def: Partial<PasswordUiFieldDefinition>): UiFieldDefinition {
 }
 
 
+export interface EnumerationChipUiFieldDefinition<T> extends UiFieldDefinition {
+    options: {
+        value: T,
+        label: string,
+        color?: string
+    }[]
+}
+
+function enumeration<T>(def: Partial<EnumerationChipUiFieldDefinition<T>>): UiFieldDefinition {
+    return {
+        visible: true,
+        dataWidgets: [{
+            context: 'readOnly',
+            widget: w.enumerationChip<T>({
+                options: def.options
+            })
+        }, {
+            context: 'edit',
+            widget: w.dropDown<T>({
+                options: def.options
+            })
+        }],
+        ...def
+    } as UiFieldDefinition;
+}
+
 export let fields = {
     text: text,
+    email: email,
     number: number,
-    password: password
+    password: password,
+    enumeration: enumeration
 };
 
 export interface DefaultUiForSchema<T> {

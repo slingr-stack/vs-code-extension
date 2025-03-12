@@ -37,3 +37,5 @@ export function model(def: ModelDefinition): s.Schema {
     // TODO register repository
     return schema;
 }
+
+

@@ -13,6 +13,20 @@ ui.defaultUiForSchema<User>({
         lastName: ui.fields.text({label: 'Last Name'}),
         fullName: ui.fields.text({label: 'Full Name'}),
         email: ui.fields.text({label: 'Email'}),
+        status: ui.fields.enumeration({
+            options: [
+                {
+                    value: 'active',
+                    label: 'Active',
+                    color: 'green'
+                },
+                {
+                    value: 'inactive',
+                    label: 'Inactive',
+                    color: 'red'
+                }
+            ]
+        }),
         age: ui.fields.number({label: 'Age'}),
         password: ui.fields.password({
             label: 'Password',

@@ -15,7 +15,7 @@ export const userSchema = s.schema({
     email: s.email({
         required: true
     }),
-    status: s.enumeration({
+    status: s.enumeration<User.Status>({
         required: true,
         defaultValue: (data: User) => 'active',
         values: ['active', 'inactive'],
