@@ -3,7 +3,7 @@ import * as ui from '../../framework/frontend/ui';
 
 ui.defaultUiForSchema<User>({
     label: 'Users',
-    recordLabelField: 'fullName',
+    objectLabelField: 'fullName',
     sorting: {
         field: 'fullName',
         direction: 'asc'

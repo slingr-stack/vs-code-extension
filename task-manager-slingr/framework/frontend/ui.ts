@@ -1,5 +1,6 @@
 import { Schema } from "../backend/schemas";
 import * as w from "./widgets";
+import { Widget } from "./widgets";
 
 type Visible = boolean | ((data: any) => boolean);
 type ContextMatcher = (ctx: any) => boolean;
@@ -90,7 +91,7 @@ export let fields = {
 
 export interface DefaultUiForSchema<T> {
     label?: string,
-    recordLabelField?: keyof T,
+    objectLabelField?: keyof T,
     sorting?: {
         field: keyof T,
         direction: 'asc' | 'desc'
@@ -102,4 +103,31 @@ export interface DefaultUiForSchema<T> {
 
 export function defaultUiForSchema<T>(def: DefaultUiForSchema<T>): DefaultUiForSchema<T> {
     return def;
+}
+
+export interface View {
+    name: string,
+    model?: ViewModel,
+    layout?: Layout
+}
+
+
+export interface ViewModel {
+    widgets: { [key: string]: Widget }
+}
+
+export type LayoutType = 'vertical' | 'horizontal';
+
+export interface Layout {
+    type: LayoutType,
+    widgets: Widget[]
+}
+
+export interface DataView extends View {
+    mode: 'readOnly' | 'edit' | 'create'
+}
+
+export interface SimpleDataView<T> extends DataView {
+    managed: boolean,
+    fields?: Array<keyof T>
 }

@@ -50,27 +50,33 @@ export interface StringFieldDefinition extends FieldDefinition {
 }
 
 export interface NumberFieldDefinition extends FieldDefinition {
+    type: 'number';
     integer?: boolean;
     min?: number;
     max?: number;
 }
 
 export interface BooleanFieldDefinition extends FieldDefinition {
+    type: 'boolean';
 }
 
 export interface EnumFieldDefinition extends FieldDefinition {
+    type: 'enum';
     values: string[];
 }
 
 export interface ObjectFieldDefinition extends FieldDefinition {
+    type: 'object';
     schema: Schema
 }
 
 export interface ArrayFieldDefinition extends FieldDefinition {
+    type: 'array';
     items: FieldDefinition
 }
 
 export interface RelationshipFieldDefinition extends FieldDefinition {
+    type: 'relationship';
     targetSchema: Schema
 }
 
@@ -125,13 +131,13 @@ export function datatime(def?: Partial<FieldDefinition>) : FieldDefinition {
     return field;
 }
 
-export function enumeration(def?: Partial<EnumFieldDefinition>) : FieldDefinition {
+export function enumeration(def?: Partial<EnumFieldDefinition>) : EnumFieldDefinition {
     let field = {
         type: 'enum',
         required: false,
         available: true,
         ...def
-    } as FieldDefinition;
+    } as EnumFieldDefinition;
     return field;
 }
 

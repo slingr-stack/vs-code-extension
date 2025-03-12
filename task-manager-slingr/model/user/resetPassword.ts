@@ -2,6 +2,7 @@ import { User } from './user.schema';
 import * as s from '../../framework/backend/schemas';
 import * as a from '../../framework/backend/actions';
 import * as ui from '../../framework/frontend/ui';
+import * as api from '../../framework/backend/api';
 
 const resetPasswordSchema = s.schema({
     newPassword: s.string({
@@ -29,7 +30,7 @@ ui.defaultUiForSchema<ResetPassword>({
     }
 });
 
-export const resetPasswordAction = a.recordAction<User, ResetPassword>({
+export const resetPasswordAction = a.objectAction<User, ResetPassword>({
     precondition: (data: User) => {
         return data.status == 'active';
     },
@@ -38,4 +39,4 @@ export const resetPasswordAction = a.recordAction<User, ResetPassword>({
     }
 });
 
-api.addAction(resetPasswordAction);
+api.addAction<(resetPasswordAction);
