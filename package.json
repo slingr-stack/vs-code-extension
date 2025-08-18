@@ -17,7 +17,25 @@
         "command": "slingr-vscode-extension.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "slingr-vscode-extension",
+          "title": "Slingr",
+          "icon": "resources/field.svg"
+        }
+      ]
+    },
+    "views": {
+      "slingr-vscode-extension": [
+        {
+          "id": "slingrExtensionView",
+          "name": "Slingr Extension",
+          "icon": "resources/field.svg"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
