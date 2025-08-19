@@ -1,0 +1,303 @@
+import * as vscode from "vscode";
+import { ChangeObject, IRefactorTool, ManualRefactorContext } from "../refactorInterfaces";
+import { DecoratedClass, FileMetadata, MetadataCache, PropertyMetadata } from "../../cache/cache";
+import { isEntity, isEntityFile, isField } from "../../utils/metadata";
+
+/**
+ * Tool for handling entity deletion in TypeScript applications.
+ * 
+ * This tool provides functionality to:
+ * - Detect when entity files are deleted from the workspace
+ * - Handle manual deletion commands triggered by users
+ * - Clean up references to deleted entities throughout the codebase
+ * - Delete related directories such as actions and UI components
+ * - Remove relationship fields in other entities that reference the deleted entity
+ * 
+ * The tool operates in two modes:
+ * 1. **Automatic detection**: Analyzes file changes to detect when entity files are removed
+ * 2. **Manual trigger**: Allows users to explicitly delete entities via command
+ * 
+ * When an entity is deleted, the tool:
+ * - Identifies all references to the entity across the workspace and removes them
+ * - Schedules the entity file and related directories for deletion
+ * - Coordinates with the RefactorController to handle actual file/directory deletion
+ * 
+ * @example
+ * // Manual usage:
+ * // 1. Right-click an entity file in the explorer or open it and use the command palette
+ * // 2. Execute "Delete Entity" command and confirm
+ * // 3. Review changes in Refactor Preview panel and apply
+ * @implements @see {@link IRefactorTool}
+ */
+export class DeleteEntityTool implements IRefactorTool {
+  public getCommandId(): string {
+    return "ts-app-extension.deleteEntity";
+  }
+
+  public getTitle(): string {
+    return "Delete Entity";
+  }
+
+  public getHandledChangeTypes(): string[] {
+    return ["DELETE_ENTITY"];
+  }
+
+  /**
+   * Determines if this tool can be triggered manually in the given context.
+   * @param context The context for the manual refactoring.
+   * @returns True if the context URI points to an entity file and contains valid entity metadata.
+   */
+  public async canHandleManualTrigger(context: ManualRefactorContext): Promise<boolean> {
+    if (isEntityFile(context.uri)) {
+      return !!context.metadata && "decorators" in context.metadata && isEntity(context.metadata);
+    }
+    return false;
+  }
+
+  /**
+   * Analyzes file metadata changes to detect entity deletions.
+   * 
+   * A deletion is detected when there is old file metadata but no corresponding
+   * new file metadata for a file that is identified as an entity file.
+   * 
+   * @param oldFileMeta The metadata of the file before the change.
+   * @param newFileMeta The metadata of the file after the change (or undefined if deleted).
+   * @returns An array of ChangeObjects representing the detected deletion. Returns an
+   *          empty array if no entity deletion is detected.
+   */
+  public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata): ChangeObject[] {
+    if (oldFileMeta && !newFileMeta && isEntityFile(oldFileMeta.uri)) {
+      const oldClass = Object.values(oldFileMeta.classes)[0];
+      if (oldClass && isEntity(oldClass)) {
+        const urisToDelete: vscode.Uri[] = [];
+        const entityUri = oldFileMeta.uri;
+        const entityNameLower = oldClass.name.toLowerCase();
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(entityUri);
+        
+        if (workspaceFolder) {
+          const parentDirsToSearch = ["src/model/actions", "src/ui"];
+          for (const parentDir of parentDirsToSearch) {
+            const relatedDirUri = vscode.Uri.joinPath(workspaceFolder.uri, parentDir, entityNameLower);
+            urisToDelete.push(relatedDirUri);
+          }
+        }
+        return [
+          {
+            type: "DELETE_ENTITY",
+            uri: oldFileMeta.uri,
+            description: `Entity file '${oldClass.name}' was deleted.`,
+            payload: { oldEntityMetadata: oldClass, urisToDelete: urisToDelete },
+          },
+        ];
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Initiates a manual refactor to delete an entity.
+   * 
+   * This method validates that the context contains a valid entity, asks the user for
+   * confirmation, and then constructs a `ChangeObject` for the deletion. The change
+   * object includes the URIs of the entity file and related directories to be deleted.
+   * 
+   * @param context The manual refactor context.
+   * @returns A promise that resolves to a `ChangeObject` for the deletion, or `undefined` if the user cancels.
+   */
+  public async initiateManualRefactor(context: ManualRefactorContext): Promise<ChangeObject | undefined> {
+    if (!context.metadata || !("decorators" in context.metadata) || !isEntity(context.metadata)) {
+      vscode.window.showErrorMessage("Could not find a valid entity to delete.");
+      return undefined;
+    }
+    const entity = context.metadata as DecoratedClass;
+    const confirmation = await vscode.window.showWarningMessage(
+      `Are you sure you want to delete the entity '${entity.name}', its related files, and all its references? This action cannot be undone.`,
+      "Yes, Delete All"
+    );
+
+    if (confirmation !== "Yes, Delete All") {
+      return undefined;
+    }
+    const urisToDelete: vscode.Uri[] = [];
+    const entityUri = context.uri;
+    urisToDelete.push(entityUri);
+
+    const entityNameLower = entity.name.toLowerCase();
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(entityUri);
+    if (workspaceFolder) {
+      const parentDirsToSearch = ["src/model/actions", "src/ui"];
+      for (const parentDir of parentDirsToSearch) {
+        const relatedDirUri = vscode.Uri.joinPath(workspaceFolder.uri, parentDir, entityNameLower);
+        urisToDelete.push(relatedDirUri);
+      }
+    }
+
+    return {
+      type: "DELETE_ENTITY",
+      uri: context.uri,
+      description: `Delete entity '${entity.name}'.`,
+      payload: {
+        oldEntityMetadata: entity,
+        isManual: true,
+        urisToDelete: urisToDelete,
+      },
+    };
+  }
+
+  /**
+   * Prepares a workspace edit for deleting an entity.
+   * 
+   * This method performs two main cleanup tasks:
+   * 1. Removes all external references to the deleted entity. References within the
+   *    entity's own file or related files/directories being deleted are ignored.
+   * 2. Cleans up relationship fields in other entities that reference the deleted entity.
+   * 
+   * @param change The change object containing deletion details.
+   * @param cache The metadata cache for looking up other entities.
+   * @returns A promise that resolves to a `WorkspaceEdit` with all necessary changes.
+   */
+  public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
+    const { oldEntityMetadata } = change.payload;
+    const workspaceEdit = new vscode.WorkspaceEdit();
+    const urisToDelete: vscode.Uri[] = change.payload.urisToDelete || [];
+    const pathsToDelete = new Set(urisToDelete.map((uri) => uri.fsPath));
+    const deletedEntityName = oldEntityMetadata.name;
+    const allReferences = (oldEntityMetadata.references as vscode.Location[]) || [];
+
+    const externalReferences = allReferences.filter((ref) => {
+      for (const path of pathsToDelete) {
+        if (ref.uri.fsPath.startsWith(path) || (ref.uri.fsPath === change.uri.fsPath && !change.payload.isManual)) {
+          return false;
+        }
+        
+      }
+      return true; 
+    });
+
+    for (const ref of externalReferences) {
+      try {
+        const doc = await vscode.workspace.openTextDocument(ref.uri);
+        const line = doc.lineAt(ref.range.start.line);
+        if (!line.isEmptyOrWhitespace) {
+          workspaceEdit.delete(ref.uri, line.rangeIncludingLineBreak);
+        }
+      } catch (e) {
+        console.error(`Could not process reference in ${ref.uri.fsPath}:`, e);
+        workspaceEdit.replace(ref.uri, ref.range, "/* DELETED_REFERENCE */");
+      }
+    }
+    await this.cleanupRelationshipFields(deletedEntityName, workspaceEdit, cache);
+    return workspaceEdit;
+  }
+
+  /**
+   * Finds and removes relationship fields in other entities that reference the deleted entity.
+   * 
+   * It iterates through all entities in the cache, checks their fields, and if a
+   * relationship field points to the entity being deleted, it schedules the removal
+   * of that field's decorators.
+   * @param deletedEntityName The name of the entity being deleted.
+   * @param workspaceEdit The workspace edit to add changes to.
+   * @param cache The metadata cache to find all other entities.
+   */
+  private async cleanupRelationshipFields(
+    deletedEntityName: string, 
+    workspaceEdit: vscode.WorkspaceEdit, 
+    cache: MetadataCache
+  ): Promise<void> {
+    const allEntities = cache.findMetadata(
+      item => 'properties' in item && item.decorators.some(d => d.name === 'Entity')
+    ) as DecoratedClass[];
+
+    for (const entity of allEntities) {
+      if (entity.name === deletedEntityName) {
+        continue;
+      }
+
+      for (const property of Object.values(entity.properties)) {
+        const relationshipDecorator = property.decorators.find(d => d.name === 'Relationship');
+        const fieldDecorator = property.decorators.find(d => d.name === 'Field');
+
+        if (relationshipDecorator && fieldDecorator) {
+          const referencedEntity = this.extractEntityFromFieldDecorator(fieldDecorator);
+          if (referencedEntity === deletedEntityName) {
+            await this.removeRelationshipField(property, workspaceEdit);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Extracts the entity name from a Field decorator.
+   * For relationship fields, the entity is often specified as the first argument
+   * to the `@Field` decorator, e.g., `@Field('OtherEntity')`.
+   * @param decorator The decorator metadata object.
+   * @returns The referenced entity name, or null if not found.
+   */
+  private extractEntityFromFieldDecorator(decorator: any): string | null {
+    if (!decorator.arguments || decorator.arguments.length === 0) {
+      return null;
+    }
+
+    const firstArg = decorator.arguments[0];
+
+    if (firstArg.label) {
+      return firstArg.label;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Removes the `@Field` and `@Relationship` decorators from a property.
+   * 
+   * This method creates edits to delete the decorators. It handles decorators that
+   * are on their own line versus those that share a line with other code.
+   * 
+   * @param field The property metadata for the relationship field.
+   * @param workspaceEdit The workspace edit to add changes to.
+   */
+  private async removeRelationshipField(
+    field: any, 
+    workspaceEdit: vscode.WorkspaceEdit
+  ): Promise<void> {
+    try {
+      if (!field.decorators || field.decorators.length === 0) {
+        console.warn(`Cannot remove relationship decorators for field '${field.name}'; no decorators found.`);
+        return;
+      }
+
+      // Find and remove @Field and @Relationship decorators
+      for (const decorator of field.decorators) {
+        if (decorator.name === 'Field' || decorator.name === 'Relationship') {
+          if (decorator.position) {
+            const doc = await vscode.workspace.openTextDocument(field.declaration.uri);
+            const decoratorLine = doc.lineAt(decorator.position.start.line);
+            const lineText = decoratorLine.text.trim();
+            const decoratorText = doc.getText(decorator.position).trim();
+            
+            if (lineText === decoratorText) {
+              workspaceEdit.delete(field.declaration.uri, decoratorLine.rangeIncludingLineBreak);
+            } else {
+              workspaceEdit.delete(field.declaration.uri, decorator.position);
+            }
+            
+            console.log(`Scheduled deletion of @${decorator.name} decorator for field '${field.name}'.`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`Could not remove relationship decorators for field '${field.name}':`, e);
+      for (const decorator of field.decorators) {
+        if ((decorator.name === 'Field' || decorator.name === 'Relationship') && decorator.position) {
+          workspaceEdit.replace(
+            field.declaration.uri, 
+            decorator.position, 
+            `/* DELETED_${decorator.name.toUpperCase()}_DECORATOR */`
+          );
+        }
+      }
+    }
+  }
+}
