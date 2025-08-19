@@ -23,7 +23,7 @@
         {
           "id": "slingr-vscode-extension",
           "title": "Slingr",
-          "icon": "resources/field.svg"
+          "icon": "resources/slingr-icon.svg"
         }
       ]
     },
@@ -32,7 +32,7 @@
         {
           "id": "slingrExtensionView",
           "name": "Slingr Extension",
-          "icon": "resources/field.svg"
+          "icon": "resources/slingr-icon.svg"
         }
       ]
     }
