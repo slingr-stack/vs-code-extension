@@ -30,6 +30,11 @@
     "views": {
       "slingr-vscode-extension": [
         {
+          "id": "slingrExplorer",
+          "name": "Slingr Explorer",
+          "icon": "resources/slingr-icon.jpg" 
+        },
+        {
           "id": "slingrExtensionView",
           "name": "Slingr Extension",
           "icon": "resources/field.svg"

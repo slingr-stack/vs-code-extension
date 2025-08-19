@@ -2,8 +2,6 @@ import * as vscode from 'vscode';
 import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ts, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration } from 'ts-morph';
 import * as path from 'path';
 
-// --- Data Structures (from your cache.ts) ---
-
 /**
  * The main cache structure to hold all the metadata of the project.
  * It's a map where the key is the file path.
@@ -16,7 +14,7 @@ export interface ProjectMetadataCache {
  * Contains metadata about a single source file.
  */
 export interface FileMetadata {
-    uri: vscode.Uri; // The path to the source file
+    uri: vscode.Uri;
     classes: { [className: string]: DecoratedClass };
 }
 
@@ -28,8 +26,9 @@ export interface DecoratedClass {
     decorators: DecoratorMetadata[];
     properties: { [propertyName: string]: PropertyMetadata };
      methods: { [methodName: string]: MethodMetadata };
-    references: vscode.Location[]; // Location of references to the class
-    declaration: vscode.Location; // Location of the class declaration
+    references: vscode.Location[];
+    declaration: vscode.Location;
+    isDataEntity: boolean;
 }
 
 /**
@@ -37,19 +36,19 @@ export interface DecoratedClass {
  */
 export interface PropertyMetadata {
     name: string;
-    type: string; // The property type as a string
+    type: string;
     decorators: DecoratorMetadata[];
-    references: vscode.Location[]; // Location of references to the property
-    declaration: vscode.Location; // Location of the property declaration
+    references: vscode.Location[];
+    declaration: vscode.Location;
 }
 
 /**
  * A generic representation of a decorator instance.
  */
 export interface DecoratorMetadata {
-    name: string; // e.g., "Entity", "Action", "Field"
-    arguments: any[]; // The arguments passed to the decorator
-    position: vscode.Range; // position to the decorator in the source code
+    name: string;
+    arguments: any[];
+    position: vscode.Range;
 }
 
 /**
@@ -66,14 +65,10 @@ export interface ParameterMetadata {
 export interface MethodMetadata {
     name: string;
     parameters: ParameterMetadata[];
-    decorators: DecoratorMetadata[]; // If the method has decorators
-    // Stores the fields returned by `getFields`.
+    decorators: DecoratorMetadata[];
     returnedFields: string[] | null;
     declaration: vscode.Location;
 }
-
-
-// --- Cache Implementation ---
 
 type FileChangeType = 'create' | 'change' | 'delete';
 
@@ -96,7 +91,6 @@ export class MetadataCache {
      */
     constructor(extensionPath: string) {
         this.tsMorphProject = new Project({
-            // It's often better to use a tsconfig file for more complex projects
             tsConfigFilePath: path.join(extensionPath, "tsconfig.json"),
             compilerOptions: {
                 experimentalDecorators: true,
@@ -110,8 +104,8 @@ export class MetadataCache {
      * and setting up a file watcher to keep the cache up-to-date.
      */
     public async initialize(): Promise<void> {
-
-        const files = await vscode.workspace.findFiles('{src/model/**/*.ts,src/ui/**/*.ts}', '**/node_modules/**');
+        
+        const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/ui/**/*.ts}', '**/node_modules/**');
         for (const file of files) {
             this.addSourceFile(file);
         }
@@ -139,7 +133,6 @@ export class MetadataCache {
      * @param type The type of change (create, change, delete).
      */
     private queueFileChange(uri: vscode.Uri, type: FileChangeType): void {
-        // Avoid processing files inside node_modules
         if (uri.path.includes('/node_modules/')) {
             return;
         }
@@ -162,23 +155,17 @@ export class MetadataCache {
         try {
             if (type === 'delete') {
                 this.removeSourceFile(filePath);
-            } else { // Handles 'create' and 'change'
+            } else {
                 let sourceFile = this.tsMorphProject.getSourceFile(filePath);
                 if (sourceFile) {
-                    // For 'change', refresh the existing file from the disk.
                     await sourceFile.refreshFromFileSystem();
                 } else {
-                    // For 'create', add the new file to the project.
                     sourceFile = this.tsMorphProject.addSourceFileAtPath(filePath);
                 }
-                // Parse the file and directly commit the new metadata to the cache.
                 this.parseFileForMetadata(sourceFile, true);
             }
 
-            // After any change (create, update, delete), rebuild all references
-            // across the project to ensure consistency.
             this.buildAllReferences();
-
             this._onDidUpdate.fire();
 
         } catch (error) {
@@ -249,6 +236,7 @@ export class MetadataCache {
 
         sourceFile.getClasses().forEach((classDeclaration: ClassDeclaration) => {
             const className = classDeclaration.getName() ?? '[Anonymous]';
+            const isDataEntity = filePath.includes('/src/data/');
             const decoratedClass: DecoratedClass = {
                 name: className,
                 decorators: this.extractDecoratorMetadata(classDeclaration),
@@ -258,7 +246,8 @@ export class MetadataCache {
                 declaration: new vscode.Location(
                     vscode.Uri.file(filePath),
                     this.tsNodeToVscodeRange(classDeclaration.getNameNode() ?? classDeclaration)
-                )
+                ),
+                isDataEntity: isDataEntity
             };
 
             classDeclaration.getProperties().forEach((property: PropertyDeclaration) => {
@@ -283,7 +272,6 @@ export class MetadataCache {
             fileMetadata.classes[className] = decoratedClass;
         });
 
-        // Only commit to the cache if the flag is true
         if (commitToCache) {
             this.cache[filePath] = fileMetadata;
         }
@@ -296,9 +284,8 @@ export class MetadataCache {
      */
     private parseMethod(method: MethodDeclaration): MethodMetadata {
         const methodName = method.getName();
-        let returnedFields: string[] | null = null; // Default to null
+        let returnedFields: string[] | null = null;
 
-        // Special handling for `getFields` method in views
         if (methodName === 'getFields') {
             const returnStatement = method.getFirstDescendantByKind(SyntaxKind.ReturnStatement);
             if (returnStatement) {
@@ -307,7 +294,6 @@ export class MetadataCache {
                     const arrayLiteral = returnExpression as ArrayLiteralExpression;
                     const elements = arrayLiteral.getElements();
 
-                    // Only populate the array if there are actual field objects
                     if (elements.length > 0) {
                         const fields: string[] = [];
                         elements.forEach((element: Node) => {
@@ -326,7 +312,6 @@ export class MetadataCache {
                     }
                 }
             }
-            // If there's no return, or it returns [], or it's not an array, `returnedFields` remains null.
         }
 
         return {
@@ -360,22 +345,16 @@ export class MetadataCache {
      * @returns The clean type name as a string.
      */
     private getCleanTypeName(type: Type): string {
-        // If the type has an alias symbol, it means it's an imported type.
-        // The alias symbol's name is the clean name we want (e.g., "Project").
         const aliasSymbol = type.getAliasSymbol();
         if (aliasSymbol) {
             return aliasSymbol.getName();
         }
 
-        // If there's no alias, it might be a type defined in the same file or a primitive.
-        // We can get the name from its primary symbol.
         const symbol = type.getSymbol();
         if (symbol) {
             return symbol.getName();
         }
 
-        // As a fallback for primitives (string, number, etc.) or anonymous types,
-        // we return the raw text of the type.
         return type.getText();
     }
 
@@ -463,7 +442,6 @@ export class MetadataCache {
      * from string literals in places like EntityView `getFields` methods.
      */
     private buildAllReferences(): void {
-        // Clear existing references from all cache items
         for (const file of Object.values(this.cache)) {
             for (const cls of Object.values(file.classes)) {
                 cls.references = [];
@@ -473,7 +451,6 @@ export class MetadataCache {
             }
         }
 
-        // Find direct references using ts-morph
         for (const file of Object.values(this.cache)) {
             const sourceFile = this.tsMorphProject.getSourceFile(file.uri.fsPath);
             if (!sourceFile) {
@@ -496,7 +473,6 @@ export class MetadataCache {
             }
         }
 
-        // Find implicit references in EntityViews
         this.buildImplicitViewFieldReferences();
     }
 
@@ -512,7 +488,6 @@ export class MetadataCache {
             return;
         }
 
-        // Identify all classes and properties in the changed file
         const affectedItems: (DecoratedClass | PropertyMetadata)[] = [];
         const fileMeta = this.cache[changedFilePath];
         if (fileMeta) {
@@ -522,12 +497,10 @@ export class MetadataCache {
             }
         }
 
-        //  Clear all stale references pointing TO the affected items
         for (const item of affectedItems) {
             item.references = [];
         }
 
-        // Rebuild references for only the affected items
         for (const classData of Object.values(fileMeta.classes)) {
             const classNode = sourceFile.getClass(classData.name);
             if (classNode) {
@@ -542,8 +515,6 @@ export class MetadataCache {
             }
         }
 
-        // Rebuild implicit string references in EntityViews
-        // The locations of these have also changed.
         this.buildImplicitViewFieldReferences();
     }
 
@@ -553,12 +524,10 @@ export class MetadataCache {
      * made via string literals (e.g., `{ field: 'fieldName' }`).
      */
     private buildImplicitViewFieldReferences(): void {
-        // Create a map for quick lookups of entities by name
         const entityMap = new Map<string, DecoratedClass>();
         this.findMetadata(item => 'properties' in item && item.decorators.some(d => d.name === 'Entity'))
             .forEach(entity => entityMap.set((entity as DecoratedClass).name, entity as DecoratedClass));
 
-        // Find all EntityView classes
         const viewClasses = this.findMetadata(
             item => 'properties' in item && item.decorators.some(d => d.name === 'EntityView')
         ) as DecoratedClass[];
@@ -591,9 +560,7 @@ export class MetadataCache {
                             const fieldName = initializer.getLiteralValue();
                             const targetProperty = entityClass.properties[fieldName];
                             if (targetProperty) {
-                                // The start of the literal content is one char after the node starts (to skip the quote).
                                 const contentStartPos = initializer.getStart() + 1;
-                                // The end of the literal content is one char before the node ends (to skip the quote).
                                 const contentEndPos = initializer.getEnd() - 1;
 
                                 const start = viewSourceFile!.getLineAndColumnAtPos(contentStartPos);
@@ -674,6 +641,35 @@ export class MetadataCache {
             }
         }
         return results;
+    }
+
+    /**
+     * Returns all entities that are stored in the src/data folder.
+     * These are the entities that will be shown in the explorer.
+     * @returns An array of DecoratedClass objects that represent data entities.
+     */
+    public getDataEntities(): DecoratedClass[] {
+        const dataEntities: DecoratedClass[] = [];
+        for (const fileData of Object.values(this.cache)) {
+            for (const classData of Object.values(fileData.classes)) {
+                if (classData.isDataEntity) {
+                    dataEntities.push(classData);
+                }
+            }
+        }
+        return dataEntities;
+    }
+
+    /**
+     * Returns all @Entity decorated classes that are stored in the src/data folder.
+     * This is a more specific version of getDataEntities() that only returns
+     * classes with the @Entity decorator.
+     * @returns An array of DecoratedClass objects that represent Entity classes in the data folder.
+     */
+    public getDataEntityClasses(): DecoratedClass[] {
+        return this.getDataEntities().filter(classData => 
+            classData.decorators.some(decorator => decorator.name === 'Entity')
+        );
     }
 
     /**
