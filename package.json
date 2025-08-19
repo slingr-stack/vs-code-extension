@@ -19,13 +19,16 @@
   },
   "homepage": "https://github.com/slingr-stack/framework#readme",
   "devDependencies": {
-  "@types/jest": "^29.5.12",
+    "@types/jest": "^29.5.12",
     "@types/node": "^24.3.0",
-  "jest": "^29.7.0",
-  "jest-circus": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-circus": "^29.7.0",
     "reflect-metadata": "^0.2.2",
-  "ts-jest": "^29.2.5",
+    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "class-validator": "^0.14.2"
   }
 }
