@@ -1,5 +1,19 @@
 import { Person } from "../model/Person";
 
+/**
+ * Converts an array of class-validator ValidationError objects into a stable, plain summary.
+ *
+ * @param {any[]} errors - Array of ValidationError objects from class-validator.
+ * @returns {Array<{field: string, codes: string[], messages: string[]}>} An array of summary objects with field, codes, and messages.
+ */
+function summarizeErrors(errors: any[]) {
+  return errors.map((e) => ({
+    field: e.property,
+    codes: e.constraints ? Object.keys(e.constraints) : [],
+    messages: e.constraints ? Object.values(e.constraints) : [],
+  }));
+}
+
 describe("Person Model Validation", () => {
   it("should pass validation for a valid person", async () => {
     const validUser = new Person();
@@ -9,7 +23,7 @@ describe("Person Model Validation", () => {
     validUser.age = 30;
 
     const errors = await validUser.validate();
-    expect(errors.length).toBe(0);
+    expect(errors).toStrictEqual([]);
   });
 
   it("should fail validation when required fields are missing", async () => {
@@ -18,7 +32,12 @@ describe("Person Model Validation", () => {
     // Missing lastName, and email
 
     const errors = await invalidUser.validate();
-    expect(errors.length).toBeGreaterThan(0);
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "lastName", codes: ["isNotEmpty"], messages: ["lastName should not be empty"] },
+      { field: "age", codes: ["isNotEmpty"], messages: ["age should not be empty"] },
+    ];
+    expect(summary).toStrictEqual(expected);
   });
 
   it("should not fail validation when mail is missing", async () => {
@@ -28,8 +47,8 @@ describe("Person Model Validation", () => {
     validUser.age = 30;
     // Missing email
 
-    const errors = await validUser.validate();
-    expect(errors.length).toBe(0);
+  const errors = await validUser.validate();
+  expect(errors).toStrictEqual([]);
   });
 
   it("should fail validation for invalid age", async () => {
@@ -40,7 +59,11 @@ describe("Person Model Validation", () => {
     invalidUser.age = 130; // Invalid age
 
     const errors = await invalidUser.validate();
-    expect(errors.length).toBeGreaterThan(0);
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "age", codes: ["invalidAge"], messages: ["Age must be between 0 and 120"] },
+    ];
+    expect(summary).toStrictEqual(expected);
   });
 
   it("should pass validation without parent email", async () => {
@@ -51,8 +74,8 @@ describe("Person Model Validation", () => {
     validUser.age = 18; // Valid age
     // Missing parent email
 
-    const errors = await validUser.validate();
-    expect(errors.length).toBe(0);
+  const errors = await validUser.validate();
+  expect(errors).toStrictEqual([]);
   });
 
   it("should fail validation without parent email", async () => {
@@ -64,7 +87,15 @@ describe("Person Model Validation", () => {
     // Missing parent email
 
     const errors = await invalidUser.validate();
-    expect(errors.length).toBeGreaterThan(0);
+    const summary = summarizeErrors(errors);
+    const expected = [
+      {
+        field: "parentEmail",
+        codes: ["requiredParentEmail"],
+        messages: ["Parent email is required if age is under 18"],
+      },
+    ];
+    expect(summary).toStrictEqual(expected);
   });
 
 });
