@@ -26,7 +26,7 @@ export function Field(options: FieldOptions) {
     if (options?.validation) {
         if (typeof options.validation === 'function' && options.validation.length > 1) {
             // This is our custom validation function for a field
-            Reflect.defineMetadata('custom:validation', options.validation, target, propertyKey);
+            Reflect.defineMetadata('field:validation', options.validation, target, propertyKey);
         } else {
             // This is a class-validator decorator
             (options.validation as PropertyDecorator)(target, propertyKey);

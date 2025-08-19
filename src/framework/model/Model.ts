@@ -16,7 +16,7 @@ export abstract class BaseModel {
 
     for (const property of properties) {
       const customValidationFn = Reflect.getMetadata(
-        "custom:validation",
+        "field:validation",
         this,
         property
       );
