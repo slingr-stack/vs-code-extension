@@ -6,8 +6,6 @@ import { DeleteEntityTool } from './tools/deleteEntity';
 import { RenameFieldTool } from './tools/renameField';
 import { DeleteFieldTool } from './tools/deleteField';
 import { ChangeFieldTypeTool } from './tools/changeFieldType';
-import { RenameActionTool } from './tools/renameAction';
-import { DeleteActionTool } from './tools/deleteAction';
 import { findNodeAtPosition } from '../utils/ast';
 import { cache } from '../extension';
 import { AppTreeItem } from '../explorer/appTreeItem';
@@ -31,11 +29,9 @@ import { AppTreeItem } from '../explorer/appTreeItem';
 export function getAllRefactorTools(): IRefactorTool[] {
     return [
         new DeleteEntityTool(),
-        new DeleteActionTool(),
         new RenameEntityTool(),
         new RenameFieldTool(),
         new DeleteFieldTool(),
-        new RenameActionTool(),
         new ChangeFieldTypeTool(),
     ];
 }
