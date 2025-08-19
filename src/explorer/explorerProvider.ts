@@ -224,42 +224,6 @@ export class ExplorerProvider
     return []; // Default empty
   }
 
-  /**
-   * Helper function to safely get a named property from a decorator's arguments object.
-   * @param classData The class metadata.
-   * @param decoratorName The name of the decorator (e.g., 'Action').
-   * @param argumentName The name of the argument property (e.g., 'entity').
-   * @returns The value of the property or undefined if not found.
-   */
-  private getDecoratorArgument(classData: DecoratedClass, decoratorName: string, argumentName: string): any {
-    const decorator = classData.decorators.find((d) => d.name === decoratorName);
-    if (decorator && decorator.arguments && typeof decorator.arguments[0] === "object") {
-      return decorator.arguments[0][argumentName];
-    }
-    return undefined;
-  }
-
-  private mapClassToTreeItem(classData: DecoratedClass, itemType: string): AppTreeItem {
-    const decorator = classData.decorators.find(
-      (d) => d.name === "Entity" || d.name === "Action" || d.name === "EntityView"
-    );
-    const label = decorator?.arguments[0]?.label || classData.name;
-
-    const item = new AppTreeItem(
-      label,
-      vscode.TreeItemCollapsibleState.Collapsed,
-      itemType,
-      this.extensionUri,
-      classData
-    );
-    item.command = {
-      command: "ts-app-extension.navigateToCode",
-      title: "Go to Definition",
-      arguments: [classData.declaration],
-    };
-    return item;
-  }
-
   private mapPropertyToTreeItem(propData: PropertyMetadata, itemType: string, parent?: AppTreeItem): AppTreeItem {
     const decorator = propData.decorators.find((d) => d.name === "Field");
     const label = decorator?.arguments[0]?.label || propData.name;
