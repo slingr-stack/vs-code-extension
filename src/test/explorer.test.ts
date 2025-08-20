@@ -150,9 +150,7 @@ describe('Explorer Provider Tests', () => {
             const children = await explorerProvider.getChildren(entityItem);
             
             assert.strictEqual(children.length, 2);
-            assert.strictEqual(children[0].label, 'emailField'); // alphabetically first
             assert.strictEqual(children[0].itemType, 'field');
-            assert.strictEqual(children[1].label, 'User Name'); // alphabetically second
             assert.strictEqual(children[1].itemType, 'field');
         });
 

@@ -215,16 +215,7 @@ export class ExplorerProvider
         prop.decorators.some((d) => d.name === "Field")
       );
 
-      // Sort fields alphabetically by their label or name
-      const sortedFields = fields.sort((a, b) => {
-        const aDecorator = a.decorators.find((d) => d.name === "Field");
-        const aLabel = aDecorator?.arguments[0]?.label || a.name;
-        const bDecorator = b.decorators.find((d) => d.name === "Field");
-        const bLabel = bDecorator?.arguments[0]?.label || b.name;
-        return aLabel.localeCompare(bLabel);
-      });
-
-      return sortedFields.map((field) => {
+      return fields.map((field) => {
         if (
           field.decorators.some(
             (d) =>
@@ -232,14 +223,26 @@ export class ExplorerProvider
           )
         ) {
           const relationshipType = field.type;
-          return new AppTreeItem(
+          const relatedEntity = this.cache.getDataEntityClasses().find((entity) => entity.name === relationshipType);
+          const compositionItem = new AppTreeItem(
             field.decorators.find((d) => d.name === "Field")?.arguments[0]?.label || field.name,
             vscode.TreeItemCollapsibleState.Collapsed,
             "entity",
             this.extensionUri,
-            this.cache.getDataEntityClasses().find((entity) => entity.name === relationshipType),
+            relatedEntity,
             element
           );
+          
+          // Add navigation command to go to related entity definition when clicked
+          if (relatedEntity) {
+            compositionItem.command = {
+              command: "ts-app-extension.navigateToCode",
+              title: "Go to Definition",
+              arguments: [relatedEntity.declaration],
+            };
+          }
+          
+          return compositionItem;
         } else {
           return this.mapPropertyToTreeItem(field, "field", element);
         }
@@ -368,9 +371,16 @@ export class ExplorerProvider
       
       // Only show entities that are NOT referenced by composition relationships
       if (!this.isEntityReferencedByComposition(entity)) {
-        items.push(
-          new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "entity", this.extensionUri, entity)
-        );
+        const entityItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "entity", this.extensionUri, entity);
+        
+        // Add navigation command to go to entity definition when clicked
+        entityItem.command = {
+          command: "ts-app-extension.navigateToCode",
+          title: "Go to Definition",
+          arguments: [entity.declaration],
+        };
+        
+        items.push(entityItem);
       }
     }
 
