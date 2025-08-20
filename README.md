@@ -1,6 +1,6 @@
 # Slingr Framework
 
-The Slingr Framework is a powerful tool for building web applications. It provides a robust set of features and tools to help developers create high-quality applications quickly and efficiently.
+The Slingr Framework is a powerful tool for building smart business applications. It provides a robust set of features and tools to help developers create high-quality applications quickly and efficiently.
 
 ## Features
 

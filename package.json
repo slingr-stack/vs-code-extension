@@ -1,7 +1,7 @@
 {
-  "name": "framework",
+  "name": "slingr-framework",
   "version": "1.0.0",
-  "description": "",
+  "description": "Slingr Framework - Smart Business Apps",
   "main": "index.js",
   "scripts": {
     "test": "jest"
@@ -10,21 +10,20 @@
     "type": "git",
     "url": "git+https://github.com/slingr-stack/framework.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "author": "Slingr",
+  "license": "Apache-2.0",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/slingr-stack/framework/issues"
   },
   "homepage": "https://github.com/slingr-stack/framework#readme",
   "devDependencies": {
-  "@types/jest": "^29.5.12",
+    "@types/jest": "^29.5.12",
     "@types/node": "^24.3.0",
-  "jest": "^29.7.0",
-  "jest-circus": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-circus": "^29.7.0",
     "reflect-metadata": "^0.2.2",
-  "ts-jest": "^29.2.5",
+    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
