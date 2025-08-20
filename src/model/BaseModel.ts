@@ -32,7 +32,7 @@ export abstract class BaseModel {
   /**
    * Validates the current model instance using class-validator and custom validation rules.
    * 
-   * This method runs all validation rules defined by @Field decorators on the model properties.
+   * This method runs all validation rules defined by ``@Field`` decorators on the model properties.
    * It supports both built-in class-validator decorators and custom validation functions.
    * 
    * For custom validations, the method preserves original error codes and messages from
