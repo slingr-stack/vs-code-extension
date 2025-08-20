@@ -2,16 +2,20 @@ import * as vscode from "vscode";
 import { DecoratedClass, PropertyMetadata } from "../cache/cache";
 
 export class AppTreeItem extends vscode.TreeItem {
+  public folderPath?: string; // Add folder path property for folder items
+  
   constructor(
     public readonly label: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     public readonly itemType: string,
     private readonly extensionUri: vscode.Uri,
     public readonly metadata?: DecoratedClass | PropertyMetadata,
-    public readonly parent?: AppTreeItem
+    public readonly parent?: AppTreeItem,
+    folderPath?: string
   ) {
     super(label, collapsibleState);
     this.contextValue = itemType;
+    this.folderPath = folderPath;
 
     // Icon logic
     if (!this.extensionUri) {
@@ -22,6 +26,9 @@ export class AppTreeItem extends vscode.TreeItem {
       switch (this.itemType) {
         case "dataRoot":
           iconFileName = "model.svg";
+          break;
+        case "folder":
+          iconFileName = "folder.svg";
           break;
         case "entitiesFolder":
           iconFileName = "folder.svg";
