@@ -6,7 +6,7 @@ import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } fr
 import { AppTreeItem } from "./appTreeItem";
 
 // Define a custom MIME type for our drag-and-drop operation
-const FIELD_MIME_TYPE = "application/vnd.ts-app-extension.field";
+const FIELD_MIME_TYPE = "application/vnd.slingr-vscode-extension.field";
 
 // Interface for folder structure
 interface FolderNode {
@@ -236,7 +236,7 @@ export class ExplorerProvider
           // Add navigation command to go to related entity definition when clicked
           if (relatedEntity) {
             compositionItem.command = {
-              command: "ts-app-extension.navigateToCode",
+              command: "slingr-vscode-extension.navigateToCode",
               title: "Go to Definition",
               arguments: [relatedEntity.declaration],
             };
@@ -282,36 +282,38 @@ export class ExplorerProvider
     for (const entity of entities) {
       const filePath = entity.declaration.uri.fsPath;
 
-      // Extract the relative path from src/data/
-      const dataIndex = filePath.indexOf("/src/data/");
-      if (dataIndex === -1) {
-        continue;
+      // Extract the relative path from src/data/ (handle both Unix and Windows paths)
+      const srcDataPattern = /[\/\\]src[\/\\]data[\/\\]/;
+      const match = filePath.match(srcDataPattern);
+      if (!match) {
+      continue;
       }
 
-      const relativePath = filePath.substring(dataIndex + "/src/data/".length);
-      const pathParts = relativePath.split("/");
+      const dataIndex = filePath.indexOf(match[0]);
+      const relativePath = filePath.substring(dataIndex + match[0].length);
+      const pathParts = relativePath.split(/[\/\\]/);
 
       // Remove the file name (last part)
       const fileName = pathParts.pop();
 
       if (pathParts.length === 0) {
-        // Entity is directly in src/data/
-        root.entities.push(entity);
+      // Entity is directly in src/data/
+      root.entities.push(entity);
       } else {
-        // Entity is in a subfolder
-        let currentNode = root;
-        let currentPath = "";
+      // Entity is in a subfolder
+      let currentNode = root;
+      let currentPath = "";
 
-        for (const part of pathParts) {
-          currentPath = currentPath ? `${currentPath}/${part}` : part;
+      for (const part of pathParts) {
+        currentPath = currentPath ? `${currentPath}/${part}` : part;
 
-          if (!currentNode.folders.has(part)) {
-            currentNode.folders.set(part, { folders: new Map(), entities: [] });
-          }
-          currentNode = currentNode.folders.get(part)!;
+        if (!currentNode.folders.has(part)) {
+        currentNode.folders.set(part, { folders: new Map(), entities: [] });
         }
+        currentNode = currentNode.folders.get(part)!;
+      }
 
-        currentNode.entities.push(entity);
+      currentNode.entities.push(entity);
       }
     }
 
@@ -375,7 +377,7 @@ export class ExplorerProvider
         
         // Add navigation command to go to entity definition when clicked
         entityItem.command = {
-          command: "ts-app-extension.navigateToCode",
+          command: "slingr-vscode-extension.navigateToCode",
           title: "Go to Definition",
           arguments: [entity.declaration],
         };
@@ -400,7 +402,7 @@ export class ExplorerProvider
       parent
     );
     item.command = {
-      command: "ts-app-extension.navigateToCode",
+      command: "slingr-vscode-extension.navigateToCode",
       title: "Go to Definition",
       arguments: [propData.declaration],
     };
