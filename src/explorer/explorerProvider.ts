@@ -1,5 +1,6 @@
 // Add vscode.TreeDragAndDropController to the import
 import * as vscode from "vscode";
+import * as path from "path";
 // Add Project from ts-morph for the reordering logic
 import { Project, IndentationText } from "ts-morph";
 import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } from "../cache/cache";
@@ -430,9 +431,12 @@ export class ExplorerProvider
     const entityReferences = item.references;
     
     // Filter references that are in different files than the entity declaration
-    const externalReferences = entityReferences.filter(ref => 
-      ref.uri.fsPath !== item.declaration.uri.fsPath
-    );
+    // Use path.resolve and normalize for cross-platform comparison
+    const entityPath = path.resolve(path.normalize(item.declaration.uri.fsPath));
+    const externalReferences = entityReferences.filter(ref => {
+      const refPath = path.resolve(path.normalize(ref.uri.fsPath));
+      return refPath !== entityPath;
+    });
     
     // For each external reference, check if it's part of a composition relationship
     for (const reference of externalReferences) {
