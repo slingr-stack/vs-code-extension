@@ -5,6 +5,32 @@ import { isEntity, isEntityFile, isField } from '../../utils/metadata';
 
 
 /**
+ * Configuration object that defines how field types are handled in decorators.
+ * 
+ * This interface provides the mapping and generation logic for converting between
+ * TypeScript types and their corresponding field decorators.
+ * 
+ * @interface FieldTypeConfig
+ * 
+ * @property {string} [requiredTsType] - The TypeScript type that this decorator requires.
+ * For example, a Text decorator might require 'string', while a Number decorator requires 'number'.
+ * 
+ * @property {string[]} [mapsFromTsTypes] - An array of TypeScript types that can be automatically
+ * mapped to this decorator. For instance, 'string' type might suggest using a 'Text' decorator.
+ * 
+ * @property {function} buildDecoratorString - A function that generates the actual decorator
+ * string based on the field metadata and new type. This allows for complex decorator generation
+ * that may include additional parameters or custom formatting.
+ */
+interface FieldTypeConfig {
+    requiredTsType?: string;
+    
+    mapsFromTsTypes?: string[];
+    
+    buildDecoratorString: (field: PropertyMetadata, newType: string) => string;
+}
+
+/**
  * A refactoring tool that handles changing field type decorators in entity classes.
  * 
  * This tool can automatically detect when field decorators or TypeScript types change
@@ -21,27 +47,45 @@ import { isEntity, isEntityFile, isField } from '../../utils/metadata';
  * Special handling is provided for Choice fields, where the tool can guide users
  * through creating new enums and updating both the decorator and property type
  * accordingly.
- * 
- * @example
- * ```typescript
- * // Before refactoring
- * @Text()
- * status: string;
- * 
- * // After changing to Choice type
- * @Choice<Status>({
- *     labels: {
- *         ToDo: "To Do",
- *         InProgress: "In Progress",
- *         Done: "Done"
- *     }
- * })
- * status: Status;
- * ```
  * @implements @see {@link IRefactorTool}
  */
 export class ChangeFieldTypeTool implements IRefactorTool {
-    private readonly availableTypes = ['Choice', 'Html', 'Integer', 'LongText', 'Relationship', 'Text'];
+
+    private readonly fieldTypeConfig: Record<string, FieldTypeConfig> = {
+        'Text': {
+            requiredTsType: 'string',
+            mapsFromTsTypes: ['string'],
+            buildDecoratorString: (field, newType) => `@${newType}()`
+        },
+        'LongText': {
+            requiredTsType: 'string',
+            buildDecoratorString: (field, newType) => `@${newType}()`
+        },
+        'Html': {
+            requiredTsType: 'string',
+            buildDecoratorString: (field, newType) => `@${newType}()`
+        },
+        'Integer': {
+            requiredTsType: 'number',
+            mapsFromTsTypes: ['number'],
+            buildDecoratorString: (field, newType) => `@${newType}()`
+        },
+        'Choice': {
+            // 'Choice' is special; its TS type is often an enum, not a primitive.
+            // We leave this undefined as it's handled by a special method.
+            requiredTsType: undefined, 
+            buildDecoratorString: (field, newType) => {
+                return `@${newType}()`;
+            }
+        },
+        'Relationship': {
+            // Similar to Choice
+            requiredTsType: undefined,
+            buildDecoratorString: (field, newType) => `@${newType}()`
+        }
+    };
+
+    private readonly availableTypes = Object.keys(this.fieldTypeConfig);
 
     public getCommandId(): string {
         return 'ts-app-extension.changeFieldType';
@@ -223,7 +267,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         if (newType === 'Choice' && this.isPrimitiveType(field.type)) {
             await this.applyChoiceEnumCreation(workspaceEdit, field, decoratorPosition, change.uri);
         } else {
-            const decoratorString = this.constructDecoratorString(field, newType, cache);
+            const decoratorString = `@${newType}()`;
             workspaceEdit.replace(change.uri, decoratorPosition, decoratorString);
 
             const typeCorrectionEdit = await this.validateAndCorrectType(field, newType, change.uri);
@@ -346,12 +390,15 @@ export class ChangeFieldTypeTool implements IRefactorTool {
      * ```
      */
     private getDecoratorForType(tsType: string): string | undefined {
-        switch (tsType.toLowerCase()) {
-            case 'string': return 'Text';
-            case 'number': return 'Integer';
-            default: return undefined;
+    const lowerTsType = tsType.toLowerCase();
+    for (const decoratorName in this.fieldTypeConfig) {
+        const config = this.fieldTypeConfig[decoratorName];
+        if (config.mapsFromTsTypes?.includes(lowerTsType)) {
+            return decoratorName;
         }
     }
+    return undefined;
+}
 
     /**
      * Determines the required TypeScript type for a given decorator.
@@ -370,12 +417,8 @@ export class ChangeFieldTypeTool implements IRefactorTool {
      * ```
      */
     private getRequiredTypeForDecorator(decoratorName: string): string | undefined {
-        switch (decoratorName) {
-            case 'Text': case 'LongText': case 'Html': return 'string';
-            case 'Integer': return 'number';
-            default: return undefined;
-        }
-    }
+    return this.fieldTypeConfig[decoratorName]?.requiredTsType;
+}
 
 
     /**
@@ -389,18 +432,6 @@ export class ChangeFieldTypeTool implements IRefactorTool {
     }
 
     /**
-     * Constructs a decorator string for a given field with the specified type.
-     * 
-     * @param field - The property metadata containing information about the field
-     * @param newType - The new type to be used in the decorator
-     * @param metadataCache - Cache containing metadata information
-     * @returns A string representation of the decorator in the format `@{newType}()`
-     */
-    private constructDecoratorString(field: PropertyMetadata, newType: string, metadataCache: MetadataCache): string {
-        return `@${newType}()`;
-    }
-
-     /**
      * Converts a string from camelCase or PascalCase to Title Case.
      */
     private toTitleCase(str: string): string {

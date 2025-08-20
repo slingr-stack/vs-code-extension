@@ -8,16 +8,7 @@ import { DecoratedClass, PropertyMetadata } from "../cache/cache";
  * @returns True if the URI is for an entity file, false otherwise.
  */
 export function isEntityFile(uri: vscode.Uri): boolean {
-    return uri.path.includes('/src/model/entities/');
-}
-
-/**
- * Checks if a URI corresponds to a file in the action directory.
- * @param uri - The VS Code URI to check.
- * @returns True if the URI is for an action file, false otherwise.
- */
-export function isActionFile(uri: vscode.Uri): boolean {
-    return uri.path.includes('/src/model/actions/');
+    return uri.path.includes('/src/data/entities/');
 }
 
 /**
@@ -27,15 +18,6 @@ export function isActionFile(uri: vscode.Uri): boolean {
  */
 export function isEntity(metadata: DecoratedClass | PropertyMetadata): metadata is DecoratedClass {
     return 'decorators' in metadata && metadata.decorators.some(d => d.name === 'Entity');
-}
-
-/**
- * Checks if a class metadata object is an Action.
- * @param metadata - The class or property metadata to check.
- * @returns True if the metadata is for an Action class, false otherwise.
- */
-export function isAction(metadata: DecoratedClass | PropertyMetadata): metadata is DecoratedClass {
-    return 'decorators' in metadata && metadata.decorators.some(d => d.name === 'Action');
 }
 
 /**
