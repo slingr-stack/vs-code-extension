@@ -108,6 +108,21 @@ export interface FieldOptions {
    * ```
    */
   validation?: PropertyDecorator | CustomValidationFunction;
+
+  /**
+   * Defines the calculation strategy for a getter field.
+   * * - `undefined` (default): The getter works as a standard TypeScript getter.
+   * - `'manual'`: The getter's calculation is only executed when the `calculate()` method is called on the model instance. The result is then memoized (cached) until the next `calculate()` call.
+   * * @example
+   * ```typescript
+   * // This getter is only recalculated when `instance.calculate()` is called.
+   * @Field({ calculation: 'manual' })
+   * get total(): number {
+   * return this.price * this.quantity;
+   * }
+   * ```
+   */
+  calculation?: 'manual';
 }
 
 /**
@@ -129,7 +144,7 @@ export interface FieldOptions {
  * ```
  */
 export function Field(options: FieldOptions) {
-  return function (target: any, propertyKey: string) {
+  return function (target: any, propertyKey: string, descriptor?: PropertyDescriptor) {
     if (options?.docs) {
       Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
     }
@@ -162,6 +177,29 @@ export function Field(options: FieldOptions) {
         // Apply decorator directly if it's already a decorator
         (options.validation as PropertyDecorator)(target, propertyKey);
       }
+    }
+
+    if (options?.calculation === 'manual') {
+      // This feature can only be applied to getters
+      if (!descriptor || typeof descriptor.get !== 'function') {
+        throw new Error(`@Field({ calculation: 'manual' }) can only be applied to a getter, but it was used on '${propertyKey}'.`);
+      }
+
+      const originalGetter = descriptor.get;
+      const memoizedSymbol = Symbol(`_memoized_${propertyKey}`); // Use a Symbol to avoid property collisions
+
+      // Store the original calculation function in metadata so `calculate()` can find it
+      Reflect.defineMetadata('custom:calculation', originalGetter, target, propertyKey);
+
+      // Replace the original getter with one that returns the memoized value
+      descriptor.get = function() {
+        return (this as any)[memoizedSymbol];
+      };
+
+      // Also define a setter so the `calculate()` method can store the result
+      descriptor.set = function(value: any) {
+        (this as any)[memoizedSymbol] = value;
+      };
     }
   };
 }

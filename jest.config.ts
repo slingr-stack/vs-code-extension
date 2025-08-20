@@ -1,24 +1,20 @@
-import type { Config } from 'jest';
+import type { Config } from "jest";
 
 const config: Config = {
-  // Add this line
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  // Use recommended transform-based ts-jest config (replaces deprecated globals)
+  preset: "ts-jest",
+  testEnvironment: "node",
   transform: {
-    '^.+\\.(ts|tsx)$': [
-      'ts-jest',
+    "^.+\\.(ts|tsx)$": [
+      "ts-jest",
       {
         tsconfig: {
-          module: 'commonjs',
+          module: "commonjs",
         },
       },
     ],
   },
-
-  // ... rest of your configuration
+  testMatch: ["<rootDir>/src/test/**/*.test.ts"],
   coverageProvider: "v8",
-  // ...
 };
 
 module.exports = config;
