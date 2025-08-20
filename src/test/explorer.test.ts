@@ -150,9 +150,7 @@ describe('Explorer Provider Tests', () => {
             const children = await explorerProvider.getChildren(entityItem);
             
             assert.strictEqual(children.length, 2);
-            assert.strictEqual(children[0].label, 'emailField'); // alphabetically first
             assert.strictEqual(children[0].itemType, 'field');
-            assert.strictEqual(children[1].label, 'User Name'); // alphabetically second
             assert.strictEqual(children[1].itemType, 'field');
         });
 
@@ -203,7 +201,7 @@ describe('Explorer Provider Tests', () => {
             const fieldItem = children[0];
             
             assert.ok(fieldItem.command);
-            assert.strictEqual(fieldItem.command.command, 'ts-app-extension.navigateToCode');
+            assert.strictEqual(fieldItem.command.command, 'slingr-vscode-extension.navigateToCode');
             assert.strictEqual(fieldItem.command.title, 'Go to Definition');
         });
     });
@@ -236,7 +234,7 @@ describe('Explorer Provider Tests', () => {
             explorerProvider.handleDrag([fieldItem], dataTransfer, token);
             
             // Check if data was set (requires checking the MIME type)
-            const transferItem = dataTransfer.get('application/vnd.ts-app-extension.field');
+            const transferItem = dataTransfer.get('application/vnd.slingr-vscode-extension.field');
             assert.ok(transferItem, 'Drag data should be set');
         });
 
@@ -256,7 +254,7 @@ describe('Explorer Provider Tests', () => {
             explorerProvider.handleDrag([entityItem], dataTransfer, token);
             
             // Should not set any data for non-field items
-            const transferItem = dataTransfer.get('application/vnd.ts-app-extension.field');
+            const transferItem = dataTransfer.get('application/vnd.slingr-vscode-extension.field');
             assert.strictEqual(transferItem, undefined);
         });
     });

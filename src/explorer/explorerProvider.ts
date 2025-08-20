@@ -6,7 +6,7 @@ import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } fr
 import { AppTreeItem } from "./appTreeItem";
 
 // Define a custom MIME type for our drag-and-drop operation
-const FIELD_MIME_TYPE = "application/vnd.ts-app-extension.field";
+const FIELD_MIME_TYPE = "application/vnd.slingr-vscode-extension.field";
 
 // Interface for folder structure
 interface FolderNode {
@@ -215,16 +215,7 @@ export class ExplorerProvider
         prop.decorators.some((d) => d.name === "Field")
       );
 
-      // Sort fields alphabetically by their label or name
-      const sortedFields = fields.sort((a, b) => {
-        const aDecorator = a.decorators.find((d) => d.name === "Field");
-        const aLabel = aDecorator?.arguments[0]?.label || a.name;
-        const bDecorator = b.decorators.find((d) => d.name === "Field");
-        const bLabel = bDecorator?.arguments[0]?.label || b.name;
-        return aLabel.localeCompare(bLabel);
-      });
-
-      return sortedFields.map((field) => {
+      return fields.map((field) => {
         if (
           field.decorators.some(
             (d) =>
@@ -232,14 +223,26 @@ export class ExplorerProvider
           )
         ) {
           const relationshipType = field.type;
-          return new AppTreeItem(
+          const relatedEntity = this.cache.getDataEntityClasses().find((entity) => entity.name === relationshipType);
+          const compositionItem = new AppTreeItem(
             field.decorators.find((d) => d.name === "Field")?.arguments[0]?.label || field.name,
             vscode.TreeItemCollapsibleState.Collapsed,
             "entity",
             this.extensionUri,
-            this.cache.getDataEntityClasses().find((entity) => entity.name === relationshipType),
+            relatedEntity,
             element
           );
+          
+          // Add navigation command to go to related entity definition when clicked
+          if (relatedEntity) {
+            compositionItem.command = {
+              command: "slingr-vscode-extension.navigateToCode",
+              title: "Go to Definition",
+              arguments: [relatedEntity.declaration],
+            };
+          }
+          
+          return compositionItem;
         } else {
           return this.mapPropertyToTreeItem(field, "field", element);
         }
@@ -279,36 +282,38 @@ export class ExplorerProvider
     for (const entity of entities) {
       const filePath = entity.declaration.uri.fsPath;
 
-      // Extract the relative path from src/data/
-      const dataIndex = filePath.indexOf("/src/data/");
-      if (dataIndex === -1) {
-        continue;
+      // Extract the relative path from src/data/ (handle both Unix and Windows paths)
+      const srcDataPattern = /[\/\\]src[\/\\]data[\/\\]/;
+      const match = filePath.match(srcDataPattern);
+      if (!match) {
+      continue;
       }
 
-      const relativePath = filePath.substring(dataIndex + "/src/data/".length);
-      const pathParts = relativePath.split("/");
+      const dataIndex = filePath.indexOf(match[0]);
+      const relativePath = filePath.substring(dataIndex + match[0].length);
+      const pathParts = relativePath.split(/[\/\\]/);
 
       // Remove the file name (last part)
       const fileName = pathParts.pop();
 
       if (pathParts.length === 0) {
-        // Entity is directly in src/data/
-        root.entities.push(entity);
+      // Entity is directly in src/data/
+      root.entities.push(entity);
       } else {
-        // Entity is in a subfolder
-        let currentNode = root;
-        let currentPath = "";
+      // Entity is in a subfolder
+      let currentNode = root;
+      let currentPath = "";
 
-        for (const part of pathParts) {
-          currentPath = currentPath ? `${currentPath}/${part}` : part;
+      for (const part of pathParts) {
+        currentPath = currentPath ? `${currentPath}/${part}` : part;
 
-          if (!currentNode.folders.has(part)) {
-            currentNode.folders.set(part, { folders: new Map(), entities: [] });
-          }
-          currentNode = currentNode.folders.get(part)!;
+        if (!currentNode.folders.has(part)) {
+        currentNode.folders.set(part, { folders: new Map(), entities: [] });
         }
+        currentNode = currentNode.folders.get(part)!;
+      }
 
-        currentNode.entities.push(entity);
+      currentNode.entities.push(entity);
       }
     }
 
@@ -368,9 +373,16 @@ export class ExplorerProvider
       
       // Only show entities that are NOT referenced by composition relationships
       if (!this.isEntityReferencedByComposition(entity)) {
-        items.push(
-          new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "entity", this.extensionUri, entity)
-        );
+        const entityItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "entity", this.extensionUri, entity);
+        
+        // Add navigation command to go to entity definition when clicked
+        entityItem.command = {
+          command: "slingr-vscode-extension.navigateToCode",
+          title: "Go to Definition",
+          arguments: [entity.declaration],
+        };
+        
+        items.push(entityItem);
       }
     }
 
@@ -390,7 +402,7 @@ export class ExplorerProvider
       parent
     );
     item.command = {
-      command: "ts-app-extension.navigateToCode",
+      command: "slingr-vscode-extension.navigateToCode",
       title: "Go to Definition",
       arguments: [propData.declaration],
     };
