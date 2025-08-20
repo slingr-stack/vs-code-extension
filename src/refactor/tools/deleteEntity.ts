@@ -300,4 +300,52 @@ export class DeleteEntityTool implements IRefactorTool {
       }
     }
   }
+
+  /**
+   * Executes a custom prompt in VS Code's chat interface after a successful refactoring operation.
+   * This allows each tool to provide context-specific guidance or information about the refactoring.
+   */
+  /**
+   * Executes a prompt to help users fix broken references after deleting an entity.
+   * 
+   * This method opens VS Code's chat interface with a detailed prompt that guides the user
+   * through fixing remaining broken references that may exist after an entity deletion.
+   * The prompt includes information about the deleted entity and affected file paths.
+   * 
+   * @param change - The change object containing metadata about the deleted entity
+   * 
+   * @returns A promise that resolves when the chat command is executed successfully
+   * 
+   * @throws Will log an error to console if the chat command fails to execute
+   */
+  public async executePrompt(change: ChangeObject): Promise<void> {
+    const { oldEntityMetadata } = change.payload;
+    const entityName = oldEntityMetadata?.name || 'unknown';
+    const modifiedRanges = change.payload.modifiedRanges || [];
+
+    let affectedPathsMessage = '';
+    if (modifiedRanges && modifiedRanges.length > 0) {
+      const paths = modifiedRanges.map((path: string) => `- ${path}`).join('\n');
+      affectedPathsMessage = `\n\n${paths}`;
+    }
+    const prompt = `I have just deleted the entity "${entityName}".
+    This action has removed the entity's source file, related directories (like actions and UI components), and cleaned up relationship fields in other entities.
+
+    However, some broken references might remain, marked with comments like "/* DELETED_REFERENCE */", "/* DELETED_FIELD_DECORATOR */", or "/* DELETED_RELATIONSHIP_DECORATOR */".
+
+    Your task is to help me fix these remaining issues by proposing concrete code modifications.
+
+    Please do the following:
+    1.  Analyze the code where these "/* DELETED_... */" comments appear.
+    2.  For each occurrence, provide a corrected code block. This usually means suggesting the removal of the entire line, statement, or import if it's now obsolete.
+    3.  Present your suggestions as code diffs or complete, corrected code snippets that I can easily apply.
+
+    Please focus your analysis and modifications on the files within the current workspace, especially the ones listed below:${affectedPathsMessage}`;
+    
+    try {
+      await vscode.commands.executeCommand('workbench.action.chat.open', prompt);
+    } catch (error) {
+      console.error('Failed to open chat with custom prompt:', error);
+    }
+  }
 }

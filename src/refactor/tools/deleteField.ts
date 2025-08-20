@@ -212,4 +212,48 @@ export class DeleteFieldTool implements IRefactorTool {
 
         return workspaceEdit;
     }
+
+    /**
+     * Executes a prompt to help fix broken field references after a field deletion.
+     * 
+     * This method generates and executes a chat prompt that guides the user through
+     * fixing code references that were broken when a field was deleted from an entity.
+     * The prompt includes information about the deleted field, affected entity, and
+     * lists of modified file paths where broken references may exist.
+     * 
+     * @param change - The change object containing details about the field deletion
+     *
+     * @returns A promise that resolves when the chat command has been executed
+     * 
+     * @throws Will log an error to console if the chat command fails to execute
+     */
+    public async executePrompt(change: ChangeObject): Promise<void> {
+        const { entityName, oldFieldMetadata } = change.payload;
+        const fieldName = oldFieldMetadata?.name || 'unknown';
+        const modifiedRanges = change.payload.modifiedRanges || [];
+
+        let affectedPathsMessage = '';
+        if (modifiedRanges && modifiedRanges.length > 0) {
+            const paths = modifiedRanges.map((path: string) => `- ${path}`).join('\n');
+            affectedPathsMessage = `\n\n${paths}`;
+        }
+
+        const prompt = `I have just deleted the field "${fieldName}" from the entity "${entityName}".
+        This has left broken references in the code, marked with a "/* DELETED_FIELD_REFERENCE */" comment.
+
+        Your task is to help me fix these broken references by proposing concrete code modifications.
+
+        Please do the following:
+        1.  Analyze the code where "/* DELETED_FIELD_REFERENCE */" appears.
+        2.  For each occurrence, provide a corrected code block. This might mean replacing the comment with new code, or suggesting the removal of the entire line or statement if it's obsolete.
+        3.  Present your suggestions as code diffs or complete, corrected code snippets that I can easily apply.
+
+        Please focus your analysis and modifications on the files within the current workspace, especially the ones listed below:${affectedPathsMessage}`;
+
+        try {
+            await vscode.commands.executeCommand('workbench.action.chat.open', prompt);
+        } catch (error) {
+            console.error('Failed to open chat with custom prompt:', error);
+        }
+    }
 }

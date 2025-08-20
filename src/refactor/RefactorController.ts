@@ -132,37 +132,37 @@ export class RefactorController {
     }
   }
 
-  /**
-   * Presents workspace changes to the user for approval through VS Code's built-in preview UI.
+   /**
+   * Presents workspace changes to the user for approval and handles post-approval analysis.
    * 
-   * This method creates a dummy change with `needsConfirmation: true` to reliably trigger
-   * VS Code's workspace edit preview interface, allowing users to review and approve/reject
-   * the proposed refactoring changes before they are applied.
+   * This method creates a dummy change to trigger VS Code's refactoring preview UI, applies
+   * the workspace edit after user confirmation, and optionally runs AI analysis on the changes
+   * to help identify and fix potential errors.
    * 
-   * @param workspaceEdit - The workspace edit containing all the changes to be applied
-   * @param changeObject - The change object containing metadata about the operation, including
-   *                      the URI and type of change being performed
+   * @param workspaceEdit - The VS Code WorkspaceEdit containing all file changes to be applied
+   * @param changeObject - The primary change object being processed, used as an anchor for the preview
+   * @param allChanges - Optional array of all changes for automatic refactors with multiple operations
+   * 
+   * @returns A Promise that resolves when the approval process and any follow-up analysis is complete
    * 
    * @remarks
-   * - For delete operations, the method attempts to find a safe URI for the dummy change
-   *   since the original file may not exist when the edit is applied
-   * - Falls back to finding other modified files or open documents as anchors
-   * - Automatically saves all files after successful application of changes
-   * - Sets a temporary flag to prevent concurrent edit operations
-   * 
-   * @throws Will log errors if the dummy change creation fails, but continues with the operation
-   */
+   * - For delete operations, attempts to find a safe URI to create the dummy change
+   * - Creates a dummy edit with confirmation metadata to trigger VS Code's preview UI
+   * - After successful application, saves all documents and optionally runs AI analysis
+   * - Uses a timeout to reset the `isApplyingEdit` flag to prevent race conditions
+   */  
   private async presentChangesForApproval(
     workspaceEdit: vscode.WorkspaceEdit,
-    changeObject: ChangeObject 
+    changeObject: ChangeObject,
+    allChanges?: ChangeObject[] 
   ): Promise<void> {
     const anchorUri = changeObject.uri;
     const isDelete = changeObject.type === "DELETE_ACTION" || changeObject.type === "DELETE_ENTITY";
+
     let uriForDummyChange = anchorUri;
 
     if (isDelete) {
       const safeUriFromEdit = workspaceEdit.entries().find(([uri]) => uri.toString() !== anchorUri.toString())?.[0];
-
       if (safeUriFromEdit) {
         uriForDummyChange = safeUriFromEdit;
       } else {
@@ -193,6 +193,36 @@ export class RefactorController {
       const success = await vscode.workspace.applyEdit(workspaceEdit);
       if (success) {
         await vscode.workspace.saveAll(false);
+        const changesToProcess = allChanges || [changeObject];
+        const changesWithPrompts = changesToProcess.filter(change => {
+          const tool = this.changeHandlerMap.get(change.type);
+          return tool?.executePrompt;
+        });
+
+        // Ask user if they want to execute prompts to analyze changes and fix errors
+        if (changesWithPrompts.length > 0) {
+          const promptConfirmation = await vscode.window.showInformationMessage(
+            `Would you like to run AI analysis on the applied changes to help identify and fix potential errors?`,
+            { modal: false },
+            "Yes, Analyze Changes",
+            "No, Skip Analysis"
+          );
+
+          if (promptConfirmation === "Yes, Analyze Changes") {
+            // Execute custom prompts for the changes
+            for (const change of changesWithPrompts) {
+              const tool = this.changeHandlerMap.get(change.type);
+              if (tool?.executePrompt) {
+                try {
+                  await tool.executePrompt(change);
+                } catch (error) {
+                  console.error(`Error executing prompt for change ${change.type}:`, error);
+                  vscode.window.showWarningMessage(`Failed to execute analysis for ${change.description}: ${error}`);
+                }
+              }
+            }
+          }
+        }
       } else {
         vscode.window.showInformationMessage("Refactoring was canceled by the user.");
       }
@@ -231,7 +261,7 @@ export class RefactorController {
       );
 
       if (confirmation === "Review Changes") {
-        await this.presentChangesForApproval(workspaceEdit, changes[0]);
+        await this.presentChangesForApproval(workspaceEdit, changes[0], changes);
       }
     }
   }
@@ -274,6 +304,7 @@ export class RefactorController {
                 existingEdits.push(edit);
               }
             }
+            change.payload.modifiedRanges = Array.from(modifiedRanges);
 
             if (existingEdits.length > 0) {
               allUniqueEdits.set(uriString, existingEdits);

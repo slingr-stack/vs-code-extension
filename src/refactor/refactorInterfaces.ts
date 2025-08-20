@@ -131,4 +131,11 @@ export interface IRefactorTool {
      * This method has NO side effects.
      */
     prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit>;
+
+    /**
+     * --- Post-Refactoring ---
+     * Executes a custom prompt in VS Code's chat interface after a successful refactoring operation.
+     * This allows each tool to provide context-specific guidance or information about the refactoring.
+     */
+    executePrompt?(change: ChangeObject): Promise<void>;
 }
