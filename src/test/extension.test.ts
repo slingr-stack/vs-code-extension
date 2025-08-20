@@ -5,11 +5,14 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 // import * as myExtension from '../../extension';
 
-suite('Extension Test Suite', () => {
-	vscode.window.showInformationMessage('Start all tests.');
+// Only run tests if we're in a test environment (Mocha globals are available)
+if (typeof suite !== 'undefined') {
+	suite('Extension Test Suite', () => {
+		vscode.window.showInformationMessage('Start all tests.');
 
-	test('Sample test', () => {
-		assert.strictEqual(-1, [1, 2, 3].indexOf(5));
-		assert.strictEqual(-1, [1, 2, 3].indexOf(0));
+		test('Sample test', () => {
+			assert.strictEqual(-1, [1, 2, 3].indexOf(5));
+			assert.strictEqual(-1, [1, 2, 3].indexOf(0));
+		});
 	});
-});
+}
