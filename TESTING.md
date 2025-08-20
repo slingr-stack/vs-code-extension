@@ -24,12 +24,6 @@ Tests the `MetadataCache` class functionality:
 - **Event Handling**: Tests the `onDidUpdate` event
 - **findMetadata Method**: Tests the metadata search functionality
 
-### 3. Integration Tests (`explorerIntegration.test.ts`)
-Tests the complete explorer with real files and VS Code integration:
-
-- **Real File Integration**: Tests with actual TypeScript entity files
-- **Performance Tests**: Ensures the explorer loads quickly
-
 ## Running the Tests
 
 ### Prerequisites
@@ -69,24 +63,6 @@ Unit tests use mock data and don't require real files. They test:
 - Mock properties with `@Field` decorators
 - Mock cache responses
 
-### For Integration Tests
-Integration tests require a workspace with:
-- `src/data/` directory
-- TypeScript files with actual `@Entity` and `@Field` decorators
-
-Example entity file (`src/data/testEntity.ts`):
-```typescript
-import { Entity, Field } from '@slingr/framework';
-
-@Entity({ label: 'Test Entity', persistent: true })
-export class TestEntity {
-    @Field({ label: 'Name Field' })
-    name: string;
-
-    @Field({ label: 'Email Field' })
-    email: string;
-}
-```
 
 ## What Each Test Verifies
 
@@ -103,10 +79,6 @@ export class TestEntity {
 3. **Data Entity Flag**: Confirms `isDataEntity` flag is set correctly
 4. **Update Events**: Tests that file changes trigger cache updates
 
-### Integration Tests
-1. **Real File Handling**: Tests with actual workspace files
-2. **File System Integration**: Verifies file watching and updates work
-3. **Performance**: Ensures reasonable loading times
 
 ## Debugging Tests
 
@@ -145,19 +117,3 @@ Use the VS Code debugger with the test configurations:
 1. Add tests to `cache.test.ts`
 2. Test with both real and mock data
 3. Verify event handling and performance
-
-### Best Practices
-- Use descriptive test names
-- Test edge cases and error conditions
-- Mock external dependencies
-- Keep tests focused and independent
-- Add comments for complex test scenarios
-
-## Continuous Integration
-
-The tests can be run in CI environments by:
-1. Installing VS Code in headless mode
-2. Running `npm run test`
-3. Checking exit codes for pass/fail status
-
-Example CI configuration would install dependencies, compile TypeScript, and run the test suite automatically on each commit.
