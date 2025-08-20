@@ -1,36 +1,58 @@
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, ValidateIf } from 'class-validator';
 
 import type { Field } from "../model/Field";
 
-export interface FieldOptions extends Field{}
+export interface FieldOptions extends Field { }
 
-export function Field(options: FieldOptions) {  
-    return function (target: any, propertyKey: string) {
-    // Store metadata for the field's documentation
+
+/**
+ * Decorator for model fields that applies validation, documentation, and metadata based on provided options.
+ *
+ * - Adds documentation metadata if `docs` is present in options.
+ * - Applies required validation using `IsNotEmpty` and optionally `ValidateIf` if `required` is a function.
+ * - Applies custom validation if `validation` is provided, supporting both function and decorator types.
+ *
+ * @param {FieldOptions} options - Configuration options for the field, including validation, documentation, and required logic.
+ * @returns {PropertyDecorator} The property decorator function.
+ *
+ * @example
+ * ```typescript
+ * class Person {
+ *     @Field({ required: true, docs: 'The name of the person.' })
+ *     name: string;
+ * }
+ * ```
+ */
+export function Field(options: FieldOptions) {
+  return function (target: any, propertyKey: string) {
     if (options?.docs) {
-        Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
+      Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
     }
 
-    // Apply IsNotEmpty decorator if the field is required
-    if (options?.required) {
-      const isRequired = typeof options.required === 'function' 
-        ? options.required(target) 
-        : options.required;
-      
-      if (isRequired) {
+    if (options?.required !== undefined) {
+      if (typeof options.required === 'function') {
+        ValidateIf((object: any) => {
+          try {
+            const reqFn = options.required as (object: any) => boolean;
+            return !!reqFn(object);
+          } 
+          catch {
+            return false;
+          }
+        })(target, propertyKey);
+        IsNotEmpty()(target, propertyKey);
+      } else if (options.required) {
+        // Simple boolean required
         IsNotEmpty()(target, propertyKey);
       }
     }
 
-    // Handle validation option
     if (options?.validation) {
-        if (typeof options.validation === 'function' && options.validation.length > 1) {
-            // This is our custom validation function for a field
-            Reflect.defineMetadata('field:validation', options.validation, target, propertyKey);
-        } else {
-            // This is a class-validator decorator
-            (options.validation as PropertyDecorator)(target, propertyKey);
-        }
+      if (typeof options.validation === 'function' && options.validation.length > 1) {
+        Reflect.defineMetadata('field:validation', options.validation, target, propertyKey);
+      } else {
+        (options.validation as PropertyDecorator)(target, propertyKey);
+      }
     }
   };
 }

@@ -35,15 +35,8 @@ export class Person extends BaseModel {
   age!: number;
 
   @Field({
-    validation: (value: string, person: Person) => {
-      const errors = [];
-      if (person.age < 18 && (!value || value.trim() === "")) {
-        errors.push({
-          code: "requiredParentEmail",
-          message: "Parent email is required if age is under 18",
-        });
-      }
-      return errors;
+    required: (person: Person) => {
+      return (person.age < 18);
     },
   })
   parentEmail!: string;
