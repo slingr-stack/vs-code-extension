@@ -1,5 +1,4 @@
-import { validate, ValidationError } from "class-validator";
-import "reflect-metadata";
+import { ValidationError, validate } from "class-validator";
 
 export abstract class BaseModel {
   /**
@@ -43,8 +42,4 @@ export abstract class BaseModel {
     // 3. Combine both types of errors
     return [...classValidatorErrors, ...customErrors];
   }
-}
-
-export interface Model {
-  docs?: string;
 }

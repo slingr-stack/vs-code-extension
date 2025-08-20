@@ -1,6 +1,6 @@
-import { Field } from "../framework/decorators/FieldDecorator";
-import { Model } from "../framework/decorators/ModelDecorator";
-import { BaseModel } from "../framework/model/Model";
+import { Field } from "../../model/Field";
+import { Model } from "../../model/Model";
+import { BaseModel } from "../../model/BaseModel";
 
 @Model({
   docs: "Represents a person",
