@@ -668,7 +668,7 @@ export class MetadataCache {
      */
     public getDataEntityClasses(): DecoratedClass[] {
         return this.getDataEntities().filter(classData => 
-            classData.decorators.some(decorator => decorator.name === 'Entity')
+            classData.decorators.some(decorator => decorator.name === 'Model')
         );
     }
 
