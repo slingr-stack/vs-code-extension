@@ -1,4 +1,5 @@
 import { IsNotEmpty, ValidateIf } from 'class-validator';
+import { Exclude, Expose } from 'class-transformer';
 import { CustomValidate } from '../validators/CustomValidationConstraint';
 
 /**
@@ -108,6 +109,27 @@ export interface FieldOptions {
    * ```
    */
   validation?: PropertyDecorator | CustomValidationFunction;
+
+  /**
+   * Indicates whether the field should be available for JSON serialization and deserialization.
+   * 
+   * When set to `false`, the field will be excluded from JSON conversion operations.
+   * When set to `true` or not specified, the field will be included in JSON operations.
+   * 
+   * @default true
+   * 
+   * @example
+   * ```typescript
+   * // Field available for JSON operations (default behavior)
+   * @Field({ available: true })
+   * name: string;
+   * 
+   * // Field excluded from JSON operations
+   * @Field({ available: false })
+   * internalId: string;
+   * ```
+   */
+  available?: boolean;
 }
 
 /**
@@ -116,6 +138,7 @@ export interface FieldOptions {
  * - Adds documentation metadata if `docs` is present in options.
  * - Applies required validation using `IsNotEmpty` and optionally `ValidateIf` if `required` is a function.
  * - Applies custom validation if `validation` is provided, supporting both function and decorator types.
+ * - Controls field availability for JSON serialization using `class-transformer` decorators.
  *
  * @param options - Configuration options for the field, including validation, documentation, and required logic.
  * @returns The property decorator function.
@@ -132,6 +155,14 @@ export function Field(options: FieldOptions) {
   return function (target: any, propertyKey: string) {
     if (options?.docs) {
       Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
+    }
+
+    // Handle field availability for JSON serialization/deserialization
+    if (options?.available === false) {
+      Exclude()(target, propertyKey);
+    } else {
+      // Default behavior is to expose the field (available: true or undefined)
+      Expose()(target, propertyKey);
     }
 
     if (options?.required !== undefined) {
