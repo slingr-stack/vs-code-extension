@@ -430,16 +430,8 @@ export class ExplorerProvider
     // Get all references to this entity
     const entityReferences = item.references;
     
-    // Filter references that are in different files than the entity declaration
-    // Use path.resolve and normalize for cross-platform comparison
-    const entityPath = path.resolve(path.normalize(item.declaration.uri.fsPath));
-    const externalReferences = entityReferences.filter(ref => {
-      const refPath = path.resolve(path.normalize(ref.uri.fsPath));
-      return refPath !== entityPath;
-    });
-    
     // For each external reference, check if it's part of a composition relationship
-    for (const reference of externalReferences) {
+    for (const reference of entityReferences) {
       // Get the file metadata for the reference
       const referencingFile = this.cache.getMetadataForFile(reference.uri.fsPath);
       if (!referencingFile) {
