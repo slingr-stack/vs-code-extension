@@ -233,7 +233,8 @@ export class MetadataCache {
      * Helper to get a deep copy of metadata to prevent mutation of the cache state.
      */
     public getMetadataForFile(path: string): FileMetadata | undefined {
-        const fileData = this.cache[path];
+        const normalizedPath = path.replace(/\\/g, '/');
+        const fileData = this.cache[normalizedPath];
         return fileData ? JSON.parse(JSON.stringify(fileData)) : undefined;
     }
 
