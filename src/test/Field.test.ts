@@ -1,12 +1,13 @@
 import { Person } from "./model/Person";
+import type { ValidationError } from "class-validator";
 
 /**
  * Converts an array of class-validator ValidationError objects into a stable, plain summary.
  *
- * @param {any[]} errors - Array of ValidationError objects from class-validator.
+ * @param {ValidationError[]} errors - Array of ValidationError objects from class-validator.
  * @returns {Array<{field: string, codes: string[], messages: string[]}>} An array of summary objects with field, codes, and messages.
  */
-function summarizeErrors(errors: any[]) {
+function summarizeErrors(errors: ValidationError[]) {
   return errors.map((e) => ({
     field: e.property,
     codes: e.constraints ? Object.keys(e.constraints) : [],

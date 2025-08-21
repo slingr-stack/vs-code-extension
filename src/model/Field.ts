@@ -18,10 +18,12 @@ import { CustomValidate } from '../validators/CustomValidationConstraint';
  * };
  * ```
  */
-type CustomValidationFunction = (
-  value: any,
-  object: any
-) => { code: string; message: string }[];
+export type ValidationIssue = { code: string; message: string };
+
+// Bivariant function type to allow narrower or wider parameter types in callbacks (e.g., Person)
+type BivariantValidationFunction<TValue = unknown, TObject extends object = object> = {
+  bivarianceHack(value: TValue, object: TObject): ValidationIssue[];
+}["bivarianceHack"];
 
 /**
  * Custom required function type for conditional field requirements.
@@ -36,9 +38,9 @@ type CustomValidationFunction = (
  * };
  * ```
  */
-type CustomRequiredFunction = (
-  object: any
-) => Boolean;
+type BivariantRequiredFunction<TObject extends object = object> = {
+  bivarianceHack(object: TObject): boolean;
+}["bivarianceHack"];
 
 /**
  * Configuration options for the Field decorator.
@@ -46,7 +48,7 @@ type CustomRequiredFunction = (
  * This interface defines all available options that can be passed to the ``@Field`` decorator
  * to configure validation, documentation, and field behavior.
  */
-export interface FieldOptions {
+export interface FieldOptions<TObject extends object = object, TValue = unknown> {
   /**
    * Specifies whether the field is required.
    * 
@@ -65,7 +67,7 @@ export interface FieldOptions {
    * guardianName: string;
    * ```
    */
-  required?: boolean | CustomRequiredFunction;
+  required?: boolean | BivariantRequiredFunction<TObject>;
 
   /**
    * Documentation string for the field.
@@ -107,7 +109,7 @@ export interface FieldOptions {
    * name: string;
    * ```
    */
-  validation?: PropertyDecorator | CustomValidationFunction;
+  validation?: PropertyDecorator | BivariantValidationFunction<TValue, TObject>;
 }
 
 /**
@@ -128,18 +130,18 @@ export interface FieldOptions {
  * }
  * ```
  */
-export function Field(options: FieldOptions) {
-  return function (target: any, propertyKey: string) {
+export function Field<TObject extends object = object, TValue = unknown>(options: FieldOptions<TObject, TValue>) {
+  return function (target: Object, propertyKey: string) {
     if (options?.docs) {
       Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
     }
 
     if (options?.required !== undefined) {
       if (typeof options.required === 'function') {
-        ValidateIf((object: any) => {
+        ValidateIf((object: unknown) => {
           try {
-            const reqFn = options.required as (object: any) => boolean;
-            return !!reqFn(object);
+            const reqFn = options.required as BivariantRequiredFunction<TObject>;
+            return !!reqFn(object as TObject);
           }
           catch {
             return false;
