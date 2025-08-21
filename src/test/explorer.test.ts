@@ -257,6 +257,64 @@ describe('Explorer Provider Tests', () => {
             const transferItem = dataTransfer.get('application/vnd.slingr-vscode-extension.field');
             assert.strictEqual(transferItem, undefined);
         });
+
+        it('should handle drag operation for composition entity items', () => {
+            const childEntity = createMockEntity('ChildEntity', 'Child Entity', '/test/project/src/data/child-entity.ts');
+            const parentEntity = createMockEntity('ParentEntity', 'Parent Entity', '/test/project/src/data/parent-entity.ts');
+            
+            // Add a composition relationship property to the parent entity
+            parentEntity.properties['children'] = {
+                name: 'children',
+                type: 'ChildEntity',
+                decorators: [
+                    {
+                        name: 'Field',
+                        arguments: [{ label: 'Children' }],
+                        position: new vscode.Range(0, 0, 0, 10)
+                    },
+                    {
+                        name: 'Relationship',
+                        arguments: [{ type: 'Composition' }],
+                        position: new vscode.Range(0, 0, 0, 10)
+                    }
+                ],
+                references: [],
+                declaration: new vscode.Location(
+                    vscode.Uri.file('/test/project/src/data/parent-entity.ts'),
+                    new vscode.Range(5, 0, 5, 10)
+                )
+            };
+
+            const parentItem = new AppTreeItem(
+                'Parent Entity',
+                vscode.TreeItemCollapsibleState.Collapsed,
+                'entity',
+                extensionUri,
+                parentEntity
+            );
+            
+            const compositionItem = new AppTreeItem(
+                'Children',
+                vscode.TreeItemCollapsibleState.Collapsed,
+                'entity',
+                extensionUri,
+                childEntity,
+                parentItem
+            );
+
+            const dataTransfer = new vscode.DataTransfer();
+            const token = new vscode.CancellationTokenSource().token;
+
+            // This should handle drag for composition entity items
+            explorerProvider.handleDrag([compositionItem], dataTransfer, token);
+            
+            const transferItem = dataTransfer.get('application/vnd.slingr-vscode-extension.field');
+            assert.ok(transferItem, 'Drag data should be set for composition entity items');
+            
+            const dragData = transferItem.value;
+            assert.strictEqual(dragData.field, 'children', 'Should drag the composition field name');
+            assert.strictEqual(dragData.entityClassName, 'ParentEntity', 'Should reference the parent entity class');
+        });
     });
 });
 

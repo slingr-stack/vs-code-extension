@@ -52,18 +52,53 @@ export class ExplorerProvider
     }
     const draggedItem = source[0];
 
-    // We can only drag fields
+    // We can drag fields or composition entities
     if (draggedItem.itemType === "field" && draggedItem.metadata && "name" in draggedItem.metadata) {
       // The parent of a field item is the 'entityFieldsFolder', which holds the entity's metadata
       const entityFilePath = draggedItem.parent?.metadata?.declaration.uri.fsPath;
-      if (entityFilePath) {
+      const entityClassName = draggedItem.parent?.metadata?.name;
+      if (entityFilePath && entityClassName) {
         dataTransfer.set(
           FIELD_MIME_TYPE,
           new vscode.DataTransferItem({
             field: draggedItem.metadata.name,
             entityPath: entityFilePath,
+            entityClassName: entityClassName,
           })
         );
+      }
+    } else if (draggedItem.itemType === "entity" && draggedItem.parent && draggedItem.parent.itemType === "entity") {
+      // This is a composition entity (nested entity within another entity)
+      // The parent contains the host entity's metadata
+      const entityFilePath = draggedItem.parent.metadata?.declaration.uri.fsPath;
+      const entityClassName = draggedItem.parent.metadata?.name;
+      
+      // We need to find the property name that represents this composition relationship
+      // Look through the parent entity's properties to find the one that matches this composition
+      if (entityFilePath && entityClassName && draggedItem.parent.metadata && "properties" in draggedItem.parent.metadata) {
+        const parentEntity = draggedItem.parent.metadata;
+        let compositionFieldName = null;
+        
+        // Find the field that represents this composition relationship
+        for (const [propName, prop] of Object.entries(parentEntity.properties)) {
+          if (prop.decorators.some(d => d.name === "Field") && 
+              prop.decorators.some(d => d.name === "Relationship" && d.arguments.some(arg => arg.type === "Composition")) &&
+              prop.type === draggedItem.metadata?.name) {
+            compositionFieldName = propName;
+            break;
+          }
+        }
+        
+        if (compositionFieldName) {
+          dataTransfer.set(
+            FIELD_MIME_TYPE,
+            new vscode.DataTransferItem({
+              field: compositionFieldName,
+              entityPath: entityFilePath,
+              entityClassName: entityClassName,
+            })
+          );
+        }
       }
     }
   }
@@ -80,13 +115,36 @@ export class ExplorerProvider
 
     const draggedData = transferItem.value;
 
-    // Ensure we have a valid target to drop onto
-    if (!target || target.itemType !== "field" || !target.metadata || !("name" in target.metadata)) {
-      vscode.window.showWarningMessage("A field can only be dropped onto another field.");
+    // Ensure we have a valid target to drop onto (field or composition entity)
+    let targetFieldName: string | null = null;
+    let targetEntityPath: string | undefined = undefined;
+    
+    if (target && target.itemType === "field" && target.metadata && "name" in target.metadata) {
+      // Dropping onto a regular field
+      targetFieldName = target.metadata.name;
+      targetEntityPath = target.parent?.metadata?.declaration.uri.fsPath;
+    } else if (target && target.itemType === "entity" && target.parent && target.parent.itemType === "entity") {
+      // Dropping onto a composition entity
+      targetEntityPath = target.parent.metadata?.declaration.uri.fsPath;
+      
+      // Find the field name that represents this composition relationship
+      if (target.parent.metadata && "properties" in target.parent.metadata) {
+        const parentEntity = target.parent.metadata;
+        for (const [propName, prop] of Object.entries(parentEntity.properties)) {
+          if (prop.decorators.some(d => d.name === "Field") && 
+              prop.decorators.some(d => d.name === "Relationship" && d.arguments.some(arg => arg.type === "Composition")) &&
+              prop.type === target.metadata?.name) {
+            targetFieldName = propName;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (!target || !targetFieldName || !targetEntityPath) {
+      vscode.window.showWarningMessage("A field can only be dropped onto another field or composition entity.");
       return;
     }
-
-    const targetEntityPath = target.parent?.metadata?.declaration.uri.fsPath;
 
     // Validate the drop operation
     if (draggedData.entityPath !== targetEntityPath) {
@@ -94,7 +152,7 @@ export class ExplorerProvider
       return;
     }
 
-    if (draggedData.field === target.metadata.name) {
+    if (draggedData.field === targetFieldName) {
       return; // Dropped on itself
     }
 
@@ -103,8 +161,9 @@ export class ExplorerProvider
       // 1. Get the new text from ts-morph *without saving*.
       const newText = await this.reorderFieldsAndGetText(
         draggedData.entityPath,
+        draggedData.entityClassName,
         draggedData.field,
-        target.metadata.name
+        targetFieldName
       );
 
       if (newText === null) {
@@ -143,24 +202,25 @@ export class ExplorerProvider
    * Reorders fields in the entity class file and returns the updated text.
    * This function uses ts-morph to manipulate the source code without saving it.
    * @param entityPath The path to the entity class file.
+   * @param entityClassName The name of the entity class to modify.
    * @param sourceFieldName The name of the field to move.
    * @param targetFieldName The name of the field to move before.
    * @returns The updated source code as a string, or null if an error occurs.
    */
   private async reorderFieldsAndGetText(
     entityPath: string,
+    entityClassName: string,
     sourceFieldName: string,
     targetFieldName: string
   ): Promise<string | null> {
     const project = new Project();
     const sourceFile = project.addSourceFileAtPath(entityPath);
 
-    // For simplicity, we assume one class per file. A more robust solution
-    // would identify the correct class if there are multiple.
-    const classDeclaration = sourceFile.getClasses()[0];
+    // Find the specific class by name to handle multiple classes in the same file
+    const classDeclaration = sourceFile.getClass(entityClassName);
 
     if (!classDeclaration) {
-      console.error(`No class found in ${entityPath}`);
+      console.error(`Class ${entityClassName} not found in ${entityPath}`);
       return null;
     }
 
@@ -430,16 +490,8 @@ export class ExplorerProvider
     // Get all references to this entity
     const entityReferences = item.references;
     
-    // Filter references that are in different files than the entity declaration
-    // Use path.resolve and normalize for cross-platform comparison
-    const entityPath = path.resolve(path.normalize(item.declaration.uri.fsPath));
-    const externalReferences = entityReferences.filter(ref => {
-      const refPath = path.resolve(path.normalize(ref.uri.fsPath));
-      return refPath !== entityPath;
-    });
-    
     // For each external reference, check if it's part of a composition relationship
-    for (const reference of externalReferences) {
+    for (const reference of entityReferences) {
       // Get the file metadata for the reference
       const referencingFile = this.cache.getMetadataForFile(reference.uri.fsPath);
       if (!referencingFile) {
