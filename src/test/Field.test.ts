@@ -91,4 +91,121 @@ describe("Person Model Validation", () => {
     expect(errors.length).toBeGreaterThan(0);
   });
 
+  it("should fail validation with incorrect email format", async () => {
+    const invalidUser = new Person();
+    invalidUser.firstName = "John";
+    invalidUser.lastName = "Doe";
+    invalidUser.email = "john.doe@example";
+    invalidUser.age = 30;
+
+    const errors = await invalidUser.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "email", codes: ["matches"], messages: ["must be a valid email"] },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
+
+  it("should fail validation with too short first name", async () => {
+    const invalidUser = new Person();
+    invalidUser.firstName = "J";
+    invalidUser.lastName = "Doe";
+    invalidUser.email = "john.doe@example.com";
+    invalidUser.age = 30;
+
+    const errors = await invalidUser.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "firstName", codes: ["minLength"], messages: ["firstName must be longer than or equal to 2 characters"] },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
+
+  it("should fail validation with too short last name", async () => {
+    const invalidUser = new Person();
+    invalidUser.firstName = "John";
+    invalidUser.lastName = "D";
+    invalidUser.email = "john.doe@example.com";
+    invalidUser.age = 30;
+
+    const errors = await invalidUser.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "lastName", codes: ["minLength"], messages: ["lastName must be longer than or equal to 2 characters"] },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
+
+  it("should fail validation with too long first name", async () => {
+    const invalidUser = new Person();
+    invalidUser.firstName = "A".repeat(31); // Too long
+    invalidUser.lastName = "Doe";
+    invalidUser.email = "john.doe@example.com";
+    invalidUser.age = 30;
+
+    const errors = await invalidUser.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "firstName", codes: ["maxLength"], messages: ["firstName must be shorter than or equal to 30 characters"] },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
+
+  it("should fail validation with too long last name", async () => {
+    const invalidUser = new Person();
+    invalidUser.firstName = "John";
+    invalidUser.lastName = "D".repeat(31); // Too long
+    invalidUser.email = "john.doe@example.com";
+    invalidUser.age = 30;
+
+    const errors = await invalidUser.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "lastName", codes: ["maxLength"], messages: ["lastName must be shorter than or equal to 30 characters"] },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
+
+  it("should fail validation with invalid first name characters", async () => {
+    const invalidUser = new Person();
+    invalidUser.firstName = "John123";
+    invalidUser.lastName = "Doe";
+    invalidUser.email = "john.doe@example.com";
+    invalidUser.age = 30;
+
+    const errors = await invalidUser.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "firstName", codes: ["matches"], messages: ["firstName must contain only letters"] },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
+
+  it("should fail validation with invalid last name characters", async () => {
+    const invalidUser = new Person();
+    invalidUser.firstName = "John";
+    invalidUser.lastName = "Doe123";
+    invalidUser.email = "john.doe@example.com";
+    invalidUser.age = 30;
+
+    const errors = await invalidUser.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "lastName", codes: ["matches"], messages: ["lastName must contain only letters"] },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
+
+  it("should pass with valid HTML", async () => {
+    const validUser = new Person();
+    validUser.firstName = "John";
+    validUser.lastName = "Doe";
+    validUser.email = "john.doe@example.com";
+    validUser.age = 30;
+    validUser.additionalInfo = "<p>This is a valid HTML string.</p>";
+
+    const errors = await validUser.validate();
+    const summary = summarizeErrors(errors);
+    expect(summary).toStrictEqual([]);
+  });
 });

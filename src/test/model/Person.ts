@@ -1,6 +1,7 @@
 import { Field } from "../../model/Field";
 import { Model } from "../../model/Model";
 import { BaseModel } from "../../model/BaseModel";
+import { Text, Email, HTML } from "../../model/types/Text";
 
 @Model({
   docs: "Represents a person",
@@ -9,14 +10,27 @@ export class Person extends BaseModel {
   @Field({
     required: true,
   })
+  @Text({
+    minLength: 2,
+    maxLength: 30,
+    regex: /^[a-zA-Z]+$/,
+    regexMessage: "firstName must contain only letters",
+  })
   firstName!: string;
 
   @Field({
     required: true,
   })
+  @Text({
+    minLength: 2,
+    maxLength: 30,
+    regex: /^[a-zA-Z]+$/,
+    regexMessage: "lastName must contain only letters",
+  })
   lastName!: string;
 
   @Field({})
+  @Email()
   email!: string;
 
   @Field({
@@ -39,5 +53,11 @@ export class Person extends BaseModel {
       return (person.age < 18);
     },
   })
+  @Email()
   parentEmail!: string;
+
+  @Field({})
+  @HTML()
+  additionalInfo!: string;
+
 }
