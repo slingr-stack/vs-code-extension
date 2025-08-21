@@ -86,7 +86,7 @@ Unit tests use mock data and don't require real files. They test:
 
 1. **No entities found**:
    - Check that `src/data/` directory exists
-   - Verify entity files have `@Entity` decorators
+   - Verify entity files have `` decorators
    - Ensure `tsconfig.json` is properly configured
 
 2. **Tests timeout**:

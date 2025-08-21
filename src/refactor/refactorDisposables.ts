@@ -18,12 +18,10 @@ import { AppTreeItem } from '../explorer/appTreeItem';
  * operations may have dependencies on or affect the behavior of others.
  * 
  * @returns An array containing instances of all refactor tools including:
- * - DeleteEntityTool: Handles entity deletion operations
- * - DeleteActionTool: Handles action deletion operations  
+ * - DeleteEntityTool: Handles entity deletion operations  
  * - RenameEntityTool: Handles entity renaming operations
  * - RenameFieldTool: Handles field renaming operations
  * - DeleteFieldTool: Handles field deletion operations
- * - RenameActionTool: Handles action renaming operations
  * - ChangeFieldTypeTool: Handles field type modification operations
  */
 export function getAllRefactorTools(): IRefactorTool[] {

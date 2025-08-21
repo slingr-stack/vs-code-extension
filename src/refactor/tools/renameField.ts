@@ -27,7 +27,7 @@ import { areRangesEqual, isEntity, isEntityFile, isField } from '../../utils/met
  */
 export class RenameFieldTool implements IRefactorTool {
     public getCommandId(): string {
-        return 'ts-app-extension.renameField';
+        return 'slingr-vscode-extension.renameField';
     }
 
     public getTitle(): string {

@@ -671,10 +671,10 @@ export class MetadataCache {
     }
 
     /**
-     * Returns all @Entity decorated classes that are stored in the src/data folder.
+     * Returns all Model decorated classes that are stored in the src/data folder.
      * This is a more specific version of getDataEntities() that only returns
-     * classes with the @Entity decorator.
-     * @returns An array of DecoratedClass objects that represent Entity classes in the data folder.
+     * classes with the Model decorator.
+     * @returns An array of DecoratedClass objects that represent Model classes in the data folder.
      */
     public getDataEntityClasses(): DecoratedClass[] {
         return this.getDataEntities().filter(classData => 

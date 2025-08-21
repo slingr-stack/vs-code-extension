@@ -9,15 +9,116 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:typescript"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "slingr-vscode-extension.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "slingr-vscode-extension.navigateToCode",
+        "title": "Navigate to Code"
+      },
+      {
+        "command": "slingr-vscode-extension.refreshNavigation",
+        "title": "Refresh App Navigation"
+      },
+      {
+        "command": "slingr-vscode-extension.refactor",
+        "title": "Refactor"
+      },
+      {
+        "command": "slingr-vscode-extension.renameEntity",
+        "title": "Slingr: Rename Entity"
+      },
+      {
+        "command": "slingr-vscode-extension.deleteEntity",
+        "title": "Slingr: Delete Entity"
+      },
+      {
+        "command": "slingr-vscode-extension.renameField",
+        "title": "Slingr: Rename Field"
+      },
+      {
+        "command": "slingr-vscode-extension.deleteField",
+        "title": "Slingr: Delete Field"
+      },
+      {
+        "command": "slingr-vscode-extension.changeFieldType",
+        "title": "Slingr: Change Field Type"
       }
     ],
+    "submenus": [
+      {
+        "id": "slingr-vscode-extension.refactorings",
+        "label": "Slingr: Refactor"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "resourceScheme == 'file' && resourceLangId == 'typescript'",
+          "submenu": "slingr-vscode-extension.refactorings",
+          "group": "9_refactor@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourceLangId == 'typescript'",
+          "submenu": "slingr-vscode-extension.refactorings",
+          "group": "2_workspace"
+        },
+        {
+          "command": "slingr-vscode-extension.renameEntity",
+          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourcePath =~ /\\/src\\/data\\//",
+          "group": "2_workspace@1"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteEntity",
+          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourcePath =~ /\\/src\\/data\\//",
+          "group": "2_workspace@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "when": "view == slingrExplorer && (viewItem == 'entity' || viewItem == 'field')",
+          "submenu": "slingr-vscode-extension.refactorings",
+          "group": "1_modification"
+        }
+      ],
+      "slingr-vscode-extension.refactorings": [
+        {
+          "command": "slingr-vscode-extension.renameEntity",
+          "when": "view == slingrExplorer && viewItem == 'entity'",
+          "group": "1_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteEntity",
+          "when": "view == slingrExplorer && viewItem == 'entity'",
+          "group": "2_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.renameField",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "1_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteField",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "2_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.changeFieldType",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "3_modification"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {

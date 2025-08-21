@@ -30,7 +30,7 @@ import * as fs from 'fs';
  */
 export class DeleteFieldTool implements IRefactorTool {
     public getCommandId(): string {
-        return 'ts-app-extension.deleteField';
+        return 'slingr-vscode-extension.deleteField';
     }
 
     public getTitle(): string {

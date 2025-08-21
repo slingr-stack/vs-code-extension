@@ -26,7 +26,7 @@ import { areRangesEqual, isEntity, isEntityFile } from '../../utils/metadata';
  */
 export class RenameEntityTool implements IRefactorTool {
     public getCommandId(): string {
-        return 'ts-app-extension.renameEntity';
+        return 'slingr-vscode-extension.renameEntity';
     }
 
     public getTitle(): string {

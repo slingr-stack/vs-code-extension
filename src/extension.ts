@@ -48,7 +48,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		cache,
 		...refactorDisposables
 	);
-}// This method is called when your extension is deactivated
+}
+
+// This method is called when your extension is deactivated
 export function deactivate() {
 	cache.dispose();
 }

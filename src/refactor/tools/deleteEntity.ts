@@ -31,7 +31,7 @@ import { isEntity, isEntityFile, isField } from "../../utils/metadata";
  */
 export class DeleteEntityTool implements IRefactorTool {
   public getCommandId(): string {
-    return "ts-app-extension.deleteEntity";
+    return "slingr-vscode-extension.deleteEntity";
   }
 
   public getTitle(): string {
