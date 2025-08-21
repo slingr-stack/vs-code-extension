@@ -244,7 +244,8 @@ export class MetadataCache {
      */
     private addSourceFile(filePath: string | vscode.Uri): void {
         const path = filePath instanceof vscode.Uri ? filePath.fsPath : filePath;
-        const sourceFile = this.tsMorphProject.addSourceFileAtPath(path);
+        const normalizedPath = path.replace(/\\/g, '/');
+        const sourceFile = this.tsMorphProject.addSourceFileAtPath(normalizedPath);
         this.parseFileForMetadata(sourceFile);
     }
 
@@ -269,8 +270,9 @@ export class MetadataCache {
      */
     private parseFileForMetadata(sourceFile: SourceFile, commitToCache: boolean = true): FileMetadata {
         const filePath = sourceFile.getFilePath();
+        const normalizedFilePath = filePath.replace(/\\/g, '/');
         const fileMetadata: FileMetadata = {
-            uri: vscode.Uri.file(filePath),
+            uri: vscode.Uri.file(normalizedFilePath),
             classes: {},
         };
 
@@ -284,7 +286,7 @@ export class MetadataCache {
                 methods: {},
                 references: [],
                 declaration: new vscode.Location(
-                    vscode.Uri.file(filePath),
+                    vscode.Uri.file(normalizedFilePath),
                     this.tsNodeToVscodeRange(classDeclaration.getNameNode() ?? classDeclaration)
                 ),
                 isDataEntity: isDataEntity
@@ -298,7 +300,7 @@ export class MetadataCache {
                     decorators: this.extractDecoratorMetadata(property),
                     references: [],
                     declaration: new vscode.Location(
-                        vscode.Uri.file(filePath),
+                        vscode.Uri.file(normalizedFilePath),
                         this.tsNodeToVscodeRange(property.getNameNode())
                     )
                 };
@@ -313,7 +315,7 @@ export class MetadataCache {
         });
 
         if (commitToCache) {
-            this.cache[filePath] = fileMetadata;
+            this.cache[normalizedFilePath] = fileMetadata;
         }
 
         return fileMetadata;
@@ -360,7 +362,7 @@ export class MetadataCache {
             returnedFields: returnedFields,
             decorators: [],
             declaration: new vscode.Location(
-                vscode.Uri.file(method.getSourceFile().getFilePath()),
+                vscode.Uri.file(method.getSourceFile().getFilePath().replace(/\\/g, '/')),
                 this.tsNodeToVscodeRange(method.getNameNode())
             )
         };
@@ -460,7 +462,8 @@ export class MetadataCache {
         }
 
         for (const file of Object.values(this.cache)) {
-            const sourceFile = this.tsMorphProject.getSourceFile(file.uri.fsPath);
+            const normalizedPath = file.uri.fsPath.replace(/\\/g, '/');
+            const sourceFile = this.tsMorphProject.getSourceFile(normalizedPath);
             if (!sourceFile) {
                 continue;
             }
@@ -549,7 +552,8 @@ export class MetadataCache {
             }
 
             const entityClass = entityMap.get(entityName)!;
-            const viewSourceFile = this.tsMorphProject.getSourceFile(viewClass.declaration.uri.fsPath);
+            const normalizedViewPath = viewClass.declaration.uri.fsPath.replace(/\\/g, '/');
+            const viewSourceFile = this.tsMorphProject.getSourceFile(normalizedViewPath);
             const viewClassNode = viewSourceFile?.getClass(viewClass.name);
             const getFieldsMethodNode = viewClassNode?.getMethod('getFields');
             const returnStatement = getFieldsMethodNode?.getFirstDescendantByKind(SyntaxKind.ReturnStatement);
@@ -581,7 +585,7 @@ export class MetadataCache {
                                     end.line - 1, end.column - 1
                                 );
                                 const refLocation = new vscode.Location(
-                                    vscode.Uri.file(viewSourceFile!.getFilePath()),
+                                    vscode.Uri.file(viewSourceFile!.getFilePath().replace(/\\/g, '/')),
                                     range
                                 );
                                 targetProperty.references.push(refLocation);
@@ -616,7 +620,7 @@ export class MetadataCache {
                 );
 
                 const refLocation = new vscode.Location(
-                    vscode.Uri.file(refSourceFile.getFilePath()),
+                    vscode.Uri.file(refSourceFile.getFilePath().replace(/\\/g, '/')),
                     preciseRange
                 );
 
