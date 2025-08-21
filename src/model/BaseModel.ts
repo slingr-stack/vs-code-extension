@@ -126,8 +126,9 @@ export abstract class BaseModel {
       return;
     }
 
-    // Iterate to resolve dependencies. A field calculated in one pass
-    // may be used by another field in the next pass.
+  // TODO: Analyze this approach for resolving dependencies between calculated fields.
+  // Iterate to resolve dependencies. A field calculated in one pass
+  // may be used by another field in the next pass.
     for (let i = 0; i < maxIterations; i++) {
       let hasChanged = false;
       for (const key of calculatedFields) {
