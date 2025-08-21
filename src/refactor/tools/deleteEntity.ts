@@ -206,7 +206,7 @@ export class DeleteEntityTool implements IRefactorTool {
     cache: MetadataCache
   ): Promise<void> {
     const allEntities = cache.findMetadata(
-      item => 'properties' in item && item.decorators.some(d => d.name === 'Entity')
+      item => 'properties' in item && item.decorators.some(d => d.name === 'Model')
     ) as DecoratedClass[];
 
     for (const entity of allEntities) {

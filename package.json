@@ -62,26 +62,16 @@
     "menus": {
       "editor/context": [
         {
-          "when": "resourceScheme == 'file' && resourceLangId == 'typescript'",
+          "when": "resourceScheme == 'file' && resourceLangId == 'typescript' && resourcePath =~ /src[\\\\/]data[\\\\/]/",
           "submenu": "slingr-vscode-extension.refactorings",
           "group": "9_refactor@1"
         }
       ],
       "explorer/context": [
         {
-          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourceLangId == 'typescript'",
+          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourceLangId == 'typescript' && resourcePath =~ /src[\\\\/]data[\\\\/]/",
           "submenu": "slingr-vscode-extension.refactorings",
           "group": "2_workspace"
-        },
-        {
-          "command": "slingr-vscode-extension.renameEntity",
-          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourcePath =~ /\\/src\\/data\\//",
-          "group": "2_workspace@1"
-        },
-        {
-          "command": "slingr-vscode-extension.deleteEntity",
-          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourcePath =~ /\\/src\\/data\\//",
-          "group": "2_workspace@2"
         }
       ],
       "view/item/context": [
@@ -94,12 +84,12 @@
       "slingr-vscode-extension.refactorings": [
         {
           "command": "slingr-vscode-extension.renameEntity",
-          "when": "view == slingrExplorer && viewItem == 'entity'",
+          "when": "(view == slingrExplorer && viewItem == 'entity') || !viewItem",
           "group": "1_modification"
         },
         {
           "command": "slingr-vscode-extension.deleteEntity",
-          "when": "view == slingrExplorer && viewItem == 'entity'",
+          "when": "(view == slingrExplorer && viewItem == 'entity') || !viewItem",
           "group": "2_modification"
         },
         {

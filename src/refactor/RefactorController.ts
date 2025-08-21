@@ -60,17 +60,13 @@ export class RefactorController {
 
   /**
    * Handles manual refactoring commands triggered by user interaction.
-   * 
    * This method processes refactoring commands from various contexts including tree view items
    * and editor selections. It validates the command, determines the appropriate refactoring context,
    * executes the refactoring tool, and presents the changes for user approval.
-   * 
    * @param commandId - The identifier of the refactoring command to execute
    * @param context - Optional context providing either a URI or AppTreeItem for the refactoring target.
-   *                  If not provided, uses the active text editor as the target.
-   * 
+   * If not provided, uses the active text editor as the target.
    * @returns A Promise that resolves when the refactoring operation is complete
-   * 
    * @remarks
    * - Shows error message if the command ID is not recognized
    * - For AppTreeItem context, uses the item's metadata for refactoring scope
@@ -85,7 +81,8 @@ export class RefactorController {
       return;
     }
 
-    let refactorContext: ManualRefactorContext;
+    let refactorContext: ManualRefactorContext | undefined;
+
     if (context instanceof AppTreeItem) {
       if (!context.metadata) {
         vscode.window.showInformationMessage("No metadata found for the selected item.");
@@ -97,22 +94,38 @@ export class RefactorController {
         range: context.metadata.declaration.range,
         metadata: context.metadata,
       };
+    } else if (context instanceof vscode.Uri) {
+      const fileMeta = this.cache.getMetadataForFile(context.fsPath);
+      if (!fileMeta || Object.keys(fileMeta.classes).length === 0) {
+        vscode.window.showInformationMessage("No class found in the selected file to refactor.");
+        return;
+      }
+      // When triggered from file explorer, we assume the target is the first class in the file.
+      const targetClass = Object.values(fileMeta.classes)[0];
+      refactorContext = {
+        cache: this.cache,
+        uri: context,
+        range: targetClass.declaration.range,
+        metadata: targetClass,
+      };
     } else {
       const editor = vscode.window.activeTextEditor;
-      const targetUri = context instanceof vscode.Uri ? context : editor?.document.uri;
-
-      if (!targetUri) {
+      if (!editor) {
         vscode.window.showInformationMessage("Cannot determine file for refactoring. Please open a file.");
         return;
       }
-
-      const position = editor?.selection.active ?? new vscode.Position(0, 0);
+      const position = editor.selection.active;
       refactorContext = {
         cache: this.cache,
-        uri: targetUri,
+        uri: editor.document.uri,
         range: new vscode.Range(position, position),
-        metadata: await findNodeAtPosition(targetUri, position),
+        metadata: await findNodeAtPosition(editor.document.uri, position),
       };
+    }
+
+    if (!refactorContext) {
+      vscode.window.showErrorMessage("Could not determine the context for refactoring.");
+      return;
     }
 
     const changeObject = await tool.initiateManualRefactor(refactorContext);

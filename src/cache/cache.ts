@@ -232,10 +232,10 @@ export class MetadataCache {
     /**
      * Helper to get a deep copy of metadata to prevent mutation of the cache state.
      */
-    public getMetadataForFile(path: string): FileMetadata | undefined {
+    public getMetadataForFile(path: string, isCopy: boolean = false): FileMetadata | undefined {
         const normalizedPath = path.replace(/\\/g, '/');
         const fileData = this.cache[normalizedPath];
-        return fileData ? JSON.parse(JSON.stringify(fileData)) : undefined;
+        return fileData ? (isCopy ? JSON.parse(JSON.stringify(fileData)) : fileData) : undefined;
     }
 
     /**
@@ -536,7 +536,7 @@ export class MetadataCache {
      */
     private buildImplicitViewFieldReferences(): void {
         const entityMap = new Map<string, DecoratedClass>();
-        this.findMetadata(item => 'properties' in item && item.decorators.some(d => d.name === 'Entity'))
+        this.findMetadata(item => 'properties' in item && item.decorators.some(d => d.name === 'Model'))
             .forEach(entity => entityMap.set((entity as DecoratedClass).name, entity as DecoratedClass));
 
         const viewClasses = this.findMetadata(
