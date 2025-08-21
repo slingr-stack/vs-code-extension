@@ -82,7 +82,7 @@ export class ExplorerProvider
         // Find the field that represents this composition relationship
         for (const [propName, prop] of Object.entries(parentEntity.properties)) {
           if (prop.decorators.some(d => d.name === "Field") && 
-              prop.decorators.some(d => d.name === "Relationship" && d.arguments.some(arg => arg.type === "Composition")) &&
+              prop.decorators.some(d => d.name === "Relationship" && d.arguments.some(arg => arg.type === "composition" || arg.type === "Composition")) &&
               prop.type === draggedItem.metadata?.name) {
             compositionFieldName = propName;
             break;
