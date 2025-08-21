@@ -189,7 +189,7 @@ export function Field(options: FieldOptions) {
       const memoizedSymbol = Symbol(`_memoized_${propertyKey}`); // Use a Symbol to avoid property collisions
 
       // Store the original calculation function in metadata so `calculate()` can find it
-      Reflect.defineMetadata('custom:calculation', originalGetter, target, propertyKey);
+      Reflect.defineMetadata('field:calculation', originalGetter, target, propertyKey);
 
       // Replace the original getter with one that returns the memoized value
       descriptor.get = function() {

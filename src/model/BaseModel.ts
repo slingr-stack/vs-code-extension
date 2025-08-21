@@ -120,7 +120,7 @@ export abstract class BaseModel {
   public async calculate(maxIterations: number = 10): Promise<void> {
     const calculatedFields = Object.getOwnPropertyNames(
       Object.getPrototypeOf(this)
-    ).filter((key) => Reflect.hasMetadata("custom:calculation", this, key));
+    ).filter((key) => Reflect.hasMetadata("field:calculation", this, key));
 
     if (calculatedFields.length === 0) {
       return;
@@ -132,7 +132,7 @@ export abstract class BaseModel {
       let hasChanged = false;
       for (const key of calculatedFields) {
         const originalGetter = Reflect.getMetadata(
-          "custom:calculation",
+          "field:calculation",
           this,
           key
         );
