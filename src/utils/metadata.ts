@@ -1,6 +1,7 @@
 
 import * as vscode from 'vscode';
 import { DecoratedClass, PropertyMetadata } from "../cache/cache";
+import { fieldTypeConfig } from '../utils/fieldTypes';
 
 /**
  * Checks if a URI corresponds to a file in the entity directory.
@@ -8,7 +9,7 @@ import { DecoratedClass, PropertyMetadata } from "../cache/cache";
  * @returns True if the URI is for an entity file, false otherwise.
  */
 export function isEntityFile(uri: vscode.Uri): boolean {
-    return uri.path.includes('/src/data/entities/');
+    return uri.path.includes('/src/data/');
 }
 
 /**
@@ -17,8 +18,10 @@ export function isEntityFile(uri: vscode.Uri): boolean {
  * @returns True if the metadata is for an Entity class, false otherwise.
  */
 export function isEntity(metadata: DecoratedClass | PropertyMetadata): metadata is DecoratedClass {
-    return 'decorators' in metadata && metadata.decorators.some(d => d.name === 'Entity');
+    return 'decorators' in metadata && metadata.decorators.some(d => d.name === 'Model');
 }
+
+const fieldDecoratorNames = Object.keys(fieldTypeConfig);
 
 /**
  * Checks if a property metadata object is a Field.
@@ -26,10 +29,7 @@ export function isEntity(metadata: DecoratedClass | PropertyMetadata): metadata 
  * @returns True if the metadata is for a Field property, false otherwise.
  */
 export function isField(metadata: DecoratedClass | PropertyMetadata): metadata is PropertyMetadata {
-    return 'type' in metadata && metadata.decorators.some(d => 
-        d.name.endsWith('Type') || 
-        ['Choice', 'Html', 'Integer', 'LongText', 'Relationship', 'Text', 'AutoIncremental'].includes(d.name)
-    );
+    return 'type' in metadata && metadata.decorators.some(d => fieldDecoratorNames.includes(d.name));
 }
 
 /**

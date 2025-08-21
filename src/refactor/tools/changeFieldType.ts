@@ -2,43 +2,7 @@ import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
 import { isEntity, isEntityFile, isField } from '../../utils/metadata';
-
-
-/**
- * Defines a supported argument for a field decorator.
- */
-interface DecoratorArgument {
-    name: string;
-    type: 'string' | 'number' | 'boolean' | 'object' | 'enum';
-}
-
-/**
- * Configuration object that defines how field types are handled in decorators.
- * 
- * This interface provides the mapping and generation logic for converting between
- * TypeScript types and their corresponding field decorators.
- * 
- * @interface FieldTypeConfig
- * 
- * @property {string} [requiredTsType] - The TypeScript type that this decorator requires.
- * For example, a Text decorator might require 'string', while a Number decorator requires 'number'.
- * 
- * @property {string[]} [mapsFromTsTypes] - An array of TypeScript types that can be automatically
- * mapped to this decorator. For instance, 'string' type might suggest using a 'Text' decorator.
- * 
- * @property {function} buildDecoratorString - A function that generates the actual decorator
- * string based on the field metadata and new type. This allows for complex decorator generation
- * that may include additional parameters or custom formatting.
- */
-interface FieldTypeConfig {
-    requiredTsType?: string;
-    
-    mapsFromTsTypes?: string[];
-
-    supportedArgs: DecoratorArgument[];
-
-    buildDecoratorString: (newTypeName: string, transferredArgs: Map<string, any>) => string;
-}
+import { fieldTypeConfig } from '../../utils/fieldTypes';
 
 /**
  * A refactoring tool that handles changing field type decorators in entity classes.
@@ -61,111 +25,7 @@ interface FieldTypeConfig {
  */
 export class ChangeFieldTypeTool implements IRefactorTool {
 
-    private readonly fieldTypeConfig: Record<string, FieldTypeConfig> = {
-        // --- String-based Types ---
-        'Text': {
-            requiredTsType: 'string',
-            mapsFromTsTypes: ['string'],
-            supportedArgs: [
-                { name: 'docs', type: 'string' },
-                { name: 'isUnique', type: 'boolean' },
-                { name: 'maxLength', type: 'number' },
-            ],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-        'LongText': {
-            requiredTsType: 'string',
-            supportedArgs: [
-                { name: 'docs', type: 'string' },
-                { name: 'isUnique', type: 'boolean' },
-            ],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-        'Email': {
-            requiredTsType: 'string',
-            supportedArgs: [
-                { name: 'docs', type: 'string' },
-                { name: 'isUnique', type: 'boolean' },
-            ],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-        'Html': {
-            requiredTsType: 'string',
-            supportedArgs: [
-                { name: 'docs', type: 'string' },
-            ],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-
-        // --- Number-based Types ---
-        'Integer': {
-            requiredTsType: 'number',
-            mapsFromTsTypes: ['number'],
-            supportedArgs: [
-                { name: 'docs', type: 'string' },
-                { name: 'isUnique', type: 'boolean' },
-                { name: 'positive', type: 'boolean' },
-                { name: 'minValue', type: 'number' },
-                { name: 'maxValue', type: 'number' },
-            ],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-        'AutoIncremental': {
-            requiredTsType: 'number',
-            supportedArgs: [{ name: 'docs', type: 'string' }],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-        'Money': {
-            requiredTsType: 'number',
-            supportedArgs: [
-                { name: 'docs', type: 'string' },
-                { name: 'currency', type: 'string' },
-                { name: 'positive', type: 'boolean' },
-            ],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-
-        // --- Date/Time Types ---
-        'Date': {
-            requiredTsType: 'Date',
-            mapsFromTsTypes: ['Date'],
-            supportedArgs: [{ name: 'docs', type: 'string' }],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-        'DateRange': {
-            requiredTsType: 'DateRange',
-            supportedArgs: [{ name: 'docs', type: 'string' }],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-
-        // --- Boolean Type ---
-        'Boolean': {
-            requiredTsType: 'boolean',
-            mapsFromTsTypes: ['boolean'],
-            supportedArgs: [
-                { name: 'docs', type: 'string' },
-                { name: 'defaultValue', type: 'boolean' },
-            ],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-
-        // --- Special Types ---
-        'Choice': {
-            requiredTsType: undefined,
-            supportedArgs: [{ name: 'labels', type: 'object' }],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-        'Relationship': {
-            requiredTsType: undefined,
-            supportedArgs: [
-                { name: 'type', type: 'string' },
-                { name: 'filter', type: 'object' },
-            ],
-            buildDecoratorString: this.genericBuildDecoratorString
-        },
-    };
-
-    private readonly availableTypes = Object.keys(this.fieldTypeConfig);
+    private readonly availableTypes = Object.keys(fieldTypeConfig);
 
     public getCommandId(): string {
         return 'slingr-vscode-extension.changeFieldType';
@@ -252,12 +112,12 @@ export class ChangeFieldTypeTool implements IRefactorTool {
 
                 // Detect if the user explicitly changed the decorator
                 if (oldDecoratorName && newDecoratorName && oldDecoratorName !== newDecoratorName) {
-                    const newDecorator = newProp.decorators.find(d => d.name === newDecoratorName);
+                    const oldDecorator = oldProp.decorators.find(d => d.name === oldDecoratorName);
                     changes.push({
                         type: 'CHANGE_FIELD_TYPE',
                         uri: newFileMeta.uri,
                         description: `Decorator for '${newProp.name}' changed to '@${newDecoratorName}'.`,
-                        payload: { isManual: false, field: newProp, newType: newDecoratorName, decoratorPosition: newDecorator?.position, }
+                        payload: { isManual: false, field: newProp, newType: newDecoratorName, oldDecorator }
                     });
                 }
                 // Detect if the user changed the TS type, but not the decorator
@@ -265,12 +125,12 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                     const suggestedDecorator = this.getDecoratorForType(newTsType);
                     // Propose a change only if the current decorator is not an appropriate one for the new type
                     if (suggestedDecorator && suggestedDecorator !== newDecoratorName) {
-                        const decoratorToChange = newProp.decorators.find(d => d.name === newDecoratorName);
+                        const oldDecorator = oldProp.decorators.find(d => d.name === oldDecoratorName);
                         changes.push({
                             type: 'CHANGE_FIELD_TYPE',
                             uri: newFileMeta.uri,
                             description: `Type for '${newProp.name}' changed to '${newTsType}'. Suggest changing decorator to '@${suggestedDecorator}'.`,
-                            payload: { isManual: false, field: newProp, newType: suggestedDecorator, decoratorPosition: decoratorToChange?.position, }
+                            payload: { isManual: false, field: newProp, newType: suggestedDecorator, oldDecorator }
                         });
                     }
                 }
@@ -339,27 +199,35 @@ export class ChangeFieldTypeTool implements IRefactorTool {
      * @returns A promise that resolves to a WorkspaceEdit containing all necessary changes
      */
      public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
-        const { newType, field, decoratorPosition } = change.payload;
+        const { isManual, newType, field, decoratorPosition, oldDecorator } = change.payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
-        if (!newType || !field || !decoratorPosition) {
+
+        const positionToReplace = isManual
+            ? decoratorPosition
+            : field?.decorators.find((d: PropertyMetadata) => this.availableTypes.includes(d.name))?.position;
+
+        if (!newType || !field || !positionToReplace) {
             return workspaceEdit;
         }
         if (newType === 'Choice' && this.isPrimitiveType(field.type)) {
-            await this.applyChoiceEnumCreation(workspaceEdit, field, decoratorPosition, change.uri);
+            await this.applyChoiceEnumCreation(workspaceEdit, field, positionToReplace, change.uri);
         } else {
-            const document = await vscode.workspace.openTextDocument(change.uri);
-            const oldDecoratorText = document.getText(decoratorPosition);
-            const oldArgs = this.parseDecoratorArguments(oldDecoratorText);
+            let oldArgs = new Map<string, any>();
+            if (isManual) {
+                const document = await vscode.workspace.openTextDocument(change.uri);
+                const oldDecoratorText = document.getText(positionToReplace);
+                oldArgs = this.parseDecoratorArguments(oldDecoratorText);
+            } else if (oldDecorator?.arguments) {
+                // For automatic changes, we assume the old decorator's arguments are in the cache
+                oldArgs = new Map(Object.entries(oldDecorator.arguments));
+            }
 
-            const newTypeConfig = this.fieldTypeConfig[newType];
+            const newTypeConfig = fieldTypeConfig[newType];
             const transferredArgs = new Map<string, any>();
-
             if (newTypeConfig) {
                 const newSupportedArgNames = new Set(newTypeConfig.supportedArgs.map(arg => arg.name));
                 for (const [key, value] of oldArgs.entries()) {
-                    if (newSupportedArgNames.has(key)) {
-                        transferredArgs.set(key, value);
-                    }
+                    if (newSupportedArgNames.has(key)) { transferredArgs.set(key, value); }
                 }
             }
 
@@ -367,7 +235,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                 ? newTypeConfig.buildDecoratorString(newType, transferredArgs)
                 : `@${newType}()`; // Fallback
 
-            workspaceEdit.replace(change.uri, decoratorPosition, decoratorString);
+            workspaceEdit.replace(change.uri, positionToReplace, decoratorString);
 
             const typeCorrectionEdit = await this.validateAndCorrectType(field, newType, change.uri);
             if (typeCorrectionEdit) {
@@ -504,27 +372,6 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         return args;
     }
 
-    // A generic function to build the decorator string 
-    private genericBuildDecoratorString(newTypeName: string, transferredArgs: Map<string, any>): string {
-        if (transferredArgs.size === 0) {
-            return `@${newTypeName}()`;
-        }
-
-        const argsString = Array.from(transferredArgs.entries())
-            .map(([key, value]) => {
-                let formattedValue: string;
-                if (typeof value === 'string') {
-                    formattedValue = `'${value}'`;
-                } else {
-                    formattedValue = String(value);
-                }
-                return `\n    ${key}: ${formattedValue}`;
-            })
-            .join(',');
-
-        return `@${newTypeName}({${argsString}\n})`;
-    }
-
     /**
      * Maps TypeScript primitive types to their corresponding decorator names.
      * 
@@ -540,8 +387,8 @@ export class ChangeFieldTypeTool implements IRefactorTool {
      */
     private getDecoratorForType(tsType: string): string | undefined {
     const lowerTsType = tsType.toLowerCase();
-    for (const decoratorName in this.fieldTypeConfig) {
-        const config = this.fieldTypeConfig[decoratorName];
+    for (const decoratorName in fieldTypeConfig) {
+        const config = fieldTypeConfig[decoratorName];
         if (config.mapsFromTsTypes?.includes(lowerTsType)) {
             return decoratorName;
         }
@@ -566,7 +413,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
      * ```
      */
     private getRequiredTypeForDecorator(decoratorName: string): string | undefined {
-    return this.fieldTypeConfig[decoratorName]?.requiredTsType;
+    return fieldTypeConfig[decoratorName]?.requiredTsType;
 }
 
 
