@@ -161,17 +161,19 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         }
 
         const field = context.metadata as PropertyMetadata;
-        const fieldDecorator = field.decorators.find(d => this.availableTypes.some(type => d.name.startsWith(type)));
-        if (!fieldDecorator) {
-             vscode.window.showErrorMessage('Could not find a valid type decorator on this field.');
-             return;
+        const typeDecorator = field.decorators.find(d => this.availableTypes.includes(d.name));
+        const fieldDecorator = field.decorators.find(d => d.name === 'Field');
+        const targetDecorator = typeDecorator || fieldDecorator;
+        if (!targetDecorator) {
+            vscode.window.showErrorMessage('Could not find a valid decorator on this field.');
+            return;
         }
 
         const newType = await vscode.window.showQuickPick(this.availableTypes, {
             placeHolder: `Select a new type for '${field.name}'`,
         });
         if (!newType) {
-            return undefined; 
+            return undefined;
         }
 
         return {
@@ -182,7 +184,8 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                 isManual: true,
                 newType: newType,
                 field: field,
-                decoratorPosition: fieldDecorator.position
+                decoratorPosition: targetDecorator.position,
+                oldDecorator: typeDecorator // Will be undefined if only @Field exists
             }
         };
     }
@@ -202,23 +205,35 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         const { isManual, newType, field, decoratorPosition, oldDecorator } = change.payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
 
-        const positionToReplace = isManual
-            ? decoratorPosition
-            : field?.decorators.find((d: PropertyMetadata) => this.availableTypes.includes(d.name))?.position;
+        let isReplacing = false;
+        let positionToActOn: vscode.Range | undefined;
 
-        if (!newType || !field || !positionToReplace) {
+        if (isManual) {
+            positionToActOn = decoratorPosition;
+            isReplacing = !!oldDecorator;
+        } else {
+            const typeDecorator = field?.decorators.find((d: any) => this.availableTypes.includes(d.name));
+            if (typeDecorator) {
+                positionToActOn = typeDecorator.position;
+                isReplacing = true;
+            } else {
+                positionToActOn = field?.decorators.find((d: any) => d.name === 'Field')?.position;
+                isReplacing = false;
+            }
+        }
+
+        if (!newType || !field || !positionToActOn) {
             return workspaceEdit;
         }
         if (newType === 'Choice' && this.isPrimitiveType(field.type)) {
-            await this.applyChoiceEnumCreation(workspaceEdit, field, positionToReplace, change.uri);
+            await this.applyChoiceEnumCreation(workspaceEdit, field, positionToActOn, change.uri);
         } else {
             let oldArgs = new Map<string, any>();
-            if (isManual) {
+            if (isManual && isReplacing) {
                 const document = await vscode.workspace.openTextDocument(change.uri);
-                const oldDecoratorText = document.getText(positionToReplace);
+                const oldDecoratorText = document.getText(positionToActOn);
                 oldArgs = this.parseDecoratorArguments(oldDecoratorText);
-            } else if (oldDecorator?.arguments) {
-                // For automatic changes, we assume the old decorator's arguments are in the cache
+            } else if (!isManual && oldDecorator?.arguments) {
                 oldArgs = new Map(Object.entries(oldDecorator.arguments));
             }
 
@@ -233,9 +248,17 @@ export class ChangeFieldTypeTool implements IRefactorTool {
 
             const decoratorString = newTypeConfig
                 ? newTypeConfig.buildDecoratorString(newType, transferredArgs)
-                : `@${newType}()`; // Fallback
+                : `@${newType}()`; 
 
-            workspaceEdit.replace(change.uri, positionToReplace, decoratorString);
+            if (isReplacing) {
+                workspaceEdit.replace(change.uri, positionToActOn, decoratorString);
+            } else {
+                const document = await vscode.workspace.openTextDocument(change.uri);
+                const decoratorLine = document.lineAt(positionToActOn.start.line);
+                const indentation = decoratorLine.text.substring(0, decoratorLine.firstNonWhitespaceCharacterIndex);
+                const textToInsert = `${decoratorString}\n${indentation}`;
+                workspaceEdit.insert(change.uri, positionToActOn.start, textToInsert);
+            }
 
             const typeCorrectionEdit = await this.validateAndCorrectType(field, newType, change.uri);
             if (typeCorrectionEdit) {

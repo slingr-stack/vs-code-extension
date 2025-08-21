@@ -29,7 +29,7 @@ const fieldDecoratorNames = Object.keys(fieldTypeConfig);
  * @returns True if the metadata is for a Field property, false otherwise.
  */
 export function isField(metadata: DecoratedClass | PropertyMetadata): metadata is PropertyMetadata {
-    return 'type' in metadata && metadata.decorators.some(d => fieldDecoratorNames.includes(d.name));
+    return 'type' in metadata && metadata.decorators.some(d => d.name === 'Field');
 }
 
 /**
