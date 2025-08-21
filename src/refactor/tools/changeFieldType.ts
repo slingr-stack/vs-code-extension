@@ -5,6 +5,14 @@ import { isEntity, isEntityFile, isField } from '../../utils/metadata';
 
 
 /**
+ * Defines a supported argument for a field decorator.
+ */
+interface DecoratorArgument {
+    name: string;
+    type: 'string' | 'number' | 'boolean' | 'object' | 'enum';
+}
+
+/**
  * Configuration object that defines how field types are handled in decorators.
  * 
  * This interface provides the mapping and generation logic for converting between
@@ -26,8 +34,10 @@ interface FieldTypeConfig {
     requiredTsType?: string;
     
     mapsFromTsTypes?: string[];
-    
-    buildDecoratorString: (field: PropertyMetadata, newType: string) => string;
+
+    supportedArgs: DecoratorArgument[];
+
+    buildDecoratorString: (newTypeName: string, transferredArgs: Map<string, any>) => string;
 }
 
 /**
@@ -52,43 +62,113 @@ interface FieldTypeConfig {
 export class ChangeFieldTypeTool implements IRefactorTool {
 
     private readonly fieldTypeConfig: Record<string, FieldTypeConfig> = {
+        // --- String-based Types ---
         'Text': {
             requiredTsType: 'string',
             mapsFromTsTypes: ['string'],
-            buildDecoratorString: (field, newType) => `@${newType}()`
+            supportedArgs: [
+                { name: 'docs', type: 'string' },
+                { name: 'isUnique', type: 'boolean' },
+                { name: 'maxLength', type: 'number' },
+            ],
+            buildDecoratorString: this.genericBuildDecoratorString
         },
         'LongText': {
             requiredTsType: 'string',
-            buildDecoratorString: (field, newType) => `@${newType}()`
+            supportedArgs: [
+                { name: 'docs', type: 'string' },
+                { name: 'isUnique', type: 'boolean' },
+            ],
+            buildDecoratorString: this.genericBuildDecoratorString
+        },
+        'Email': {
+            requiredTsType: 'string',
+            supportedArgs: [
+                { name: 'docs', type: 'string' },
+                { name: 'isUnique', type: 'boolean' },
+            ],
+            buildDecoratorString: this.genericBuildDecoratorString
         },
         'Html': {
             requiredTsType: 'string',
-            buildDecoratorString: (field, newType) => `@${newType}()`
+            supportedArgs: [
+                { name: 'docs', type: 'string' },
+            ],
+            buildDecoratorString: this.genericBuildDecoratorString
         },
+
+        // --- Number-based Types ---
         'Integer': {
             requiredTsType: 'number',
             mapsFromTsTypes: ['number'],
-            buildDecoratorString: (field, newType) => `@${newType}()`
+            supportedArgs: [
+                { name: 'docs', type: 'string' },
+                { name: 'isUnique', type: 'boolean' },
+                { name: 'positive', type: 'boolean' },
+                { name: 'minValue', type: 'number' },
+                { name: 'maxValue', type: 'number' },
+            ],
+            buildDecoratorString: this.genericBuildDecoratorString
         },
+        'AutoIncremental': {
+            requiredTsType: 'number',
+            supportedArgs: [{ name: 'docs', type: 'string' }],
+            buildDecoratorString: this.genericBuildDecoratorString
+        },
+        'Money': {
+            requiredTsType: 'number',
+            supportedArgs: [
+                { name: 'docs', type: 'string' },
+                { name: 'currency', type: 'string' },
+                { name: 'positive', type: 'boolean' },
+            ],
+            buildDecoratorString: this.genericBuildDecoratorString
+        },
+
+        // --- Date/Time Types ---
+        'Date': {
+            requiredTsType: 'Date',
+            mapsFromTsTypes: ['Date'],
+            supportedArgs: [{ name: 'docs', type: 'string' }],
+            buildDecoratorString: this.genericBuildDecoratorString
+        },
+        'DateRange': {
+            requiredTsType: 'DateRange',
+            supportedArgs: [{ name: 'docs', type: 'string' }],
+            buildDecoratorString: this.genericBuildDecoratorString
+        },
+
+        // --- Boolean Type ---
+        'Boolean': {
+            requiredTsType: 'boolean',
+            mapsFromTsTypes: ['boolean'],
+            supportedArgs: [
+                { name: 'docs', type: 'string' },
+                { name: 'defaultValue', type: 'boolean' },
+            ],
+            buildDecoratorString: this.genericBuildDecoratorString
+        },
+
+        // --- Special Types ---
         'Choice': {
-            // 'Choice' is special; its TS type is often an enum, not a primitive.
-            // We leave this undefined as it's handled by a special method.
-            requiredTsType: undefined, 
-            buildDecoratorString: (field, newType) => {
-                return `@${newType}()`;
-            }
+            requiredTsType: undefined,
+            supportedArgs: [{ name: 'labels', type: 'object' }],
+            buildDecoratorString: this.genericBuildDecoratorString
         },
         'Relationship': {
-            // Similar to Choice
             requiredTsType: undefined,
-            buildDecoratorString: (field, newType) => `@${newType}()`
-        }
+            supportedArgs: [
+                { name: 'type', type: 'string' },
+                { name: 'filter', type: 'object' },
+            ],
+            buildDecoratorString: this.genericBuildDecoratorString
+        },
     };
 
     private readonly availableTypes = Object.keys(this.fieldTypeConfig);
 
     public getCommandId(): string {
-        return 'ts-app-extension.changeFieldType';
+        return 'slingr-vscode-extension.changeFieldType';
     }
 
     public getTitle(): string {
@@ -267,7 +347,26 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         if (newType === 'Choice' && this.isPrimitiveType(field.type)) {
             await this.applyChoiceEnumCreation(workspaceEdit, field, decoratorPosition, change.uri);
         } else {
-            const decoratorString = `@${newType}()`;
+            const document = await vscode.workspace.openTextDocument(change.uri);
+            const oldDecoratorText = document.getText(decoratorPosition);
+            const oldArgs = this.parseDecoratorArguments(oldDecoratorText);
+
+            const newTypeConfig = this.fieldTypeConfig[newType];
+            const transferredArgs = new Map<string, any>();
+
+            if (newTypeConfig) {
+                const newSupportedArgNames = new Set(newTypeConfig.supportedArgs.map(arg => arg.name));
+                for (const [key, value] of oldArgs.entries()) {
+                    if (newSupportedArgNames.has(key)) {
+                        transferredArgs.set(key, value);
+                    }
+                }
+            }
+
+            const decoratorString = newTypeConfig
+                ? newTypeConfig.buildDecoratorString(newType, transferredArgs)
+                : `@${newType}()`; // Fallback
+
             workspaceEdit.replace(change.uri, decoratorPosition, decoratorString);
 
             const typeCorrectionEdit = await this.validateAndCorrectType(field, newType, change.uri);
@@ -374,6 +473,56 @@ export class ChangeFieldTypeTool implements IRefactorTool {
             }
         } catch (e) { console.error(e); }
         return undefined;
+    }
+
+    private parseDecoratorArguments(decoratorText: string): Map<string, any> {
+        const args = new Map<string, any>();
+        const match = decoratorText.match(/@\w+\(\s*(\{[\s\S]*\})\s*\)/);
+        if (!match || !match[1]) {
+            return args;
+        }
+        
+        const argBlock = match[1];
+        // This regex captures key-value pairs. It's simplified and may need enhancing for complex values like nested objects.
+        const argRegex = /(\w+)\s*:\s*(?:'([^']*)'|"([^"]*)"|(\w+|[\d.]+))/g;
+
+        let argMatch;
+        while ((argMatch = argRegex.exec(argBlock)) !== null) {
+            const key = argMatch[1];
+            const value = argMatch[2] || argMatch[3] || argMatch[4];
+            
+            if (value === 'true') {
+                args.set(key, true);
+            } else if (value === 'false') {
+                args.set(key, false);
+            } else if (!isNaN(Number(value))) {
+                args.set(key, Number(value));
+            } else {
+                args.set(key, value);
+            }
+        }
+        return args;
+    }
+
+    // A generic function to build the decorator string 
+    private genericBuildDecoratorString(newTypeName: string, transferredArgs: Map<string, any>): string {
+        if (transferredArgs.size === 0) {
+            return `@${newTypeName}()`;
+        }
+
+        const argsString = Array.from(transferredArgs.entries())
+            .map(([key, value]) => {
+                let formattedValue: string;
+                if (typeof value === 'string') {
+                    formattedValue = `'${value}'`;
+                } else {
+                    formattedValue = String(value);
+                }
+                return `\n    ${key}: ${formattedValue}`;
+            })
+            .join(',');
+
+        return `@${newTypeName}({${argsString}\n})`;
     }
 
     /**
