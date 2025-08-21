@@ -64,6 +64,9 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
             { name: 'docs', type: 'string' },
             { name: 'isUnique', type: 'boolean' },
             { name: 'maxLength', type: 'number' },
+            { name: 'minLength', type: 'number' },
+            { name: 'regex', type: 'string' },
+            { name: 'regex', type: 'string' },
         ],
         buildDecoratorString: genericBuildDecoratorString
     },
@@ -99,22 +102,23 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
             { name: 'docs', type: 'string' },
             { name: 'isUnique', type: 'boolean' },
             { name: 'positive', type: 'boolean' },
-            { name: 'minValue', type: 'number' },
-            { name: 'maxValue', type: 'number' },
+            { name: 'negative', type: 'boolean' },
+            { name: 'min', type: 'number' },
+            { name: 'max', type: 'number' },
         ],
-        buildDecoratorString: genericBuildDecoratorString
-    },
-    'AutoIncremental': {
-        requiredTsType: 'number',
-        supportedArgs: [{ name: 'docs', type: 'string' }],
         buildDecoratorString: genericBuildDecoratorString
     },
     'Money': {
         requiredTsType: 'number',
         supportedArgs: [
             { name: 'docs', type: 'string' },
-            { name: 'currency', type: 'string' },
+            { name: 'numberOfDecimals', type: 'number' },
+            { name: 'roundingType', type: 'enum' },
+            { name: 'error', type: 'string' },
             { name: 'positive', type: 'boolean' },
+            { name: 'negative', type: 'boolean' },
+            { name: 'min', type: 'number' },
+            { name: 'max', type: 'number' },
         ],
         buildDecoratorString: genericBuildDecoratorString
     },
