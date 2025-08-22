@@ -1,5 +1,5 @@
 import { ValidationError, validate } from "class-validator";
-import type { ValidationIssue } from "./Field";
+import type { ValidationIssue } from "./types/SharedTypes";
 
 /**
  * Abstract base class for all model classes in the framework.
@@ -62,15 +62,15 @@ export abstract class BaseModel {
    */
   public async validate(): Promise<ValidationError[]> {
     const errors = await validate(this);
-    
+
     // Transform constraint names for custom validations to preserve original error codes
     errors.forEach(error => {
       if (error.constraints) {
         const constraintKeys = Object.keys(error.constraints);
-        
+
         // Check if this is a custom validation error (contains "customValidation")
         const customConstraint = constraintKeys.find(key => key.includes('customValidation'));
-        
+
         if (customConstraint) {
           // Get the custom validation function to extract error codes
           const customValidationFn = Reflect.getMetadata(
@@ -78,10 +78,10 @@ export abstract class BaseModel {
             this,
             error.property
           );
-          
+
           if (typeof customValidationFn === "function") {
             const validationResults = customValidationFn(error.value, this);
-            
+
             if (validationResults && validationResults.length > 0) {
               // Replace constraints with original error codes
               const newConstraints: Record<string, string> = {};
@@ -94,7 +94,7 @@ export abstract class BaseModel {
         }
       }
     });
-    
+
     return errors;
   }
 }

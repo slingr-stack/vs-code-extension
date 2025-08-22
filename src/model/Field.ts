@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsOptional, ValidateIf } from 'class-validator';
 import { CustomValidate } from '../validators/CustomValidationConstraint';
+import type { CustomRequiredFunction, CustomValidationFunction } from './types/SharedTypes';
 
 /**
  * Custom validation function type for field validation.
@@ -18,14 +19,8 @@ import { CustomValidate } from '../validators/CustomValidationConstraint';
  * };
  * ```
  */
-export type ValidationIssue = { code: string; message: string };
 
-type CustomValidationFunction<TValue, TObject> = (
-  value: TValue,
-  object: TObject
-) => ValidationIssue[];
 
-type CustomRequiredFunction<TObject> = (object: TObject) => boolean;
 
 /**
  * Configuration options for the Field decorator.

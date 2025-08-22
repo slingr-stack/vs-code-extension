@@ -91,4 +91,36 @@ describe("Person Model Validation", () => {
     expect(errors.length).toBeGreaterThan(0);
   });
 
+  it("should fail validation for invalid height", async () => {
+    const invalidUser = new Person();
+    invalidUser.firstName = "John";
+    invalidUser.lastName = "Doe";
+    invalidUser.email = "john.doe@example.com";
+    invalidUser.age = 30;
+    invalidUser.height = -1; // Invalid height
+
+    const errors = await invalidUser.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "height", codes: ["isPositive"], messages: ["height must be a positive number"] },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
+
+  it("should fail for invalid birth year", async () => {
+    const invalidUser = new Person();
+    invalidUser.firstName = "John";
+    invalidUser.lastName = "Doe";
+    invalidUser.email = "john.doe@example.com";
+    invalidUser.age = 30;
+    invalidUser.height = 180;
+    invalidUser.birthYear = 1800; // Invalid birth year
+
+    const errors = await invalidUser.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "birthYear", codes: ["min"], messages: ["birthYear must be greater than or equal to 1900"] },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
 });

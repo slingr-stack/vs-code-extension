@@ -2,6 +2,7 @@ import { Field } from "../../model/Field";
 import { Model } from "../../model/Model";
 import { BaseModel } from "../../model/BaseModel";
 import { IsEmail } from "class-validator";
+import { Number, NumberOptions } from "../../model/types/Number";
 
 @Model({
   docs: "Represents a person",
@@ -36,10 +37,23 @@ export class Person extends BaseModel {
   })
   age!: number;
 
+  @Field({})
+  @Number({
+    min: 1900,
+    max: new Date().getFullYear(),
+  })
+  birthYear!: number;
+
   @Field({
     required: (person: Person) => {
       return (person.age < 18);
     },
   })
   parentEmail!: string;
+
+  @Field({})
+  @Number({
+    positive: true,
+  })
+  height!: number;
 }
