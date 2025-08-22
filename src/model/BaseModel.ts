@@ -1,4 +1,5 @@
 import { ValidationError, validate } from "class-validator";
+import type { ValidationIssue } from "./Field";
 
 /**
  * Abstract base class for all model classes in the framework.
@@ -31,8 +32,8 @@ import { ValidationError, validate } from "class-validator";
 export abstract class BaseModel {
   /**
    * Validates the current model instance using class-validator and custom validation rules.
-   *
-   * This method runs all validation rules defined by @Field decorators on the model properties.
+   * 
+   * This method runs all validation rules defined by ``@Field`` decorators on the model properties.
    * It supports both built-in class-validator decorators and custom validation functions.
    *
    * For custom validations, the method preserves original error codes and messages from
@@ -85,8 +86,8 @@ export abstract class BaseModel {
 
             if (validationResults && validationResults.length > 0) {
               // Replace constraints with original error codes
-              const newConstraints: any = {};
-              validationResults.forEach((result: any) => {
+              const newConstraints: Record<string, string> = {};
+              (validationResults as ValidationIssue[]).forEach((result) => {
                 newConstraints[result.code] = result.message;
               });
               error.constraints = newConstraints;
