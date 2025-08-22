@@ -19,27 +19,14 @@ import { CustomValidate } from '../validators/CustomValidationConstraint';
  * };
  * ```
  */
-type CustomValidationFunction = (
-  value: any,
-  object: any
-) => { code: string; message: string }[];
+export type ValidationIssue = { code: string; message: string };
 
-/**
- * Custom required function type for conditional field requirements.
- * 
- * @param object - The entire object containing the field being evaluated
- * @returns Boolean indicating whether the field is required (``true``) or optional (``false``)
- * 
- * @example
- * ```typescript
- * const isRequiredIfAdult: CustomRequiredFunction = (object) => {
- *   return object.age >= 18;
- * };
- * ```
- */
-type CustomRequiredFunction = (
-  object: any
-) => Boolean;
+type CustomValidationFunction<TValue, TObject> = (
+  value: TValue,
+  object: TObject
+) => ValidationIssue[];
+
+type CustomRequiredFunction<TObject> = (object: TObject) => boolean;
 
 /**
  * Configuration options for the Field decorator.
@@ -47,7 +34,7 @@ type CustomRequiredFunction = (
  * This interface defines all available options that can be passed to the ``@Field`` decorator
  * to configure validation, documentation, and field behavior.
  */
-export interface FieldOptions {
+export interface FieldOptions<TObject extends object = object, TValue = unknown> {
   /**
    * Specifies whether the field is required.
    * 
@@ -66,7 +53,7 @@ export interface FieldOptions {
    * guardianName: string;
    * ```
    */
-  required?: boolean | CustomRequiredFunction;
+  required?: boolean | CustomRequiredFunction<TObject>;
 
   /**
    * Documentation string for the field.
@@ -108,7 +95,7 @@ export interface FieldOptions {
    * name: string;
    * ```
    */
-  validation?: PropertyDecorator | CustomValidationFunction;
+  validation?: CustomValidationFunction<TValue, TObject>;
 
   /**
    * Indicates whether the field should be available for JSON serialization and deserialization.
@@ -151,8 +138,8 @@ export interface FieldOptions {
  * }
  * ```
  */
-export function Field(options: FieldOptions) {
-  return function (target: any, propertyKey: string) {
+export function Field<TObject extends object = object, TValue = unknown>(options: FieldOptions<TObject, TValue>) {
+  return function (target: Object, propertyKey: string) {
     if (options?.docs) {
       Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
     }
@@ -167,10 +154,10 @@ export function Field(options: FieldOptions) {
 
     if (options?.required !== undefined) {
       if (typeof options.required === 'function') {
-        ValidateIf((object: any) => {
+        ValidateIf((object: unknown) => {
           try {
-            const reqFn = options.required as (object: any) => boolean;
-            return !!reqFn(object);
+            const reqFn = options.required as CustomRequiredFunction<TObject>;
+            return !!reqFn(object as TObject);
           }
           catch {
             return false;
@@ -184,15 +171,10 @@ export function Field(options: FieldOptions) {
     }
 
     if (options?.validation) {
-      if (typeof options.validation === 'function' && options.validation.length > 1) {
-        // Store the custom validation function in metadata
-        Reflect.defineMetadata('field:validation', options.validation, target, propertyKey);
-        // Apply the custom validator decorator to integrate with class-validator
-        CustomValidate()(target, propertyKey);
-      } else {
-        // Apply decorator directly if it's already a decorator
-        (options.validation as PropertyDecorator)(target, propertyKey);
-      }
+      // Store the custom validation function in metadata
+      Reflect.defineMetadata('field:validation', options.validation, target, propertyKey);
+      // Apply the custom validator decorator to integrate with class-validator
+      CustomValidate()(target, propertyKey);
     }
   };
 }

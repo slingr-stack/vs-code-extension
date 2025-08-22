@@ -12,7 +12,7 @@ export function CustomValidate(validationOptions?: ValidationOptions) {
             options: validationOptions || {},
             constraints: [],
             validator: {
-                validate(value: any, args: ValidationArguments) {
+                validate(value: unknown, args: ValidationArguments) {
                     const customValidationFn = Reflect.getMetadata(
                         "field:validation",
                         args.object,

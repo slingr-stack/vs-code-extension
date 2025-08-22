@@ -1,4 +1,5 @@
 import { ValidationError, validate } from "class-validator";
+import type { ValidationIssue } from "./Field";
 import { instanceToPlain, plainToInstance, Transform } from "class-transformer";
 
 /**
@@ -97,8 +98,8 @@ export abstract class BaseModel {
             
             if (validationResults && validationResults.length > 0) {
               // Replace constraints with original error codes
-              const newConstraints: any = {};
-              validationResults.forEach((result: any) => {
+              const newConstraints: Record<string, string> = {};
+              (validationResults as ValidationIssue[]).forEach((result) => {
                 newConstraints[result.code] = result.message;
               });
               error.constraints = newConstraints;
