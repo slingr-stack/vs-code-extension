@@ -1,4 +1,4 @@
-import { IsNotEmpty, ValidateIf } from 'class-validator';
+import { IsNotEmpty, IsOptional, ValidateIf } from 'class-validator';
 import { CustomValidate } from '../validators/CustomValidationConstraint';
 
 /**
@@ -120,7 +120,9 @@ export function Field<TObject extends object = object, TValue = unknown>(options
     if (options?.docs) {
       Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
     }
-
+    if (!options.required) {
+      IsOptional()(target, propertyKey);
+    }
     if (options?.required !== undefined) {
       if (typeof options.required === 'function') {
         ValidateIf((object: unknown) => {

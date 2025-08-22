@@ -1,6 +1,7 @@
 import { Field } from "../../model/Field";
 import { Model } from "../../model/Model";
 import { BaseModel } from "../../model/BaseModel";
+import { IsEmail } from "class-validator";
 
 @Model({
   docs: "Represents a person",
@@ -17,6 +18,7 @@ export class Person extends BaseModel {
   lastName!: string;
 
   @Field({})
+  @IsEmail()
   email!: string;
 
   @Field({
