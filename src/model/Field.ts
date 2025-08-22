@@ -96,8 +96,12 @@ export interface FieldOptions<TObject extends object = object, TValue = unknown>
    */
   validation?: CustomValidationFunction<TValue, TObject>;
 
-
-  calculation?: 'manual';
+  /**
+   * Defines the calculation strategy for a getter field.
+   * - `'automatic'` (default): The getter works as a standard TypeScript getter, calculated on every access.
+   * - `'manual'`: The getter's calculation is only executed when the `calculate()` method is called on the model instance. The result is then memoized (cached).
+   */
+  calculation?: 'manual' | 'automatic';
 }
 
 /**
@@ -139,7 +143,7 @@ export function Field<TObject extends object = object, TValue = unknown>(options
         })(target, propertyKey);
         IsNotEmpty()(target, propertyKey);
       } else if (options.required) {
-        // Simple boolean required
+        // Simple boolean required  
         IsNotEmpty()(target, propertyKey);
       }
     }
@@ -151,6 +155,8 @@ export function Field<TObject extends object = object, TValue = unknown>(options
       CustomValidate()(target, propertyKey);
     }
 
+    // If calculation is manual apply memoization
+    // If is automatic, no special handling is needed
     if (options?.calculation === 'manual') {
       // This feature can only be applied to getters
       if (!descriptor || typeof descriptor.get !== 'function') {
