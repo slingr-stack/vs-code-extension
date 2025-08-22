@@ -46,4 +46,12 @@ export class Person extends BaseModel {
     docs: "Internal identifier not exposed in JSON"
   })
   internalId!: string;
+
+  @Field({
+    required: false,
+    available: (person: Person) => {
+      return person.age >= 18;
+    },
+  })
+  phoneNumber!: string;
 }

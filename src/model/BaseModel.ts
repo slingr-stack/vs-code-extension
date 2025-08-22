@@ -132,9 +132,19 @@ export abstract class BaseModel {
    * ```
    */
   public toJSON(): Record<string, any> {
-    return instanceToPlain(this, {
+    const plainObject = instanceToPlain(this, {
       excludeExtraneousValues: true,
     });
+
+    // Remove properties with undefined values (which indicates field should not be available)
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(plainObject)) {
+      if (value !== undefined) {
+        result[key] = value;
+      }
+    }
+
+    return result;
   }
 
   /**

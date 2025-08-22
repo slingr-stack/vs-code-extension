@@ -1,5 +1,5 @@
 import { IsNotEmpty, ValidateIf } from 'class-validator';
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Transform } from 'class-transformer';
 import { CustomValidate } from '../validators/CustomValidationConstraint';
 
 /**
@@ -27,6 +27,8 @@ type CustomValidationFunction<TValue, TObject> = (
 ) => ValidationIssue[];
 
 type CustomRequiredFunction<TObject> = (object: TObject) => boolean;
+
+type CustomAvailableFunction<TObject> = (object: TObject) => boolean;
 
 /**
  * Configuration options for the Field decorator.
@@ -116,7 +118,7 @@ export interface FieldOptions<TObject extends object = object, TValue = unknown>
    * internalId: string;
    * ```
    */
-  available?: boolean;
+  available?: boolean | CustomAvailableFunction<TObject>;
 }
 
 /**
@@ -147,6 +149,28 @@ export function Field<TObject extends object = object, TValue = unknown>(options
     // Handle field availability for JSON serialization/deserialization
     if (options?.available === false) {
       Exclude()(target, propertyKey);
+    } else if (typeof options?.available === 'function') {
+      // For function-based availability, we need to use Transform to conditionally include/exclude
+      const availableFn = options.available as CustomAvailableFunction<TObject>;
+      
+      // Store the availability function in metadata for potential future use
+      Reflect.defineMetadata('field:available', availableFn, target, propertyKey);
+      
+      // Use Transform to control the field's presence in JSON
+      Transform(({ obj, key }) => {
+        try {
+          const shouldBeAvailable = availableFn(obj as TObject);
+          // If the field should not be available, return undefined (which excludes it from JSON)
+          // If it should be available, return the actual value
+          return shouldBeAvailable ? obj[key] : undefined;
+        } catch {
+          // If there's an error evaluating the function, default to excluding the field
+          return undefined;
+        }
+      }, { toPlainOnly: true })(target, propertyKey);
+      
+      // Also expose the field by default for cases where the function returns true
+      Expose()(target, propertyKey);
     } else {
       // Default behavior is to expose the field (available: true or undefined)
       Expose()(target, propertyKey);

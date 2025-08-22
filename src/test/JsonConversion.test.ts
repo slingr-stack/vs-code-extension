@@ -24,6 +24,43 @@ describe("BaseModel JSON Conversion", () => {
       expect(json).not.toHaveProperty("internalId");
     });
 
+    it("should exclude phoneNumber when age is under 18", () => {
+      const person = new Person();
+      person.firstName = "Young";
+      person.lastName = "Person";
+      person.age = 16;
+      person.phoneNumber = "123-456-7890";
+
+      const json = person.toJSON();
+
+      expect(json).toEqual({
+        firstName: "Young",
+        lastName: "Person",
+        age: 16,
+        // phoneNumber should be excluded because available: (person: Person) => person.age >= 18
+      });
+
+      // Verify that phoneNumber is not in the JSON
+      expect(json).not.toHaveProperty("phoneNumber");
+    });
+
+    it("should include phoneNumber when age is 18 or older", () => {
+      const person = new Person();
+      person.firstName = "Adult";
+      person.lastName = "Person";
+      person.age = 18;
+      person.phoneNumber = "123-456-7890";
+
+      const json = person.toJSON();
+
+      expect(json).toEqual({
+        firstName: "Adult",
+        lastName: "Person",
+        age: 18,
+        phoneNumber: "123-456-7890",
+      });
+    });
+
     it("should handle undefined and null values", () => {
       const person = new Person();
       person.firstName = "Jane";
@@ -231,5 +268,6 @@ describe("BaseModel JSON Conversion", () => {
       expect(errors.length).toBeGreaterThan(0);
       expect(errors.some(e => e.property === "age")).toBe(true);
     });
+
   });
 });
