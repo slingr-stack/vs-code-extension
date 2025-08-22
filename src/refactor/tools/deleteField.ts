@@ -241,7 +241,7 @@ export class DeleteFieldTool implements IRefactorTool {
         const prompt = `I have just deleted the field "${fieldName}" from the entity "${entityName}".
         This has left broken references in the code, marked with a "/* DELETED_FIELD_REFERENCE */" comment.
 
-        Your task is to help me fix these broken references by proposing concrete code modifications.
+        Your task is to help me fix these broken references by proposing concrete code modifications and asking the user if it wants you to apply them.
 
         Please do the following:
         1.  Analyze the code where "/* DELETED_FIELD_REFERENCE */" appears.

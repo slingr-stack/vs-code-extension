@@ -55,41 +55,56 @@ export class DeleteEntityTool implements IRefactorTool {
   }
 
   /**
-   * Analyzes file metadata changes to detect entity deletions.
+   * Analyzes file metadata changes to detect when an entity has been deleted.
    * 
-   * A deletion is detected when there is old file metadata but no corresponding
-   * new file metadata for a file that is identified as an entity file.
+   * @param oldFileMeta - The metadata of the file before changes, containing class information
+   * @param newFileMeta - The metadata of the file after changes, or undefined if file was deleted
+   * @returns An array of ChangeObject instances. Returns a single DELETE_ENTITY change object if an entity deletion is detected, otherwise returns an empty array
    * 
-   * @param oldFileMeta The metadata of the file before the change.
-   * @param newFileMeta The metadata of the file after the change (or undefined if deleted).
-   * @returns An array of ChangeObjects representing the detected deletion. Returns an
-   *          empty array if no entity deletion is detected.
+   * @remarks
+   * This method performs the following checks:
+   * - Validates that oldFileMeta exists and represents an entity file
+   * - Extracts the entity class from the old file metadata
+   * - Determines if the entity was deleted by checking if it no longer exists in newFileMeta
+   * - If deleted, collects related URIs that should also be removed (actions and UI directories)
+   * - Returns a DELETE_ENTITY change object with the deleted entity metadata and related URIs
    */
   public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata): ChangeObject[] {
-    if (oldFileMeta && !newFileMeta && isEntityFile(oldFileMeta.uri)) {
-      const oldClass = Object.values(oldFileMeta.classes)[0];
-      if (oldClass && isEntity(oldClass)) {
-        const urisToDelete: vscode.Uri[] = [];
-        const entityUri = oldFileMeta.uri;
-        const entityNameLower = oldClass.name.toLowerCase();
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(entityUri);
-        
-        if (workspaceFolder) {
-          const parentDirsToSearch = ["src/model/actions", "src/ui"];
-          for (const parentDir of parentDirsToSearch) {
-            const relatedDirUri = vscode.Uri.joinPath(workspaceFolder.uri, parentDir, entityNameLower);
-            urisToDelete.push(relatedDirUri);
-          }
+    if (!oldFileMeta || !isEntityFile(oldFileMeta.uri)) {
+      return [];
+    }
+
+    const oldEntityClass = Object.values(oldFileMeta.classes).find(isEntity);
+
+    if (!oldEntityClass) {
+      return [];
+    }
+
+    const isDeleted = !newFileMeta || !Object.values(newFileMeta.classes).some(
+      (c) => c.name === oldEntityClass.name && isEntity(c)
+    );
+
+    if (isDeleted) {
+      const urisToDelete: vscode.Uri[] = [];
+      const entityUri = oldFileMeta.uri;
+      const entityNameLower = oldEntityClass.name.toLowerCase();
+      const workspaceFolder = vscode.workspace.getWorkspaceFolder(entityUri);
+
+      if (workspaceFolder) {
+        const parentDirsToSearch = ["src/data/actions", "src/ui"];
+        for (const parentDir of parentDirsToSearch) {
+          const relatedDirUri = vscode.Uri.joinPath(workspaceFolder.uri, parentDir, entityNameLower);
+          urisToDelete.push(relatedDirUri);
         }
-        return [
-          {
-            type: "DELETE_ENTITY",
-            uri: oldFileMeta.uri,
-            description: `Entity file '${oldClass.name}' was deleted.`,
-            payload: { oldEntityMetadata: oldClass, urisToDelete: urisToDelete },
-          },
-        ];
       }
+      return [
+        {
+          type: "DELETE_ENTITY",
+          uri: oldFileMeta.uri,
+          description: `Entity '${oldEntityClass.name}' was deleted.`,
+          payload: { oldEntityMetadata: oldEntityClass, urisToDelete: urisToDelete },
+        },
+      ];
     }
     return [];
   }
@@ -333,7 +348,7 @@ export class DeleteEntityTool implements IRefactorTool {
 
     However, some broken references might remain, marked with comments like "/* DELETED_REFERENCE */", "/* DELETED_FIELD_DECORATOR */", or "/* DELETED_RELATIONSHIP_DECORATOR */".
 
-    Your task is to help me fix these remaining issues by proposing concrete code modifications.
+    Your task is to help me fix these remaining issues by proposing concrete code modifications and asking the user if it wants you to apply them.
 
     Please do the following:
     1.  Analyze the code where these "/* DELETED_... */" comments appear.
