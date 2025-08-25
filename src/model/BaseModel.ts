@@ -86,7 +86,7 @@ export abstract class BaseModel {
               // Replace constraints with original error codes
               const newConstraints: Record<string, string> = {};
               (validationResults as ValidationIssue[]).forEach((result) => {
-                newConstraints[result.code] = result.message;
+                newConstraints[result.constraint] = result.message;
               });
               error.constraints = newConstraints;
             }
