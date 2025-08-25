@@ -1,4 +1,4 @@
-import { IsNotEmpty, ValidateIf } from 'class-validator';
+import { IsNotEmpty, IsOptional, ValidateIf } from 'class-validator';
 import { CustomValidate } from '../validators/CustomValidationConstraint';
 
 /**
@@ -18,29 +18,14 @@ import { CustomValidate } from '../validators/CustomValidationConstraint';
  * };
  * ```
  */
-export type ValidationIssue = { code: string; message: string };
+export type ValidationIssue = { constraint: string; message: string };
 
-// Bivariant function type to allow narrower or wider parameter types in callbacks (e.g., Person)
-type BivariantValidationFunction<TValue = unknown, TObject extends object = object> = {
-  bivarianceHack(value: TValue, object: TObject): ValidationIssue[];
-}["bivarianceHack"];
+type CustomValidationFunction<TValue, TObject> = (
+  value: TValue,
+  object: TObject
+) => ValidationIssue[];
 
-/**
- * Custom required function type for conditional field requirements.
- * 
- * @param object - The entire object containing the field being evaluated
- * @returns Boolean indicating whether the field is required (``true``) or optional (``false``)
- * 
- * @example
- * ```typescript
- * const isRequiredIfAdult: CustomRequiredFunction = (object) => {
- *   return object.age >= 18;
- * };
- * ```
- */
-type BivariantRequiredFunction<TObject extends object = object> = {
-  bivarianceHack(object: TObject): boolean;
-}["bivarianceHack"];
+type CustomRequiredFunction<TObject> = (object: TObject) => boolean;
 
 /**
  * Configuration options for the Field decorator.
@@ -67,7 +52,7 @@ export interface FieldOptions<TObject extends object = object, TValue = unknown>
    * guardianName: string;
    * ```
    */
-  required?: boolean | BivariantRequiredFunction<TObject>;
+  required?: boolean | CustomRequiredFunction<TObject>;
 
   /**
    * Documentation string for the field.
@@ -109,7 +94,7 @@ export interface FieldOptions<TObject extends object = object, TValue = unknown>
    * name: string;
    * ```
    */
-  validation?: PropertyDecorator | BivariantValidationFunction<TValue, TObject>;
+  validation?: CustomValidationFunction<TValue, TObject>;
 }
 
 /**
@@ -135,12 +120,14 @@ export function Field<TObject extends object = object, TValue = unknown>(options
     if (options?.docs) {
       Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
     }
-
+    if (!options.required) {
+      IsOptional()(target, propertyKey);
+    }
     if (options?.required !== undefined) {
       if (typeof options.required === 'function') {
         ValidateIf((object: unknown) => {
           try {
-            const reqFn = options.required as BivariantRequiredFunction<TObject>;
+            const reqFn = options.required as CustomRequiredFunction<TObject>;
             return !!reqFn(object as TObject);
           }
           catch {
@@ -155,15 +142,10 @@ export function Field<TObject extends object = object, TValue = unknown>(options
     }
 
     if (options?.validation) {
-      if (typeof options.validation === 'function' && options.validation.length > 1) {
-        // Store the custom validation function in metadata
-        Reflect.defineMetadata('field:validation', options.validation, target, propertyKey);
-        // Apply the custom validator decorator to integrate with class-validator
-        CustomValidate()(target, propertyKey);
-      } else {
-        // Apply decorator directly if it's already a decorator
-        (options.validation as PropertyDecorator)(target, propertyKey);
-      }
+      // Store the custom validation function in metadata
+      Reflect.defineMetadata('field:validation', options.validation, target, propertyKey);
+      // Apply the custom validator decorator to integrate with class-validator
+      CustomValidate()(target, propertyKey);
     }
   };
 }

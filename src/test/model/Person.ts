@@ -2,6 +2,7 @@ import { Field } from "../../model/Field";
 import { Model } from "../../model/Model";
 import { BaseModel } from "../../model/BaseModel";
 import { Text, Email, HTML } from "../../model/types/Text";
+import { IsEmail } from "class-validator";
 
 @Model({
   docs: "Represents a person",
@@ -38,7 +39,7 @@ export class Person extends BaseModel {
       let errors = [];
       if (person.age < 0 || person.age > 120) {
         errors.push({
-          code: "invalidAge",
+          constraint: "invalidAge",
           message: "Age must be between 0 and 120",
         });
       }
