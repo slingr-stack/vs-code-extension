@@ -13,8 +13,11 @@ const config: Config = {
       },
     ],
   },
-  testMatch: ["<rootDir>/src/test/**/*.test.ts"],
+  testMatch: ["<rootDir>/test/**/*.test.ts"],
   coverageProvider: "v8",
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+  },
 };
 
 module.exports = config;
