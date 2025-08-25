@@ -69,7 +69,7 @@ export class DeleteEntityTool implements IRefactorTool {
    * - If deleted, collects related URIs that should also be removed (actions and UI directories)
    * - Returns a DELETE_ENTITY change object with the deleted entity metadata and related URIs
    */
-  public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata): ChangeObject[] {
+  public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata, accumulatedChanges: ChangeObject[] = []): ChangeObject[] {
     if (!oldFileMeta || !isEntityFile(oldFileMeta.uri)) {
       return [];
     }
@@ -77,6 +77,17 @@ export class DeleteEntityTool implements IRefactorTool {
     const oldEntityClass = Object.values(oldFileMeta.classes).find(isEntity);
 
     if (!oldEntityClass) {
+      return [];
+    }
+
+    // Check if this entity was already handled by a rename operation
+    const wasRenamed = accumulatedChanges.some(change => 
+      change.type === 'RENAME_ENTITY' && 
+      change.payload.oldName === oldEntityClass.name
+    );
+
+    if (wasRenamed) {
+      // Entity was renamed, not deleted
       return [];
     }
 

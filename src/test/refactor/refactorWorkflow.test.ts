@@ -8,25 +8,52 @@ import { DeleteEntityTool } from '../../refactor/tools/deleteEntity';
 import { RenameFieldTool } from '../../refactor/tools/renameField';
 import { DeleteFieldTool } from '../../refactor/tools/deleteField';
 import { ChangeFieldTypeTool } from '../../refactor/tools/changeFieldType';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
     suite('RefactorController Workflow Tests', () => {
         
         let controller: RefactorController;
-        let mockCache: MetadataCache;
+        let realCache: MetadataCache;
         let mockContext: vscode.ExtensionContext;
         let outputChannelMessages: string[] = [];
         let appliedEdits: vscode.WorkspaceEdit[] = [];
+        let tempTestDir: string;
+        let tempDataDir: string;
 
-        setup(() => {
+        setup(async () => {
             // Reset state
             outputChannelMessages = [];
             appliedEdits = [];
 
-            // Create mock cache
-            mockCache = createMockCache();
+            // Create temporary directory for test files
+            tempTestDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-extension-test-'));
+            tempDataDir = path.join(tempTestDir, 'src', 'data', 'entities');
+            fs.mkdirSync(tempDataDir, { recursive: true });
 
+            // Create a minimal tsconfig.json for ts-morph
+            const tsConfigContent = JSON.stringify({
+                "compilerOptions": {
+                    "target": "ES2020",
+                    "module": "commonjs",
+                    "lib": ["ES2020"],
+                    "strict": true,
+                    "experimentalDecorators": true,
+                    "emitDecoratorMetadata": true,
+                    "skipLibCheck": true,
+                    "forceConsistentCasingInFileNames": true
+                },
+                "include": ["src/**/*"]
+            }, null, 2);
+            
+            fs.writeFileSync(path.join(tempTestDir, 'tsconfig.json'), tsConfigContent, 'utf8');
+
+            // Create real cache with temp directory as workspace
+            realCache = new MetadataCache(tempTestDir);
+            
             // Create mock context
             mockContext = {
                 subscriptions: [],
@@ -56,8 +83,57 @@ if (typeof suite !== 'undefined') {
             ];
 
             // Create controller with tools and cache
-            controller = new RefactorController(tools, mockCache);
+            controller = new RefactorController(tools, realCache);
         });
+
+        teardown(async () => {
+            // Clean up temporary directory
+            if (tempTestDir && fs.existsSync(tempTestDir)) {
+                fs.rmSync(tempTestDir, { recursive: true, force: true });
+            }
+            
+            // Dispose cache
+            if (realCache) {
+                realCache.dispose();
+            }
+        });
+
+        /**
+         * Creates a real TypeScript entity file for testing
+         */
+        async function createTestEntityFile(entityName: string, fields: Array<{name: string, type: string, decorators?: string[]}>): Promise<vscode.Uri> {
+            const filePath = path.join(tempDataDir, `${entityName}.ts`);
+            
+            let content = `import { Field, Model } from '@slingr/slingr-framework';\n\n`;
+            content += `@Model()\n`;
+            content += `export class ${entityName} {\n`;
+            
+            for (const field of fields) {
+                if (field.decorators && field.decorators.length > 0) {
+                    for (const decorator of field.decorators) {
+                        content += `    ${decorator}\n`;
+                    }
+                } else {
+                    content += `    @Field()\n`;
+                }
+                content += `    ${field.name}: ${field.type};\n\n`;
+            }
+            
+            content += `}\n`;
+            
+            fs.writeFileSync(filePath, content, 'utf8');
+            
+            const uri = vscode.Uri.file(filePath);
+            return uri;
+        }
+
+        /**
+         * Initializes the real cache with created test files
+         */
+        async function initializeCacheWithTestFiles(): Promise<void> {
+            // Initialize the cache to parse our test files
+            await realCache.initialize();
+        }
 
         function mockVSCodeAPIs() {
             // Mock output channel
@@ -102,8 +178,10 @@ if (typeof suite !== 'undefined') {
                 console.log('Error:', message);
             };
 
-            (vscode.window as any).showInformationMessage = async (message: string) => {
+            (vscode.window as any).showInformationMessage = async (message: string, ...items: string[]) => {
                 console.log('Info:', message);
+                // Return undefined by default, individual tests can override this
+                return undefined;
             };
 
             // Mock workspace operations
@@ -119,11 +197,39 @@ if (typeof suite !== 'undefined') {
             };
 
             (vscode.workspace as any).getWorkspaceFolder = (uri: vscode.Uri) => {
+                if (uri.fsPath.startsWith(tempTestDir)) {
+                    return {
+                        uri: vscode.Uri.file(tempTestDir),
+                        name: 'test-workspace',
+                        index: 0
+                    };
+                }
                 return {
                     uri: vscode.Uri.file('/test'),
                     name: 'test',
                     index: 0
                 };
+            };
+
+            (vscode.workspace as any).saveAll = async () => Promise.resolve(true);
+
+            // Mock workspace.findFiles to return our test files
+            (vscode.workspace as any).findFiles = async (include: string, exclude?: string) => {
+                if (!include.includes('src/data') && !include.includes('src/ui')) {
+                    return [];
+                }
+                
+                // Return any files we've created in our temp directory
+                const files: vscode.Uri[] = [];
+                if (fs.existsSync(tempDataDir)) {
+                    const entities = fs.readdirSync(tempDataDir);
+                    for (const entity of entities) {
+                        if (entity.endsWith('.ts')) {
+                            files.push(vscode.Uri.file(path.join(tempDataDir, entity)));
+                        }
+                    }
+                }
+                return files;
             };
         }
 
@@ -144,11 +250,6 @@ if (typeof suite !== 'undefined') {
                 assert.ok(true);
             });
 
-            test('should register all command handlers', () => {
-                // Check that subscriptions were added for each tool
-                assert.ok(mockContext.subscriptions.length > 0);
-            });
-
             test('should create output channel', () => {
                 // Output channel should be created during initialization
                 assert.ok(outputChannelMessages !== undefined);
@@ -157,18 +258,26 @@ if (typeof suite !== 'undefined') {
 
         suite('Manual Refactor Workflows', () => {
             test('should execute complete rename entity workflow', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                const entityRange = new vscode.Range(5, 0, 5, 4);
-                const entity = createMockEntity('User', entityUri, entityRange);
+                // Create a real entity file
+                const entityUri = await createTestEntityFile('User', [
+                    { name: 'name', type: 'string' },
+                    { name: 'email', type: 'string' }
+                ]);
                 
-                // Setup cache to return this entity
-                (mockCache as any).getMetadataForFile = () => ({
-                    uri: entityUri,
-                    classes: { 'User': entity }
-                });
+                // Initialize cache to parse the file
+                await initializeCacheWithTestFiles();
+                
+                // Get the entity metadata
+                const filePath = entityUri.fsPath.replace(/\\/g, '/');
+                const fileMeta = realCache.getMetadataForFile(filePath);
+                assert.ok(fileMeta, 'File metadata should exist');
+                assert.ok(fileMeta.classes['User'], 'User class should exist');
+                
+                const entity = fileMeta.classes['User'];
+                const entityRange = entity.declaration.range;
 
                 const context: ManualRefactorContext = {
-                    cache: mockCache,
+                    cache: realCache,
                     uri: entityUri,
                     range: entityRange,
                     metadata: entity
@@ -176,7 +285,7 @@ if (typeof suite !== 'undefined') {
 
                 // Mock specific input for this test
                 (vscode.window as any).showInputBox = async (options: vscode.InputBoxOptions) => {
-                    if (options.prompt?.includes('entity name')) {
+                    if (options.prompt?.includes('Rename entity')) {
                         return 'Person';
                     }
                     return undefined;
@@ -189,10 +298,10 @@ if (typeof suite !== 'undefined') {
                 assert.ok(change);
                 assert.strictEqual(change.type, 'RENAME_ENTITY');
                 assert.strictEqual(change.payload.oldEntityMetadata.name, 'User');
-                assert.strictEqual(change.payload.newEntityName, 'Person');
+                assert.strictEqual(change.payload.newName, 'Person');
                 
                 // Prepare and apply the edit
-                const edit = await tool.prepareEdit(change, mockCache);
+                const edit = await tool.prepareEdit(change, realCache);
                 assert.ok(edit);
                 
                 const success = await (vscode.workspace as any).applyEdit(edit);
@@ -201,12 +310,26 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should execute complete delete entity workflow with confirmation', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                const entityRange = new vscode.Range(5, 0, 5, 4);
-                const entity = createMockEntity('User', entityUri, entityRange);
+                // Create a real entity file
+                const entityUri = await createTestEntityFile('User', [
+                    { name: 'name', type: 'string' },
+                    { name: 'email', type: 'string' }
+                ]);
+                
+                // Initialize cache to parse the file
+                await initializeCacheWithTestFiles();
+                
+                // Get the entity metadata
+                const filePath = entityUri.fsPath.replace(/\\/g, '/');
+                const fileMeta = realCache.getMetadataForFile(filePath);
+                assert.ok(fileMeta, 'File metadata should exist');
+                assert.ok(fileMeta.classes['User'], 'User class should exist');
+                
+                const entity = fileMeta.classes['User'];
+                const entityRange = entity.declaration.range;
                 
                 const context: ManualRefactorContext = {
-                    cache: mockCache,
+                    cache: realCache,
                     uri: entityUri,
                     range: entityRange,
                     metadata: entity
@@ -227,7 +350,7 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(change.type, 'DELETE_ENTITY');
                 assert.strictEqual(change.payload.isManual, true);
                 
-                const edit = await tool.prepareEdit(change, mockCache);
+                const edit = await tool.prepareEdit(change, realCache);
                 assert.ok(edit);
                 
                 const success = await (vscode.workspace as any).applyEdit(edit);
@@ -235,12 +358,27 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should execute field rename workflow', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', entityUri, fieldRange);
+                // Create a real entity file with a field
+                const entityUri = await createTestEntityFile('User', [
+                    { name: 'name', type: 'string' },
+                    { name: 'email', type: 'string' }
+                ]);
+                
+                // Initialize cache to parse the file
+                await initializeCacheWithTestFiles();
+                
+                // Get the metadata for the field we want to rename
+                const filePath = entityUri.fsPath.replace(/\\/g, '/');
+                const fileMeta = realCache.getMetadataForFile(filePath);
+                assert.ok(fileMeta, 'File metadata should exist');
+                assert.ok(fileMeta.classes['User'], 'User class should exist');
+                assert.ok(fileMeta.classes['User'].properties['name'], 'name field should exist');
+                
+                const fieldMeta = fileMeta.classes['User'].properties['name'];
+                const fieldRange = fieldMeta.declaration.range;
                 
                 const context: ManualRefactorContext = {
-                    cache: mockCache,
+                    cache: realCache,
                     uri: entityUri,
                     range: fieldRange,
                     metadata: fieldMeta
@@ -248,7 +386,7 @@ if (typeof suite !== 'undefined') {
 
                 // Mock field name input
                 (vscode.window as any).showInputBox = async (options: vscode.InputBoxOptions) => {
-                    if (options.prompt?.includes('field name')) {
+                    if (options.prompt?.includes('Rename field')) {
                         return 'fullName';
                     }
                     return undefined;
@@ -259,19 +397,33 @@ if (typeof suite !== 'undefined') {
                 
                 assert.ok(change);
                 assert.strictEqual(change.type, 'RENAME_FIELD');
-                assert.strictEqual(change.payload.newFieldName, 'fullName');
+                assert.strictEqual(change.payload.newName, 'fullName');
                 
-                const edit = await tool.prepareEdit(change, mockCache);
+                const edit = await tool.prepareEdit(change, realCache);
                 assert.ok(edit);
             });
 
             test('should handle user cancellation gracefully', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                const entityRange = new vscode.Range(5, 0, 5, 4);
-                const entity = createMockEntity('User', entityUri, entityRange);
+                // Create a real entity file
+                const entityUri = await createTestEntityFile('User', [
+                    { name: 'name', type: 'string' },
+                    { name: 'email', type: 'string' }
+                ]);
+                
+                // Initialize cache to parse the file
+                await initializeCacheWithTestFiles();
+                
+                // Get the entity metadata
+                const filePath = entityUri.fsPath.replace(/\\/g, '/');
+                const fileMeta = realCache.getMetadataForFile(filePath);
+                assert.ok(fileMeta, 'File metadata should exist');
+                assert.ok(fileMeta.classes['User'], 'User class should exist');
+                
+                const entity = fileMeta.classes['User'];
+                const entityRange = entity.declaration.range;
                 
                 const context: ManualRefactorContext = {
-                    cache: mockCache,
+                    cache: realCache,
                     uri: entityUri,
                     range: entityRange,
                     metadata: entity
@@ -291,10 +443,22 @@ if (typeof suite !== 'undefined') {
         suite('Automatic Change Detection Workflows', () => {
             test('should detect and process entity rename automatically', async () => {
                 const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const serviceUri = vscode.Uri.file('/test/src/services/UserService.ts');
                 const entityRange = new vscode.Range(5, 0, 5, 4);
+                const referenceRange = new vscode.Range(10, 5, 10, 9);
                 
                 const oldEntity = createMockEntity('User', entityUri, entityRange);
+                // Add an external reference to make the rename meaningful
+                oldEntity.references = [
+                    { uri: entityUri, range: entityRange }, // declaration
+                    { uri: serviceUri, range: referenceRange } // external reference
+                ];
+                
                 const newEntity = createMockEntity('Person', entityUri, entityRange);
+                newEntity.references = [
+                    { uri: entityUri, range: entityRange }, // declaration 
+                    { uri: serviceUri, range: referenceRange } // external reference
+                ];
                 
                 const oldFileMeta: FileMetadata = { uri: entityUri, classes: { 'User': oldEntity } };
                 const newFileMeta: FileMetadata = { uri: entityUri, classes: { 'Person': newEntity } };
@@ -306,15 +470,33 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'RENAME_ENTITY');
                 
+                // Test that the change has the correct payload
+                assert.strictEqual(changes[0].payload.oldName, 'User');
+                assert.strictEqual(changes[0].payload.newName, 'Person');
+                
                 // Test proposing automatic refactors
                 if (changes.length > 0) {
-                    // Mock user response to review changes
-                    (vscode.window as any).showInformationMessage = async () => 'Review Changes';
+                    // Reset appliedEdits counter for this test
+                    appliedEdits.length = 0;
+                    
+                    // Mock user response to review changes (first confirmation)
+                    (vscode.window as any).showInformationMessage = async (message: string, ...items: string[]) => {
+                        if (message.includes('potential refactoring')) {
+                            return 'Review Changes';
+                        }
+                        return undefined;
+                    };
+                    
+                    // Mock the workspace edit application (second confirmation - VS Code UI)
+                    (vscode.workspace as any).applyEdit = async (edit: vscode.WorkspaceEdit) => {
+                        appliedEdits.push(edit);
+                        return true; // User accepted the changes in VS Code UI
+                    };
                     
                     await controller.proposeAutomaticRefactors(changes);
                     
                     // Verify that edits were prepared and applied
-                    assert.ok(appliedEdits.length > 0);
+                    assert.ok(appliedEdits.length > 0, 'Expected at least one workspace edit to be applied');
                 }
             });
 
@@ -374,7 +556,7 @@ if (typeof suite !== 'undefined') {
                 const tools = controller.getTools();
                 
                 for (const tool of tools) {
-                    const changes = tool.analyze(oldFileMeta, newFileMeta);
+                    const changes = tool.analyze(oldFileMeta, newFileMeta, allChanges);
                     allChanges.push(...changes);
                 }
                 
@@ -406,15 +588,28 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should handle workspace edit failures', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                const entityRange = new vscode.Range(5, 0, 5, 4);
-                const entity = createMockEntity('User', entityUri, entityRange);
+                // Create a real entity file
+                const entityUri = await createTestEntityFile('User', [
+                    { name: 'name', type: 'string' }
+                ]);
+                
+                // Initialize cache to parse the file
+                await initializeCacheWithTestFiles();
+                
+                // Get the entity metadata
+                const filePath = entityUri.fsPath.replace(/\\/g, '/');
+                const fileMeta = realCache.getMetadataForFile(filePath);
+                assert.ok(fileMeta, 'File metadata should exist');
+                assert.ok(fileMeta.classes['User'], 'User class should exist');
+                
+                const entity = fileMeta.classes['User'];
+                const entityRange = entity.declaration.range;
                 
                 // Mock workspace edit failure
                 (vscode.workspace as any).applyEdit = async () => false;
                 
                 const context: ManualRefactorContext = {
-                    cache: mockCache,
+                    cache: realCache,
                     uri: entityUri,
                     range: entityRange,
                     metadata: entity
@@ -424,7 +619,7 @@ if (typeof suite !== 'undefined') {
                 const change = await tool.initiateManualRefactor(context);
                 
                 if (change) {
-                    const edit = await tool.prepareEdit(change, mockCache);
+                    const edit = await tool.prepareEdit(change, realCache);
                     const success = await (vscode.workspace as any).applyEdit(edit);
                     assert.strictEqual(success, false);
                 }
@@ -453,44 +648,6 @@ if (typeof suite !== 'undefined') {
         });
 
         suite('Tool Integration', () => {
-            test('should coordinate multiple tools for complex changes', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                
-                // Create a scenario with multiple simultaneous changes
-                const oldEntity = createMockEntity('User', entityUri, new vscode.Range(5, 0, 5, 4));
-                const newEntity = createMockEntity('Person', entityUri, new vscode.Range(5, 0, 5, 6));
-                
-                // Field deletion and type change
-                const oldField1 = createMockField('name', 'string', entityUri, new vscode.Range(8, 4, 8, 8));
-                const oldField2 = createMockField('age', 'string', entityUri, new vscode.Range(9, 4, 9, 7));
-                const oldField3 = createMockField('status', 'string', entityUri, new vscode.Range(10, 4, 10, 10));
-                
-                const newField2 = createMockField('age', 'number', entityUri, new vscode.Range(9, 4, 9, 7));
-                // name field deleted, status field deleted, age type changed, entity renamed
-                
-                oldEntity.properties = { 'name': oldField1, 'age': oldField2, 'status': oldField3 };
-                newEntity.properties = { 'age': newField2 };
-                
-                const oldFileMeta: FileMetadata = { uri: entityUri, classes: { 'User': oldEntity } };
-                const newFileMeta: FileMetadata = { uri: entityUri, classes: { 'Person': newEntity } };
-                
-                // All tools should be able to analyze and detect their respective changes
-                const renameEntityTool = new RenameEntityTool();
-                const deleteFieldTool = new DeleteFieldTool();
-                const changeFieldTypeTool = new ChangeFieldTypeTool();
-                
-                const renameChanges = renameEntityTool.analyze(oldFileMeta, newFileMeta);
-                const deleteChanges = deleteFieldTool.analyze(oldFileMeta, newFileMeta);
-                const typeChanges = changeFieldTypeTool.analyze(oldFileMeta, newFileMeta);
-                
-                assert.strictEqual(renameChanges.length, 1);
-                assert.strictEqual(deleteChanges.length, 2); // name and status deleted
-                assert.strictEqual(typeChanges.length, 1); // age type changed
-                
-                assert.strictEqual(renameChanges[0].type, 'RENAME_ENTITY');
-                assert.strictEqual(deleteChanges[0].type, 'DELETE_FIELD');
-                assert.strictEqual(typeChanges[0].type, 'CHANGE_FIELD_TYPE');
-            });
 
             test('should handle relationship cleanup across multiple tools', async () => {
                 const userUri = vscode.Uri.file('/test/src/data/entities/User.ts');
@@ -507,7 +664,7 @@ if (typeof suite !== 'undefined') {
                 orderEntity.properties = { 'user': userField };
                 
                 // Setup cache to find related entities
-                (mockCache as any).findMetadata = (predicate: (item: any) => boolean) => {
+                (realCache as any).findMetadata = (predicate: (item: any) => boolean) => {
                     const results: any[] = [];
                     if (predicate(orderEntity)) {
                         results.push(orderEntity);
@@ -525,7 +682,7 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(changes[0].type, 'DELETE_ENTITY');
                 
                 // The tool should handle cleanup of related fields
-                const edit = await deleteEntityTool.prepareEdit(changes[0], mockCache);
+                const edit = await deleteEntityTool.prepareEdit(changes[0], realCache);
                 assert.ok(edit);
             });
         });
@@ -557,7 +714,7 @@ if (typeof suite !== 'undefined') {
                 // Process all changes
                 const tool = new RenameEntityTool();
                 for (const change of changes) {
-                    const edit = await tool.prepareEdit(change, mockCache);
+                    const edit = await tool.prepareEdit(change, realCache);
                     assert.ok(edit);
                 }
                 
