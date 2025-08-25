@@ -270,4 +270,224 @@ describe("BaseModel JSON Conversion", () => {
     });
 
   });
+
+  describe("@Exclude and @Expose behavior", () => {
+    it("should exclude fields marked with available: false (@Exclude applied)", () => {
+      const person = new Person();
+      person.firstName = "John";
+      person.lastName = "Doe";
+      person.email = "john@example.com";
+      person.age = 30;
+      person.internalId = "secret-internal-123";
+
+      const json = person.toJSON();
+
+      // Should include exposed fields
+      expect(json).toHaveProperty("firstName", "John");
+      expect(json).toHaveProperty("lastName", "Doe");
+      expect(json).toHaveProperty("email", "john@example.com");
+      expect(json).toHaveProperty("age", 30);
+
+      // Should exclude field marked with available: false
+      expect(json).not.toHaveProperty("internalId");
+      expect(Object.keys(json)).not.toContain("internalId");
+    });
+
+    it("should expose fields marked with available: true (@Expose applied)", () => {
+      const person = new Person();
+      person.firstName = "Jane";
+      person.lastName = "Smith";
+      person.email = "jane@example.com";
+      person.age = 25;
+
+      const json = person.toJSON();
+
+      // All these fields should be exposed (available: true or default)
+      expect(json).toHaveProperty("firstName", "Jane");
+      expect(json).toHaveProperty("lastName", "Smith");
+      expect(json).toHaveProperty("email", "jane@example.com");
+      expect(json).toHaveProperty("age", 25);
+    });
+
+    it("should conditionally expose fields based on function (@Transform + @Expose applied)", () => {
+      // Test case 1: Adult should have phoneNumber exposed
+      const adult = new Person();
+      adult.firstName = "Adult";
+      adult.lastName = "Person";
+      adult.email = "adult@example.com";
+      adult.age = 25; // >= 18
+      adult.phoneNumber = "555-1234";
+
+      const adultJson = adult.toJSON();
+      expect(adultJson).toHaveProperty("phoneNumber", "555-1234");
+
+      // Test case 2: Minor should NOT have phoneNumber exposed
+      const minor = new Person();
+      minor.firstName = "Young";
+      minor.lastName = "Person";
+      minor.email = "young@example.com";
+      minor.age = 16; // < 18
+      minor.phoneNumber = "555-5678";
+
+      const minorJson = minor.toJSON();
+      expect(minorJson).not.toHaveProperty("phoneNumber");
+      expect(Object.keys(minorJson)).not.toContain("phoneNumber");
+    });
+
+    it("should handle multiple conditional fields correctly", () => {
+      // Test with adult (phoneNumber should be available)
+      const adult = new Person();
+      adult.firstName = "Test";
+      adult.lastName = "Adult";
+      adult.age = 20;
+      adult.phoneNumber = "555-0000";
+      adult.internalId = "should-never-appear";
+
+      const adultJson = adult.toJSON();
+      
+      expect(adultJson).toEqual({
+        firstName: "Test",
+        lastName: "Adult",
+        age: 20,
+        phoneNumber: "555-0000"
+      });
+
+      // Test with minor (phoneNumber should NOT be available)
+      const minor = new Person();
+      minor.firstName = "Test";
+      minor.lastName = "Minor";
+      minor.age = 15;
+      minor.phoneNumber = "555-1111";
+      minor.internalId = "should-never-appear";
+
+      const minorJson = minor.toJSON();
+      
+      expect(minorJson).toEqual({
+        firstName: "Test",
+        lastName: "Minor",
+        age: 15
+      });
+    });
+
+    it("should handle edge cases in conditional availability", () => {
+      // Test exactly at the boundary (age = 18)
+      const eighteenYearOld = new Person();
+      eighteenYearOld.firstName = "Boundary";
+      eighteenYearOld.lastName = "Case";
+      eighteenYearOld.age = 18; // exactly 18
+      eighteenYearOld.phoneNumber = "555-1818";
+
+      const json = eighteenYearOld.toJSON();
+      
+      // phoneNumber should be available since age >= 18
+      expect(json).toHaveProperty("phoneNumber", "555-1818");
+    });
+
+    it("should handle undefined values in conditionally available fields", () => {
+      const person = new Person();
+      person.firstName = "Test";
+      person.lastName = "Person";
+      person.age = 25;
+      // phoneNumber is undefined but person is adult
+
+      const json = person.toJSON();
+      
+      // phoneNumber should NOT be in the JSON if it's undefined, 
+      // even though the condition allows it (this is the expected behavior)
+      expect(json).not.toHaveProperty("phoneNumber");
+      expect(json).toEqual({
+        firstName: "Test",
+        lastName: "Person",
+        age: 25
+      });
+    });
+  });
+
+  describe("fromJSON with @Exclude and @Expose behavior", () => {
+    it("should ignore excluded fields in fromJSON input", () => {
+      const jsonData = {
+        firstName: "Test",
+        lastName: "User",
+        age: 30,
+        internalId: "this-should-be-ignored", // Field marked with available: false
+        email: "test@example.com"
+      };
+
+      const person = Person.fromJSON(jsonData);
+
+      expect(person.firstName).toBe("Test");
+      expect(person.lastName).toBe("User");
+      expect(person.age).toBe(30);
+      expect(person.email).toBe("test@example.com");
+      
+      // internalId should be ignored during deserialization
+      expect(person.internalId).toBeUndefined();
+    });
+
+    it("should properly handle conditional fields in fromJSON", () => {
+      const jsonData = {
+        firstName: "Test",
+        lastName: "User",
+        age: 25,
+        phoneNumber: "555-9999",
+        email: "test@example.com"
+      };
+
+      const person = Person.fromJSON(jsonData);
+
+      expect(person.firstName).toBe("Test");
+      expect(person.lastName).toBe("User");
+      expect(person.age).toBe(25);
+      expect(person.email).toBe("test@example.com");
+      
+      // phoneNumber should be set since it's provided in JSON
+      expect(person.phoneNumber).toBe("555-9999");
+    });
+  });
+
+  describe("metadata and decorator application", () => {
+    it("should store availability function in metadata for conditional fields", () => {
+      const person = new Person();
+      
+      // Check that the availability function metadata is stored
+      const availabilityFn = Reflect.getMetadata('field:available', person, 'phoneNumber');
+      expect(typeof availabilityFn).toBe('function');
+      
+      // Test the function with different ages
+      const youngPerson = { age: 16 } as Person;
+      const adultPerson = { age: 25 } as Person;
+      
+      expect(availabilityFn(youngPerson)).toBe(false);
+      expect(availabilityFn(adultPerson)).toBe(true);
+    });
+
+    it("should verify that @Exclude is applied to fields with available: false", () => {
+      const person = new Person();
+      person.internalId = "test-id";
+      
+      // The field should be excluded from JSON serialization
+      const json = person.toJSON();
+      expect(json).not.toHaveProperty("internalId");
+      
+      // But the field should still exist on the instance
+      expect(person.internalId).toBe("test-id");
+    });
+
+    it("should verify that @Expose is applied by default and to available: true fields", () => {
+      const person = new Person();
+      person.firstName = "Test";
+      person.lastName = "User";
+      person.email = "test@example.com";
+      person.age = 30;
+      
+      const json = person.toJSON();
+      
+      // All these fields should be exposed
+      expect(json).toHaveProperty("firstName", "Test");
+      expect(json).toHaveProperty("lastName", "User");
+      expect(json).toHaveProperty("email", "test@example.com");
+      expect(json).toHaveProperty("age", 30);
+    });
+  });
+
 });
