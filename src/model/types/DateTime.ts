@@ -5,7 +5,7 @@ import {
     ValidationOptions,
     ValidateNested,
     IsOptional} from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform, TransformationType, Expose } from 'class-transformer';
 
 /**
  * Options for the DateTime decorator.
@@ -25,6 +25,54 @@ export interface DateTimeRangeOptions {
     openStart?: boolean;
     /** If set to true, the 'to' field can be empty (open end). */
     openEnd?: boolean;
+}
+
+/**
+ * Transforms Date objects to ISO 8601 strings for JSON serialization.
+ * @param value - The Date value to transform
+ * @returns ISO 8601 string or undefined if value is null/undefined
+ */
+function dateToISO8601(value: Date | undefined | null): string | undefined {
+    if (value == null) {
+        return undefined;
+    }
+    if (!(value instanceof Date)) {
+        return undefined;
+    }
+    return value.toISOString();
+}
+
+/**
+ * Transforms ISO 8601 strings or milliseconds to Date objects for JSON deserialization.
+ * Supports both ISO 8601 strings and milliseconds for backwards compatibility.
+ * @param value - The value to transform (ISO 8601 string, milliseconds number, or Date)
+ * @returns Date object or undefined if value is null/undefined
+ */
+function dateFromJSON(value: any): Date | undefined {
+    if (value == null) {
+        return undefined;
+    }
+    
+    // If it's already a Date object, return it
+    if (value instanceof Date) {
+        return value;
+    }
+    
+    // If it's a number, treat it as milliseconds (backwards compatibility)
+    if (typeof value === 'number') {
+        return new Date(value);
+    }
+    
+    // If it's a string, try to parse as ISO 8601
+    if (typeof value === 'string') {
+        const date = new Date(value);
+        // Check if the date is valid
+        if (!isNaN(date.getTime())) {
+            return date;
+        }
+    }
+    
+    return undefined;
 }
 
 // Custom key types for clearer IntelliSense errors
@@ -181,8 +229,17 @@ export function DateTime(options?: DateTimeOptions) {
         // Apply date validation with optional min/max constraints
         IsDateWithRange(options?.min, options?.max)(target as any, propName);
 
-        // Add JSON transformation metadata for ISO 8601 handling
-        Type(() => Date)(target as any, propName);
+        // Custom transformation for JSON serialization/deserialization
+        Transform(({ value, type }) => {
+            if (type === TransformationType.CLASS_TO_PLAIN) {
+                // Serialization: Date -> ISO 8601 string
+                return dateToISO8601(value);
+            } else if (type === TransformationType.PLAIN_TO_CLASS) {
+                // Deserialization: string/number -> Date
+                return dateFromJSON(value);
+            }
+            return value;
+        })(target as any, propName);
     };
 }
 
@@ -192,11 +249,31 @@ export function DateTime(options?: DateTimeOptions) {
  */
 export class DateTimeRangeClass {
     @IsOptional()
-    @Type(() => Date)
+    @Expose()
+    @Transform(({ value, type }) => {
+        if (type === TransformationType.CLASS_TO_PLAIN) {
+            // Serialization: Date -> ISO 8601 string
+            return dateToISO8601(value);
+        } else if (type === TransformationType.PLAIN_TO_CLASS) {
+            // Deserialization: string/number -> Date
+            return dateFromJSON(value);
+        }
+        return value;
+    })
     from?: Date;
 
     @IsOptional()
-    @Type(() => Date)
+    @Expose()
+    @Transform(({ value, type }) => {
+        if (type === TransformationType.CLASS_TO_PLAIN) {
+            // Serialization: Date -> ISO 8601 string
+            return dateToISO8601(value);
+        } else if (type === TransformationType.PLAIN_TO_CLASS) {
+            // Deserialization: string/number -> Date
+            return dateFromJSON(value);
+        }
+        return value;
+    })
     to?: Date;
 }
 

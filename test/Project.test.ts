@@ -336,4 +336,266 @@ describe("Project Model DateTime Validation", () => {
       expect(descError?.codes).toContain("maxLength");
     });
   });
+
+  describe("JSON Conversion", () => {
+    describe("toJSON", () => {
+      it("should convert DateTime fields to ISO 8601 strings", async () => {
+        const project = new Project();
+        project.name = "JSON Test Project";
+        project.startDate = new Date('2024-06-15T10:30:45.123Z');
+        project.endDate = new Date('2024-12-31T23:59:59.999Z');
+        
+        const activeRange = new DateTimeRangeClass();
+        activeRange.from = new Date('2024-06-15T08:00:00.000Z');
+        activeRange.to = new Date('2024-09-15T17:00:00.000Z');
+        project.activeRange = activeRange;
+        
+        const json = project.toJSON();
+        
+        expect(json.name).toBe("JSON Test Project");
+        expect(json.startDate).toBe("2024-06-15T10:30:45.123Z");
+        expect(json.endDate).toBe("2024-12-31T23:59:59.999Z");
+        expect(json.activeRange).toEqual({
+          from: "2024-06-15T08:00:00.000Z",
+          to: "2024-09-15T17:00:00.000Z"
+        });
+      });
+
+      it("should handle undefined optional fields in JSON output", async () => {
+        const project = new Project();
+        project.name = "Minimal JSON Project";
+        project.startDate = new Date('2024-06-15T10:30:45.123Z');
+        
+        const activeRange = new DateTimeRangeClass();
+        activeRange.from = new Date('2024-06-15T08:00:00.000Z');
+        activeRange.to = new Date('2024-09-15T17:00:00.000Z');
+        project.activeRange = activeRange;
+        
+        const json = project.toJSON();
+        
+        expect(json.name).toBe("Minimal JSON Project");
+        expect(json.startDate).toBe("2024-06-15T10:30:45.123Z");
+        expect(json.endDate).toBeUndefined();
+        expect(json.flexibleRange).toBeUndefined();
+        expect(json.activeRange).toEqual({
+          from: "2024-06-15T08:00:00.000Z",
+          to: "2024-09-15T17:00:00.000Z"
+        });
+      });
+
+      it("should handle DateTimeRange with partial dates", async () => {
+        const project = new Project();
+        project.name = "Partial Range Project";
+        project.startDate = new Date('2024-06-15T10:30:45.123Z');
+        
+        const activeRange = new DateTimeRangeClass();
+        activeRange.from = new Date('2024-06-15T08:00:00.000Z');
+        activeRange.to = new Date('2024-09-15T17:00:00.000Z');
+        project.activeRange = activeRange;
+        
+        const flexibleRange = new DateTimeRangeClass();
+        flexibleRange.from = new Date('2024-01-01T00:00:00.000Z');
+        // to is undefined (open end)
+        project.flexibleRange = flexibleRange;
+        
+        const json = project.toJSON();
+        
+        expect(json.flexibleRange).toEqual({
+          from: "2024-01-01T00:00:00.000Z",
+          to: undefined
+        });
+      });
+    });
+
+    describe("fromJSON", () => {
+      it("should convert ISO 8601 strings back to Date objects", async () => {
+        const jsonData = {
+          name: "Restored Project",
+          startDate: "2024-06-15T10:30:45.123Z",
+          endDate: "2024-12-31T23:59:59.999Z",
+          activeRange: {
+            from: "2024-06-15T08:00:00.000Z",
+            to: "2024-09-15T17:00:00.000Z"
+          },
+          flexibleRange: {
+            from: "2024-01-01T00:00:00.000Z",
+            to: "2024-12-31T23:59:59.999Z"
+          }
+        };
+        
+        const project = Project.fromJSON(jsonData);
+        
+        expect(project.name).toBe("Restored Project");
+        expect(project.startDate).toBeInstanceOf(Date);
+        expect(project.startDate.toISOString()).toBe("2024-06-15T10:30:45.123Z");
+        expect(project.endDate).toBeInstanceOf(Date);
+        expect(project.endDate!.toISOString()).toBe("2024-12-31T23:59:59.999Z");
+        
+        expect(project.activeRange).toBeInstanceOf(DateTimeRangeClass);
+        expect(project.activeRange.from).toBeInstanceOf(Date);
+        expect(project.activeRange.from!.toISOString()).toBe("2024-06-15T08:00:00.000Z");
+        expect(project.activeRange.to).toBeInstanceOf(Date);
+        expect(project.activeRange.to!.toISOString()).toBe("2024-09-15T17:00:00.000Z");
+        
+        expect(project.flexibleRange).toBeInstanceOf(DateTimeRangeClass);
+        expect(project.flexibleRange!.from).toBeInstanceOf(Date);
+        expect(project.flexibleRange!.from!.toISOString()).toBe("2024-01-01T00:00:00.000Z");
+        expect(project.flexibleRange!.to).toBeInstanceOf(Date);
+        expect(project.flexibleRange!.to!.toISOString()).toBe("2024-12-31T23:59:59.999Z");
+      });
+
+      it("should support milliseconds for backwards compatibility", async () => {
+        const jsonData = {
+          name: "Legacy Project",
+          startDate: 1718448645123, // milliseconds
+          endDate: 1735689599999,   // milliseconds
+          activeRange: {
+            from: 1718434800000,    // milliseconds
+            to: 1726423200000       // milliseconds
+          }
+        };
+        
+        const project = Project.fromJSON(jsonData);
+        
+        expect(project.startDate).toBeInstanceOf(Date);
+        expect(project.startDate.getTime()).toBe(1718448645123);
+        expect(project.endDate).toBeInstanceOf(Date);
+        expect(project.endDate!.getTime()).toBe(1735689599999);
+        
+        expect(project.activeRange.from).toBeInstanceOf(Date);
+        expect(project.activeRange.from!.getTime()).toBe(1718434800000);
+        expect(project.activeRange.to).toBeInstanceOf(Date);
+        expect(project.activeRange.to!.getTime()).toBe(1726423200000);
+      });
+
+      it("should handle mixed ISO 8601 and milliseconds", async () => {
+        const jsonData = {
+          name: "Mixed Format Project",
+          startDate: "2024-06-15T10:30:45.123Z", // ISO 8601
+          endDate: 1735689599999,                 // milliseconds
+          activeRange: {
+            from: 1718434800000,                  // milliseconds
+            to: "2024-09-15T17:00:00.000Z"        // ISO 8601
+          }
+        };
+        
+        const project = Project.fromJSON(jsonData);
+        
+        expect(project.startDate).toBeInstanceOf(Date);
+        expect(project.startDate.toISOString()).toBe("2024-06-15T10:30:45.123Z");
+        expect(project.endDate).toBeInstanceOf(Date);
+        expect(project.endDate!.getTime()).toBe(1735689599999);
+        
+        expect(project.activeRange.from).toBeInstanceOf(Date);
+        expect(project.activeRange.from!.getTime()).toBe(1718434800000);
+        expect(project.activeRange.to).toBeInstanceOf(Date);
+        expect(project.activeRange.to!.toISOString()).toBe("2024-09-15T17:00:00.000Z");
+      });
+
+      it("should handle undefined fields in JSON input", async () => {
+        const jsonData = {
+          name: "Minimal JSON Input",
+          startDate: "2024-06-15T10:30:45.123Z",
+          activeRange: {
+            from: "2024-06-15T08:00:00.000Z",
+            to: "2024-09-15T17:00:00.000Z"
+          }
+          // endDate and flexibleRange are undefined
+        };
+        
+        const project = Project.fromJSON(jsonData);
+        
+        expect(project.name).toBe("Minimal JSON Input");
+        expect(project.startDate).toBeInstanceOf(Date);
+        expect(project.endDate).toBeUndefined();
+        expect(project.flexibleRange).toBeUndefined();
+        expect(project.activeRange).toBeInstanceOf(DateTimeRangeClass);
+      });
+
+      it("should handle partial DateTimeRange in JSON input", async () => {
+        const jsonData = {
+          name: "Partial Range JSON",
+          startDate: "2024-06-15T10:30:45.123Z",
+          activeRange: {
+            from: "2024-06-15T08:00:00.000Z",
+            to: "2024-09-15T17:00:00.000Z"
+          },
+          flexibleRange: {
+            from: "2024-01-01T00:00:00.000Z"
+            // to is undefined (open end)
+          }
+        };
+        
+        const project = Project.fromJSON(jsonData);
+        
+        expect(project.flexibleRange).toBeInstanceOf(DateTimeRangeClass);
+        expect(project.flexibleRange!.from).toBeInstanceOf(Date);
+        expect(project.flexibleRange!.from!.toISOString()).toBe("2024-01-01T00:00:00.000Z");
+        expect(project.flexibleRange!.to).toBeUndefined();
+      });
+    });
+
+    describe("Round-trip conversion", () => {
+      it("should maintain data integrity through toJSON/fromJSON cycle", async () => {
+        const originalProject = new Project();
+        originalProject.name = "Round-trip Project";
+        originalProject.startDate = new Date('2024-06-15T10:30:45.123Z');
+        originalProject.endDate = new Date('2024-12-31T23:59:59.999Z');
+        originalProject.description = "Test description";
+        
+        const activeRange = new DateTimeRangeClass();
+        activeRange.from = new Date('2024-06-15T08:00:00.000Z');
+        activeRange.to = new Date('2024-09-15T17:00:00.000Z');
+        originalProject.activeRange = activeRange;
+        
+        const flexibleRange = new DateTimeRangeClass();
+        flexibleRange.from = new Date('2024-01-01T00:00:00.000Z');
+        flexibleRange.to = new Date('2024-12-31T23:59:59.999Z');
+        originalProject.flexibleRange = flexibleRange;
+        
+        // Convert to JSON and back
+        const json = originalProject.toJSON();
+        const restoredProject = Project.fromJSON(json);
+        
+        // Verify all fields match
+        expect(restoredProject.name).toBe(originalProject.name);
+        expect(restoredProject.startDate.getTime()).toBe(originalProject.startDate.getTime());
+        expect(restoredProject.endDate!.getTime()).toBe(originalProject.endDate!.getTime());
+        expect(restoredProject.description).toBe(originalProject.description);
+        
+        expect(restoredProject.activeRange.from!.getTime()).toBe(originalProject.activeRange.from!.getTime());
+        expect(restoredProject.activeRange.to!.getTime()).toBe(originalProject.activeRange.to!.getTime());
+        
+        expect(restoredProject.flexibleRange!.from!.getTime()).toBe(originalProject.flexibleRange!.from!.getTime());
+        expect(restoredProject.flexibleRange!.to!.getTime()).toBe(originalProject.flexibleRange!.to!.getTime());
+        
+        // Verify the restored object can still be validated
+        const errors = await restoredProject.validate();
+        expect(errors).toStrictEqual([]);
+      });
+
+      it("should produce consistent JSON format as specified", async () => {
+        const project = new Project();
+        project.name = "Hotel Reservation System";
+        project.startDate = new Date('2025-08-21T13:42:24.123Z');
+        
+        const activeRange = new DateTimeRangeClass();
+        activeRange.from = new Date('2025-08-21T13:42:24.123Z');
+        activeRange.to = new Date('2025-08-23T13:42:24.123Z');
+        project.activeRange = activeRange;
+        
+        const json = project.toJSON();
+        
+        // Verify the JSON structure matches the specification
+        expect(json).toEqual({
+          name: "Hotel Reservation System",
+          startDate: "2025-08-21T13:42:24.123Z",
+          activeRange: {
+            from: "2025-08-21T13:42:24.123Z",
+            to: "2025-08-23T13:42:24.123Z"
+          }
+        });
+      });
+    });
+  });
 });
