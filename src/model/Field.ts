@@ -18,7 +18,7 @@ import { CustomValidate } from '../validators/CustomValidationConstraint';
  * };
  * ```
  */
-export type ValidationIssue = { code: string; message: string };
+export type ValidationIssue = { constraint: string; message: string };
 
 type CustomValidationFunction<TValue, TObject> = (
   value: TValue,
