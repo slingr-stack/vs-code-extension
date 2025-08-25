@@ -3,6 +3,8 @@ import { MetadataCache } from './cache/cache';
 import { ExplorerProvider } from './explorer/explorerProvider';
 import { getAllRefactorTools, registerRefactorCommands } from './refactor/refactorDisposables';
 import { RefactorController } from './refactor/RefactorController';
+import { NewModelTool } from './refactor/tools/newModel';
+import { AppTreeItem } from './explorer/appTreeItem';
 
 export let cache: MetadataCache;
 
@@ -41,11 +43,20 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const refactorDisposables = registerRefactorCommands(refactorController);
 
+	// Register the standalone New Model Tool
+	const newModelTool = new NewModelTool();
+	const newModelCommand = vscode.commands.registerCommand('slingr-vscode-extension.newModel', (uri?: vscode.Uri | AppTreeItem) => {
+		// If no URI provided, use the current workspace folder
+		const targetUri = uri || (vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri.file(''));
+		return newModelTool.createNewModel(targetUri);
+	});
+
 	// Add all disposables to context subscriptions
 	context.subscriptions.push(
 		treeView,
 		navigateToCodeCommand,
 		cache,
+		newModelCommand,
 		...refactorDisposables
 	);
 }

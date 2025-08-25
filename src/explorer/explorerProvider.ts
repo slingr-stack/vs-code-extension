@@ -254,8 +254,10 @@ export class ExplorerProvider
    */
   async getChildren(element?: AppTreeItem): Promise<AppTreeItem[]> {
     if (!element) {
-      // Root level: Data
-      return [new AppTreeItem("Data", vscode.TreeItemCollapsibleState.Expanded, "dataRoot", this.extensionUri)];
+      // Root level: Data - include the src/data path as folderPath
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      const dataRootPath = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, 'src', 'data') : undefined;
+      return [new AppTreeItem("Data", vscode.TreeItemCollapsibleState.Expanded, "dataRoot", this.extensionUri, undefined, undefined, dataRootPath)];
     }
 
     // --- DATA ROOT ---
