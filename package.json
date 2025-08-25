@@ -28,6 +28,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "bigint-money": "^2.0.0",
     "class-validator": "^0.14.2"
   }
 }
