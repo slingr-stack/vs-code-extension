@@ -64,7 +64,7 @@ if (typeof suite !== 'undefined') {
 
         suite('Manual Trigger Capability', () => {
             test('should handle valid entity in entity file', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const entityUri = vscode.Uri.file('/test/src/data/User.ts');
                 const entityRange = new vscode.Range(5, 0, 5, 4);
                 const entity = createMockEntity('User', entityUri, entityRange);
                 
@@ -79,7 +79,7 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(canHandle, true);
             });
 
-            test('should reject non-entity files', async () => {
+            test('should search entity files only in src/data', async () => {
                 const nonEntityUri = vscode.Uri.file('/test/src/utils/helper.ts');
                 const range = new vscode.Range(5, 0, 5, 4);
                 const entity = createMockEntity('Helper', nonEntityUri, range);
@@ -113,12 +113,14 @@ if (typeof suite !== 'undefined') {
                     cache: mockCache,
                     uri: entityUri,
                     range: range,
-                    metadata: nonEntity as any
+                    metadata: nonEntity
                 };
 
                 const canHandle = await tool.canHandleManualTrigger(context);
                 assert.strictEqual(canHandle, false);
             });
+
+
         });
 
         suite('Automatic Change Detection', () => {

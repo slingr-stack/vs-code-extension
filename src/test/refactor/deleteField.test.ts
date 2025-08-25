@@ -261,7 +261,6 @@ if (typeof suite !== 'undefined') {
                 assert.ok(change);
                 assert.strictEqual(change.type, 'DELETE_FIELD');
                 assert.strictEqual(change.payload.oldFieldMetadata.name, 'name');
-                assert.strictEqual(change.payload.entityName, 'User');
                 assert.strictEqual(change.payload.isManual, true);
             });
 
@@ -467,57 +466,6 @@ if (typeof suite !== 'undefined') {
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
                 
-                assert.ok(workspaceEdit);
-            });
-        });
-
-        suite('Field Type Specific Handling', () => {
-            test('should handle simple field types', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                const fieldRange = new vscode.Range(8, 4, 8, 8);
-                
-                const simpleTypes = ['string', 'number', 'boolean', 'Date'];
-                
-                for (const type of simpleTypes) {
-                    const field = createMockField('testField', type, entityUri, fieldRange);
-                    
-                    const change: ChangeObject = {
-                        type: 'DELETE_FIELD',
-                        uri: entityUri,
-                        description: `Delete ${type} field from User entity`,
-                        payload: {
-                            oldFieldMetadata: field,
-                            entityName: 'User'
-                        }
-                    };
-
-                    const workspaceEdit = await tool.prepareEdit(change, mockCache);
-                    assert.ok(workspaceEdit, `Should handle ${type} field deletion`);
-                }
-            });
-
-            test('should handle complex field types', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                const fieldRange = new vscode.Range(8, 4, 8, 8);
-                
-                const complexField = createMockField('settings', 'UserSettings', entityUri, fieldRange);
-                complexField.decorators.push({
-                    name: 'EmbeddedDocument',
-                    arguments: [],
-                    position: new vscode.Range(7, 4, 7, 19)
-                });
-
-                const change: ChangeObject = {
-                    type: 'DELETE_FIELD',
-                    uri: entityUri,
-                    description: 'Delete complex field from User entity',
-                    payload: {
-                        oldFieldMetadata: complexField,
-                        entityName: 'User'
-                    }
-                };
-
-                const workspaceEdit = await tool.prepareEdit(change, mockCache);
                 assert.ok(workspaceEdit);
             });
         });

@@ -47,8 +47,12 @@ export class DeleteFieldTool implements IRefactorTool {
      * @returns True if the context metadata represents a valid field.
      */
     public async canHandleManualTrigger(context: ManualRefactorContext): Promise<boolean> {
-        return !!context.metadata && 'type' in context.metadata && isField(context.metadata); //
+        if (!context.metadata) {
+            return false;
+        }
+        return (isEntityFile(context.uri) && isField(context.metadata));
     }
+        
 
     /**
      * Analyzes file metadata changes to detect field deletions.
@@ -154,6 +158,14 @@ export class DeleteFieldTool implements IRefactorTool {
         }
 
         const field = context.metadata as PropertyMetadata;
+        const confirmation = await vscode.window.showWarningMessage(
+              `Are you sure you want to delete the Field '${field.name}' and all its references? This action cannot be undone.`,
+              "Yes, Delete All"
+            );
+        
+            if (confirmation !== "Yes, Delete All") {
+              return undefined;
+            }
         return {
             type: 'DELETE_FIELD',
             uri: context.uri,
