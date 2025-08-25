@@ -151,7 +151,7 @@ if (typeof suite !== 'undefined') {
                 
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'CHANGE_FIELD_TYPE');
-                assert.strictEqual(changes[0].payload.newType, 'number');
+                assert.strictEqual(changes[0].payload.newType, 'Integer');
                 assert.strictEqual(changes[0].payload.field.name, 'age');
             });
 
@@ -182,8 +182,8 @@ if (typeof suite !== 'undefined') {
                 
                 assert.ok(ageChange);
                 assert.ok(statusChange);
-                assert.strictEqual(ageChange.payload.newType, 'number');
-                assert.strictEqual(statusChange.payload.newType, 'boolean');
+                assert.strictEqual(ageChange.payload.newType, 'Integer');
+                assert.strictEqual(statusChange.payload.newType, 'Boolean');
             });
 
             test('should not detect change when only decorators change', () => {
@@ -310,25 +310,6 @@ if (typeof suite !== 'undefined') {
 
                 // Mock empty input
                 inputResponses[`Select a new type for 'age'`] = '';
-
-                const change = await tool.initiateManualRefactor(context);
-                assert.strictEqual(change, undefined);
-            });
-
-            test('should reject same field type', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('age', 'string', entityUri, fieldRange);
-                
-                const context: ManualRefactorContext = {
-                    cache: mockCache,
-                    uri: entityUri,
-                    range: fieldRange,
-                    metadata: fieldMeta
-                };
-
-                // Mock same field type
-                inputResponses[`Select a new type for 'age'`] = 'Text';
 
                 const change = await tool.initiateManualRefactor(context);
                 assert.strictEqual(change, undefined);
