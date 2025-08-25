@@ -4,7 +4,7 @@
   "description": "Slingr Framework - Smart Business Apps",
   "main": "index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest --verbose"
   },
   "repository": {
     "type": "git",
