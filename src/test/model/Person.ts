@@ -26,7 +26,7 @@ export class Person extends BaseModel {
       let errors = [];
       if (person.age < 0 || person.age > 120) {
         errors.push({
-          code: "invalidAge",
+          constraint: "invalidAge",
           message: "Age must be between 0 and 120",
         });
       }
