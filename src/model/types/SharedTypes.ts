@@ -1,7 +1,7 @@
 /**
  * Represents a single validation error from a custom validation function.
  */
-export type ValidationIssue = { code: string; message: string };
+export type ValidationIssue = { constraint: string; message: string };
 
 /**
  * A function that performs custom validation on a field's value.
