@@ -141,7 +141,13 @@ export abstract class BaseModel {
         const oldValue = (this as any)[key];
         const newValue = originalGetter.call(this);
 
-        if (oldValue !== newValue) {
+        // Compares the contents of objects, not references
+        const valuesAreDifferent =
+          (typeof oldValue === 'object' && oldValue !== null)
+            ? JSON.stringify(oldValue) !== JSON.stringify(newValue)
+            : oldValue !== newValue;
+
+        if (valuesAreDifferent) {
           (this as any)[key] = newValue; // Triggers the replaced setter to memoize the value
           hasChanged = true;
         }
