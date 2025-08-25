@@ -1,4 +1,4 @@
-import { IsNotEmpty, ValidateIf } from 'class-validator';
+import { IsNotEmpty, IsOptional, ValidateIf } from 'class-validator';
 import { Exclude, Expose, Transform } from 'class-transformer';
 import { CustomValidate } from '../validators/CustomValidationConstraint';
 
@@ -19,7 +19,7 @@ import { CustomValidate } from '../validators/CustomValidationConstraint';
  * };
  * ```
  */
-export type ValidationIssue = { code: string; message: string };
+export type ValidationIssue = { constraint: string; message: string };
 
 type CustomValidationFunction<TValue, TObject> = (
   value: TValue,
@@ -222,7 +222,9 @@ export function Field<TObject extends object = object, TValue = unknown>(options
       // Default behavior is to expose the field (available: true or undefined)
       Expose()(target, propertyKey);
     }
-
+    if (!options.required) {
+      IsOptional()(target, propertyKey);
+    }
     if (options?.required !== undefined) {
       if (typeof options.required === 'function') {
         ValidateIf((object: unknown) => {

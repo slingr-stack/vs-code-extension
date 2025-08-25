@@ -1,7 +1,7 @@
 {
-  "name": "framework",
+  "name": "slingr-framework",
   "version": "1.0.0",
-  "description": "",
+  "description": "Slingr Framework - Smart Business Apps",
   "main": "index.js",
   "scripts": {
     "test": "jest --verbose"
@@ -10,10 +10,9 @@
     "type": "git",
     "url": "git+https://github.com/slingr-stack/framework.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "author": "Slingr",
+  "license": "Apache-2.0",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/slingr-stack/framework/issues"
   },
