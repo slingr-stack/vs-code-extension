@@ -1,5 +1,6 @@
-import { Person } from "./model/Person";
+
 import type { ValidationError } from "class-validator";
+import { Person } from "./model/Person";
 
 /**
  * Converts an array of class-validator ValidationError objects into a stable, plain summary.
