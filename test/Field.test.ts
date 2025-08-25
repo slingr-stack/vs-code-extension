@@ -120,7 +120,7 @@ describe("Person Model Validation", () => {
     const errors = await invalidUser.validate();
     const summary = summarizeErrors(errors);
     const expected = [
-      { field: "birthYear", codes: ["min"], messages: ["birthYear must be greater than or equal to 1900"] },
+      { field: "birthYear", codes: ["min"], messages: ["birthYear must not be less than 1900"] },
     ];
     expect(summary).toStrictEqual(expected);
   });

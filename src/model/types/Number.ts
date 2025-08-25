@@ -32,7 +32,7 @@ type NumberKey<T, K extends keyof T & string> = T[K] extends number
  */
 function validateNumberType(proto: Object, propertyKey: string): void {
     const designType = Reflect.getMetadata('design:type', proto, propertyKey);
-    if (designType !== Number) {
+    if (designType !== Number && designType?.name !== 'Number') {
         throw new Error(`@Number can only be applied to 'number' properties, but it was used on '${propertyKey}'.`);
     }
 }
