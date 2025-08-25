@@ -1,5 +1,8 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { RenameFieldTool } from '../../refactor/tools/renameField';
 import { MetadataCache, FileMetadata, DecoratedClass, PropertyMetadata } from '../../cache/cache';
 import { ChangeObject, ManualRefactorContext } from '../../refactor/refactorInterfaces';
@@ -9,13 +12,41 @@ if (typeof suite !== 'undefined') {
     suite('RenameFieldTool Tests', () => {
         
         let tool: RenameFieldTool;
+        let cache: MetadataCache;
         let mockCache: MetadataCache;
         let inputResponses: { [prompt: string]: string | undefined } = {};
+        let tempTestDir: string;
+        let tempDataDir: string;
 
         setup(() => {
             tool = new RenameFieldTool();
             mockCache = createMockCache();
             inputResponses = {};
+
+            // Create temporary directory for test files
+            tempTestDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-extension-test-'));
+            tempDataDir = path.join(tempTestDir, 'src', 'data', 'entities');
+            fs.mkdirSync(tempDataDir, { recursive: true });
+
+            // Create a minimal tsconfig.json for ts-morph
+            const tsConfigContent = JSON.stringify({
+                "compilerOptions": {
+                    "target": "ES2020",
+                    "module": "commonjs",
+                    "lib": ["ES2020"],
+                    "strict": true,
+                    "experimentalDecorators": true,
+                    "emitDecoratorMetadata": true,
+                    "skipLibCheck": true,
+                    "forceConsistentCasingInFileNames": true
+                },
+                "include": ["src/**/*"]
+            }, null, 2);
+            
+            fs.writeFileSync(path.join(tempTestDir, 'tsconfig.json'), tsConfigContent, 'utf8');
+
+            // Create cache with temp directory as workspace
+            cache = new MetadataCache(tempTestDir);
 
             // Mock user input dialogs
             (vscode.window as any).showInputBox = async (options: vscode.InputBoxOptions) => {
@@ -46,7 +77,75 @@ if (typeof suite !== 'undefined') {
                     index: 0
                 };
             };
+
+            // Mock workspace.findFiles to return our test files
+            (vscode.workspace as any).findFiles = async (include: string, exclude?: string) => {
+                if (!include.includes('src/data') && !include.includes('src/ui')) {
+                    return [];
+                }
+                
+                // Return any files we've created in our temp directory
+                const files: vscode.Uri[] = [];
+                if (fs.existsSync(tempDataDir)) {
+                    const entities = fs.readdirSync(tempDataDir);
+                    for (const entity of entities) {
+                        if (entity.endsWith('.ts')) {
+                            files.push(vscode.Uri.file(path.join(tempDataDir, entity)));
+                        }
+                    }
+                }
+                return files;
+            };
         });
+
+        teardown(async () => {
+            // Clean up temporary directory
+            if (tempTestDir && fs.existsSync(tempTestDir)) {
+                fs.rmSync(tempTestDir, { recursive: true, force: true });
+            }
+            
+            // Dispose cache
+            if (cache) {
+                cache.dispose();
+            }
+        });
+
+        /**
+         * Creates a TypeScript entity file for testing
+         */
+        async function createTestEntityFile(entityName: string, fields: Array<{name: string, type: string, decorators?: string[]}>): Promise<vscode.Uri> {
+            const filePath = path.join(tempDataDir, `${entityName}.ts`);
+            
+            let content = `import { Field, Model } from '@slingr/slingr-framework';\n\n`;
+            content += `@Model()\n`;
+            content += `export class ${entityName} {\n`;
+            
+            for (const field of fields) {
+                if (field.decorators && field.decorators.length > 0) {
+                    for (const decorator of field.decorators) {
+                        content += `    ${decorator}\n`;
+                    }
+                } else {
+                    content += `    @Field()\n`;
+                }
+                content += `    ${field.name}: ${field.type};\n\n`;
+            }
+            
+            content += `}\n`;
+            
+            fs.writeFileSync(filePath, content, 'utf8');
+            
+            const uri = vscode.Uri.file(filePath);
+            return uri;
+        }
+
+        /**
+         * Initializes the cache with created test files
+         */
+        async function initializeCacheWithTestFiles(): Promise<void> {
+            // Initialize the cache to parse our test files
+            await cache.initialize();
+        }
 
         suite('Tool Metadata', () => {
             test('should provide correct command ID', () => {
@@ -151,7 +250,7 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'RENAME_FIELD');
                 assert.strictEqual(changes[0].payload.oldFieldMetadata.name, 'name');
-                assert.strictEqual(changes[0].payload.newFieldMetadata.name, 'fullName');
+                assert.strictEqual(changes[0].payload.newName, 'fullName');
                 assert.strictEqual(changes[0].payload.entityName, 'User');
             });
 
@@ -211,8 +310,8 @@ if (typeof suite !== 'undefined') {
                 
                 assert.ok(firstNameChange);
                 assert.ok(lastNameChange);
-                assert.strictEqual(firstNameChange.payload.newFieldMetadata.name, 'first');
-                assert.strictEqual(lastNameChange.payload.newFieldMetadata.name, 'last');
+                assert.strictEqual(firstNameChange.payload.newName, 'first');
+                assert.strictEqual(lastNameChange.payload.newName, 'last');
             });
 
             test('should not detect changes in non-entity files', () => {
@@ -254,26 +353,42 @@ if (typeof suite !== 'undefined') {
 
         suite('Manual Refactor Initiation', () => {
             test('should proceed with valid new field name', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', entityUri, fieldRange);
+                // Create a entity file with a field
+                const entityUri = await createTestEntityFile('User', [
+                    { name: 'name', type: 'string' },
+                    { name: 'email', type: 'string' }
+                ]);
+                
+                // Initialize cache to parse the file
+                await initializeCacheWithTestFiles();
+                
+                // Get metadata from the cache - use the full normalized path
+                const filePath = entityUri.fsPath.replace(/\\/g, '/');
+                const fileMeta = cache.getMetadataForFile(filePath);
+                assert.ok(fileMeta, 'File metadata should exist');
+                
+                const userClass = fileMeta.classes['User'];
+                assert.ok(userClass, 'User class should exist');
+                
+                const nameField = userClass.properties['name'];
+                assert.ok(nameField, 'Name field should exist');
                 
                 const context: ManualRefactorContext = {
-                    cache: mockCache,
+                    cache: cache,
                     uri: entityUri,
-                    range: fieldRange,
-                    metadata: fieldMeta
+                    range: nameField.declaration.range,
+                    metadata: nameField
                 };
 
-                // Mock valid user input
-                inputResponses['Enter new field name:'] = 'fullName';
+                // Mock valid user input - note the exact prompt format
+                inputResponses[`Rename field 'name'`] = 'fullName';
 
                 const change = await tool.initiateManualRefactor(context);
                 
                 assert.ok(change);
                 assert.strictEqual(change.type, 'RENAME_FIELD');
-                assert.strictEqual(change.payload.oldFieldMetadata.name, 'name');
-                assert.strictEqual(change.payload.newFieldName, 'fullName');
+                assert.strictEqual(change.payload.oldName, 'name');
+                assert.strictEqual(change.payload.newName, 'fullName');
                 assert.strictEqual(change.payload.entityName, 'User');
                 assert.strictEqual(change.payload.isManual, true);
             });
@@ -463,24 +578,40 @@ if (typeof suite !== 'undefined') {
 
         suite('Field Name Validation', () => {
             test('should accept valid camelCase field names', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
-                const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', entityUri, fieldRange);
+                // Create a entity file with a field
+                const entityUri = await createTestEntityFile('User', [
+                    { name: 'name', type: 'string' }
+                ]);
+                
+                // Initialize cache to parse the file
+                await initializeCacheWithTestFiles();
+                
+                // Get metadata from the cache
+                const filePath = entityUri.fsPath.replace(/\\/g, '/');
+                const fileMeta = cache.getMetadataForFile(filePath);
+                assert.ok(fileMeta, 'File metadata should exist');
+                
+                const userClass = fileMeta.classes['User'];
+                assert.ok(userClass, 'User class should exist');
+                
+                const nameField = userClass.properties['name'];
+                assert.ok(nameField, 'Name field should exist');
                 
                 const context: ManualRefactorContext = {
-                    cache: mockCache,
+                    cache: cache,
                     uri: entityUri,
-                    range: fieldRange,
-                    metadata: fieldMeta
+                    range: nameField.declaration.range,
+                    metadata: nameField
                 };
 
                 const validNames = ['fullName', 'firstName', 'emailAddress', 'isActive', 'userId'];
                 
                 for (const name of validNames) {
-                    inputResponses['Enter new field name:'] = name;
+                    // Use the correct prompt format
+                    inputResponses[`Rename field 'name'`] = name;
                     const change = await tool.initiateManualRefactor(context);
                     assert.ok(change, `Should accept valid field name: ${name}`);
-                    assert.strictEqual(change.payload.newFieldName, name);
+                    assert.strictEqual(change.payload.newName, name);
                 }
             });
 

@@ -17,7 +17,7 @@ if (typeof suite !== 'undefined') {
     suite('RefactorController Workflow Tests', () => {
         
         let controller: RefactorController;
-        let realCache: MetadataCache;
+        let cache: MetadataCache;
         let mockContext: vscode.ExtensionContext;
         let outputChannelMessages: string[] = [];
         let appliedEdits: vscode.WorkspaceEdit[] = [];
@@ -51,8 +51,8 @@ if (typeof suite !== 'undefined') {
             
             fs.writeFileSync(path.join(tempTestDir, 'tsconfig.json'), tsConfigContent, 'utf8');
 
-            // Create real cache with temp directory as workspace
-            realCache = new MetadataCache(tempTestDir);
+            // Create cache with temp directory as workspace
+            cache = new MetadataCache(tempTestDir);
             
             // Create mock context
             mockContext = {
@@ -83,7 +83,7 @@ if (typeof suite !== 'undefined') {
             ];
 
             // Create controller with tools and cache
-            controller = new RefactorController(tools, realCache);
+            controller = new RefactorController(tools, cache);
         });
 
         teardown(async () => {
@@ -93,13 +93,13 @@ if (typeof suite !== 'undefined') {
             }
             
             // Dispose cache
-            if (realCache) {
-                realCache.dispose();
+            if (cache) {
+                cache.dispose();
             }
         });
 
         /**
-         * Creates a real TypeScript entity file for testing
+         * Creates a TypeScript entity file for testing
          */
         async function createTestEntityFile(entityName: string, fields: Array<{name: string, type: string, decorators?: string[]}>): Promise<vscode.Uri> {
             const filePath = path.join(tempDataDir, `${entityName}.ts`);
@@ -128,11 +128,11 @@ if (typeof suite !== 'undefined') {
         }
 
         /**
-         * Initializes the real cache with created test files
+         * Initializes the cache with created test files
          */
         async function initializeCacheWithTestFiles(): Promise<void> {
             // Initialize the cache to parse our test files
-            await realCache.initialize();
+            await cache.initialize();
         }
 
         function mockVSCodeAPIs() {
@@ -258,7 +258,7 @@ if (typeof suite !== 'undefined') {
 
         suite('Manual Refactor Workflows', () => {
             test('should execute complete rename entity workflow', async () => {
-                // Create a real entity file
+                // Create a entity file
                 const entityUri = await createTestEntityFile('User', [
                     { name: 'name', type: 'string' },
                     { name: 'email', type: 'string' }
@@ -269,7 +269,7 @@ if (typeof suite !== 'undefined') {
                 
                 // Get the entity metadata
                 const filePath = entityUri.fsPath.replace(/\\/g, '/');
-                const fileMeta = realCache.getMetadataForFile(filePath);
+                const fileMeta = cache.getMetadataForFile(filePath);
                 assert.ok(fileMeta, 'File metadata should exist');
                 assert.ok(fileMeta.classes['User'], 'User class should exist');
                 
@@ -277,7 +277,7 @@ if (typeof suite !== 'undefined') {
                 const entityRange = entity.declaration.range;
 
                 const context: ManualRefactorContext = {
-                    cache: realCache,
+                    cache: cache,
                     uri: entityUri,
                     range: entityRange,
                     metadata: entity
@@ -301,7 +301,7 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(change.payload.newName, 'Person');
                 
                 // Prepare and apply the edit
-                const edit = await tool.prepareEdit(change, realCache);
+                const edit = await tool.prepareEdit(change, cache);
                 assert.ok(edit);
                 
                 const success = await (vscode.workspace as any).applyEdit(edit);
@@ -310,7 +310,7 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should execute complete delete entity workflow with confirmation', async () => {
-                // Create a real entity file
+                // Create a entity file
                 const entityUri = await createTestEntityFile('User', [
                     { name: 'name', type: 'string' },
                     { name: 'email', type: 'string' }
@@ -321,7 +321,7 @@ if (typeof suite !== 'undefined') {
                 
                 // Get the entity metadata
                 const filePath = entityUri.fsPath.replace(/\\/g, '/');
-                const fileMeta = realCache.getMetadataForFile(filePath);
+                const fileMeta = cache.getMetadataForFile(filePath);
                 assert.ok(fileMeta, 'File metadata should exist');
                 assert.ok(fileMeta.classes['User'], 'User class should exist');
                 
@@ -329,7 +329,7 @@ if (typeof suite !== 'undefined') {
                 const entityRange = entity.declaration.range;
                 
                 const context: ManualRefactorContext = {
-                    cache: realCache,
+                    cache: cache,
                     uri: entityUri,
                     range: entityRange,
                     metadata: entity
@@ -350,7 +350,7 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(change.type, 'DELETE_ENTITY');
                 assert.strictEqual(change.payload.isManual, true);
                 
-                const edit = await tool.prepareEdit(change, realCache);
+                const edit = await tool.prepareEdit(change, cache);
                 assert.ok(edit);
                 
                 const success = await (vscode.workspace as any).applyEdit(edit);
@@ -358,7 +358,7 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should execute field rename workflow', async () => {
-                // Create a real entity file with a field
+                // Create a entity file with a field
                 const entityUri = await createTestEntityFile('User', [
                     { name: 'name', type: 'string' },
                     { name: 'email', type: 'string' }
@@ -369,7 +369,7 @@ if (typeof suite !== 'undefined') {
                 
                 // Get the metadata for the field we want to rename
                 const filePath = entityUri.fsPath.replace(/\\/g, '/');
-                const fileMeta = realCache.getMetadataForFile(filePath);
+                const fileMeta = cache.getMetadataForFile(filePath);
                 assert.ok(fileMeta, 'File metadata should exist');
                 assert.ok(fileMeta.classes['User'], 'User class should exist');
                 assert.ok(fileMeta.classes['User'].properties['name'], 'name field should exist');
@@ -378,7 +378,7 @@ if (typeof suite !== 'undefined') {
                 const fieldRange = fieldMeta.declaration.range;
                 
                 const context: ManualRefactorContext = {
-                    cache: realCache,
+                    cache: cache,
                     uri: entityUri,
                     range: fieldRange,
                     metadata: fieldMeta
@@ -399,12 +399,12 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(change.type, 'RENAME_FIELD');
                 assert.strictEqual(change.payload.newName, 'fullName');
                 
-                const edit = await tool.prepareEdit(change, realCache);
+                const edit = await tool.prepareEdit(change, cache);
                 assert.ok(edit);
             });
 
             test('should handle user cancellation gracefully', async () => {
-                // Create a real entity file
+                // Create a entity file
                 const entityUri = await createTestEntityFile('User', [
                     { name: 'name', type: 'string' },
                     { name: 'email', type: 'string' }
@@ -415,7 +415,7 @@ if (typeof suite !== 'undefined') {
                 
                 // Get the entity metadata
                 const filePath = entityUri.fsPath.replace(/\\/g, '/');
-                const fileMeta = realCache.getMetadataForFile(filePath);
+                const fileMeta = cache.getMetadataForFile(filePath);
                 assert.ok(fileMeta, 'File metadata should exist');
                 assert.ok(fileMeta.classes['User'], 'User class should exist');
                 
@@ -423,7 +423,7 @@ if (typeof suite !== 'undefined') {
                 const entityRange = entity.declaration.range;
                 
                 const context: ManualRefactorContext = {
-                    cache: realCache,
+                    cache: cache,
                     uri: entityUri,
                     range: entityRange,
                     metadata: entity
@@ -588,7 +588,7 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should handle workspace edit failures', async () => {
-                // Create a real entity file
+                // Create a entity file
                 const entityUri = await createTestEntityFile('User', [
                     { name: 'name', type: 'string' }
                 ]);
@@ -598,7 +598,7 @@ if (typeof suite !== 'undefined') {
                 
                 // Get the entity metadata
                 const filePath = entityUri.fsPath.replace(/\\/g, '/');
-                const fileMeta = realCache.getMetadataForFile(filePath);
+                const fileMeta = cache.getMetadataForFile(filePath);
                 assert.ok(fileMeta, 'File metadata should exist');
                 assert.ok(fileMeta.classes['User'], 'User class should exist');
                 
@@ -609,7 +609,7 @@ if (typeof suite !== 'undefined') {
                 (vscode.workspace as any).applyEdit = async () => false;
                 
                 const context: ManualRefactorContext = {
-                    cache: realCache,
+                    cache: cache,
                     uri: entityUri,
                     range: entityRange,
                     metadata: entity
@@ -619,7 +619,7 @@ if (typeof suite !== 'undefined') {
                 const change = await tool.initiateManualRefactor(context);
                 
                 if (change) {
-                    const edit = await tool.prepareEdit(change, realCache);
+                    const edit = await tool.prepareEdit(change, cache);
                     const success = await (vscode.workspace as any).applyEdit(edit);
                     assert.strictEqual(success, false);
                 }
@@ -664,7 +664,7 @@ if (typeof suite !== 'undefined') {
                 orderEntity.properties = { 'user': userField };
                 
                 // Setup cache to find related entities
-                (realCache as any).findMetadata = (predicate: (item: any) => boolean) => {
+                (cache as any).findMetadata = (predicate: (item: any) => boolean) => {
                     const results: any[] = [];
                     if (predicate(orderEntity)) {
                         results.push(orderEntity);
@@ -682,7 +682,7 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(changes[0].type, 'DELETE_ENTITY');
                 
                 // The tool should handle cleanup of related fields
-                const edit = await deleteEntityTool.prepareEdit(changes[0], realCache);
+                const edit = await deleteEntityTool.prepareEdit(changes[0], cache);
                 assert.ok(edit);
             });
         });
@@ -714,7 +714,7 @@ if (typeof suite !== 'undefined') {
                 // Process all changes
                 const tool = new RenameEntityTool();
                 for (const change of changes) {
-                    const edit = await tool.prepareEdit(change, realCache);
+                    const edit = await tool.prepareEdit(change, cache);
                     assert.ok(edit);
                 }
                 

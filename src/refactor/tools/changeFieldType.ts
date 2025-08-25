@@ -45,7 +45,10 @@ export class ChangeFieldTypeTool implements IRefactorTool {
     }
 
     public async canHandleManualTrigger(context: ManualRefactorContext): Promise<boolean> {
-        return !!context.metadata && 'type' in context.metadata && isField(context.metadata); //
+        if (!context.metadata) {
+            return false;
+        }
+        return (isEntityFile(context.uri) && isField(context.metadata));
     }
 
     /**

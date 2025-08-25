@@ -44,7 +44,10 @@ export class RenameFieldTool implements IRefactorTool {
      * @returns True if the context metadata represents a valid field.
      */
     public async canHandleManualTrigger(context: ManualRefactorContext): Promise<boolean> {
-        return !!context.metadata && 'type' in context.metadata && isField(context.metadata);
+        if (!context.metadata) {
+            return false;
+        }
+        return (isEntityFile(context.uri) && isField(context.metadata));
     }
 
     /**
