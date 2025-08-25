@@ -1,8 +1,8 @@
-import { Field } from "../../model/Field";
-import { Model } from "../../model/Model";
-import { BaseModel } from "../../model/BaseModel";
-import { Text, Email, HTML } from "../../model/types/Text";
+import { Field } from "../../src/model/Field";
+import { Model } from "../../src/model/Model";
+import { BaseModel } from "../../src/model/BaseModel";
 import { IsEmail } from "class-validator";
+import { Text, Email, HTML } from "@/model/types/Text";
 
 @Model({
   docs: "Represents a person",
