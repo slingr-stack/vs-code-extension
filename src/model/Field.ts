@@ -20,11 +20,22 @@ import { CustomValidate } from '../validators/CustomValidationConstraint';
  */
 export type ValidationIssue = { constraint: string; message: string };
 
+/**
+ * Type for a custom validation function.
+ * @param value - The value of the field being validated.
+ * @param object - The entire object containing the field.
+ * @returns An array of validation issues, or an empty array if valid.
+ */
 type CustomValidationFunction<TValue, TObject> = (
   value: TValue,
   object: TObject
 ) => ValidationIssue[];
 
+/**
+ * Type for a function that dynamically determines if a field is required.
+ * @param object - The entire object containing the field.
+ * @returns `true` if the field is required, otherwise `false`.
+ */
 type CustomRequiredFunction<TObject> = (object: TObject) => boolean;
 
 /**
@@ -117,31 +128,34 @@ export interface FieldOptions<TObject extends object = object, TValue = unknown>
  */
 export function Field<TObject extends object = object, TValue = unknown>(options: FieldOptions<TObject, TValue>) {
   return function (target: Object, propertyKey: string) {
-    if (options?.docs) {
+    // Add documentation metadata if provided
+    if (options.docs) {
       Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
     }
-    if (!options.required) {
-      IsOptional()(target, propertyKey);
-    }
-    if (options?.required !== undefined) {
+
+    // Handle required validation
+    if (options.required) {
       if (typeof options.required === 'function') {
-        ValidateIf((object: unknown) => {
+        // Conditionally require the field based on the provided function
+        ValidateIf((object: TObject) => {
           try {
-            const reqFn = options.required as CustomRequiredFunction<TObject>;
-            return !!reqFn(object as TObject);
-          }
-          catch {
+            return (options.required as CustomRequiredFunction<TObject>)(object);
+          } catch {
             return false;
           }
         })(target, propertyKey);
         IsNotEmpty()(target, propertyKey);
-      } else if (options.required) {
-        // Simple boolean required
+      } else {
+        // Always require the field
         IsNotEmpty()(target, propertyKey);
       }
+    } else {
+      // If not required, the field is optional
+      IsOptional()(target, propertyKey);
     }
 
-    if (options?.validation) {
+    // Handle custom validation logic
+    if (options.validation) {
       // Store the custom validation function in metadata
       Reflect.defineMetadata('field:validation', options.validation, target, propertyKey);
       // Apply the custom validator decorator to integrate with class-validator
@@ -149,6 +163,3 @@ export function Field<TObject extends object = object, TValue = unknown>(options
     }
   };
 }
-
-
-

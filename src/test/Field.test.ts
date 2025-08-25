@@ -101,7 +101,7 @@ describe("Person Model Validation", () => {
     const errors = await invalidUser.validate();
     const summary = summarizeErrors(errors);
     const expected = [
-      { field: "email", codes: ["matches"], messages: ["must be a valid email"] },
+      { field: "email", codes: ["isEmail"], messages: ["email must be an email"] },
     ];
     expect(summary).toStrictEqual(expected);
   });
