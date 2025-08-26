@@ -186,31 +186,9 @@ export class NewModelTool {
     private generateModelContent(modelName: string, docs?: string | null, fieldsInfo?: string | null, targetDirectory?: string): string {
         const lines: string[] = [];
         
-        // Calculate relative paths dynamically based on target directory
-        let relativePathToFramework = '../framework/shared';
-        
-        if (targetDirectory) {
-            // Find the workspace folder
-            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-            if (workspaceFolder) {
-                const workspacePath = workspaceFolder.uri.fsPath;
-                const srcDataPath = path.join(workspacePath, 'src', 'data');
-                
-                // Calculate how deep we are from src/data
-                const relativePath = path.relative(srcDataPath, targetDirectory);
-                if (relativePath && relativePath !== '.') {
-                    // Count the number of subdirectories
-                    const depth = relativePath.split(path.sep).length;
-                    // Add extra "../" for each level deep
-                    relativePathToFramework = '../'.repeat(depth + 1) + 'framework/shared';
-                }
-            }
-        }
-        
         // Add imports with dynamically calculated relative paths
-        lines.push(`import { Model } from '${relativePathToFramework}/Model';`);
-        lines.push(`import { Field } from '${relativePathToFramework}/Field';`);
-        lines.push("import { BaseModel } from 'typeorm';");
+        lines.push(`import { Model, Field } from 'slingr-framework';`);
+        lines.push("import { BaseModel } from 'slingr-framework';");
         lines.push("");
         
         // Add documentation comment if provided
