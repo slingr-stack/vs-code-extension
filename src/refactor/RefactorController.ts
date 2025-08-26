@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ChangeObject, IRefactorTool, ManualRefactorContext } from "./refactorInterfaces";
+import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteModelPayload } from "./refactorInterfaces";
 import { findNodeAtPosition } from "../utils/ast";
 import { MetadataCache } from "../cache/cache";
 import { AppTreeItem } from "../explorer/appTreeItem";
@@ -136,7 +136,11 @@ export class RefactorController {
       }
 
       const hasTextEdits = workspaceEdit.size > 0;
-      const hasFileDeletions = Array.isArray(changeObject.payload.urisToDelete) && changeObject.payload.urisToDelete.length > 0;
+      let hasFileDeletions = false;
+      if (changeObject.type === 'DELETE_ENTITY') {
+        const deletePayload = changeObject.payload as DeleteModelPayload;
+        hasFileDeletions = Array.isArray(deletePayload.urisToDelete) && deletePayload.urisToDelete.length > 0;
+      }
       if (!hasTextEdits && !hasFileDeletions) {
         vscode.window.showInformationMessage("No changes were needed for this refactoring.");
         return;
@@ -170,7 +174,7 @@ export class RefactorController {
     allChanges?: ChangeObject[] 
   ): Promise<void> {
     const anchorUri = changeObject.uri;
-    const isDelete = changeObject.type === "DELETE_ACTION" || changeObject.type === "DELETE_ENTITY";
+    const isDelete = changeObject.type === "DELETE_ENTITY";
 
     let uriForDummyChange = anchorUri;
 
@@ -317,7 +321,8 @@ export class RefactorController {
                 existingEdits.push(edit);
               }
             }
-            change.payload.modifiedRanges = Array.from(modifiedRanges);
+            // Note: modifiedRanges was not part of the original payload interface
+            // change.payload.modifiedRanges = Array.from(modifiedRanges);
 
             if (existingEdits.length > 0) {
               allUniqueEdits.set(uriString, existingEdits);
@@ -325,9 +330,12 @@ export class RefactorController {
 
           }
 
-          if (Array.isArray(change.payload.urisToDelete)) {
-            for (const uri of change.payload.urisToDelete) {
-              mergedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
+          if (change.type === 'DELETE_ENTITY') {
+            const deletePayload = change.payload as DeleteModelPayload;
+            if (Array.isArray(deletePayload.urisToDelete)) {
+              for (const uri of deletePayload.urisToDelete) {
+                mergedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
+              }
             }
           }
 

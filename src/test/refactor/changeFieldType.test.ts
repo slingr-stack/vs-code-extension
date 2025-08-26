@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { ChangeFieldTypeTool } from '../../refactor/tools/changeFieldType';
 import { MetadataCache, FileMetadata, DecoratedClass, PropertyMetadata } from '../../cache/cache';
-import { ChangeObject, ManualRefactorContext } from '../../refactor/refactorInterfaces';
+import { ChangeObject, ManualRefactorContext, ChangeFieldTypePayload } from '../../refactor/refactorInterfaces';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -151,8 +151,9 @@ if (typeof suite !== 'undefined') {
                 
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'CHANGE_FIELD_TYPE');
-                assert.strictEqual(changes[0].payload.newType, 'Integer');
-                assert.strictEqual(changes[0].payload.field.name, 'age');
+                const payload = changes[0].payload as ChangeFieldTypePayload;
+                assert.strictEqual(payload.newType, 'Integer');
+                assert.strictEqual(payload.field.name, 'age');
             });
 
             test('should detect multiple field type changes', () => {
@@ -177,13 +178,25 @@ if (typeof suite !== 'undefined') {
                 
                 assert.strictEqual(changes.length, 2);
                 
-                const ageChange = changes.find(c => c.payload.field.name === 'age');
-                const statusChange = changes.find(c => c.payload.field.name === 'status');
+                const ageChange = changes.find(c => {
+                    if (c.type === 'CHANGE_FIELD_TYPE') {
+                        return (c.payload as ChangeFieldTypePayload).field.name === 'age';
+                    }
+                    return false;
+                });
+                const statusChange = changes.find(c => {
+                    if (c.type === 'CHANGE_FIELD_TYPE') {
+                        return (c.payload as ChangeFieldTypePayload).field.name === 'status';
+                    }
+                    return false;
+                });
                 
                 assert.ok(ageChange);
                 assert.ok(statusChange);
-                assert.strictEqual(ageChange.payload.newType, 'Integer');
-                assert.strictEqual(statusChange.payload.newType, 'Boolean');
+                const agePayload = ageChange.payload as ChangeFieldTypePayload;
+                const statusPayload = statusChange.payload as ChangeFieldTypePayload;
+                assert.strictEqual(agePayload.newType, 'Integer');
+                assert.strictEqual(statusPayload.newType, 'Boolean');
             });
 
             test('should not detect change when only decorators change', () => {
@@ -269,11 +282,12 @@ if (typeof suite !== 'undefined') {
 
                 assert.ok(change, 'Expected a change object to be returned');
                 assert.strictEqual(change.type, 'CHANGE_FIELD_TYPE');
-                assert.strictEqual(change.payload.isManual, true);
-                assert.strictEqual(change.payload.newType, 'Integer');
-                assert.ok(change.payload.field, 'Payload should include the field metadata');
-                assert.strictEqual(change.payload.field.name, 'age');
-                assert.strictEqual(change.payload.field.type, 'string');
+                const payload = change.payload as ChangeFieldTypePayload;
+                assert.strictEqual(payload.isManual, true);
+                assert.strictEqual(payload.newType, 'Integer');
+                assert.ok(payload.field, 'Payload should include the field metadata');
+                assert.strictEqual(payload.field.name, 'age');
+                assert.strictEqual(payload.field.type, 'string');
                 assert.strictEqual(change.uri?.toString(), modelUri.toString());
             });
 
@@ -380,7 +394,8 @@ if (typeof suite !== 'undefined') {
                     payload: {
                         field: oldField,
                         newType: 'boolean',
-                    }
+                        isManual: false,
+                    } as ChangeFieldTypePayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -400,7 +415,8 @@ if (typeof suite !== 'undefined') {
                     payload: {
                         field: oldField,
                         newType: 'UserData',
-                    }
+                        isManual: false,
+                    } as ChangeFieldTypePayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -430,7 +446,8 @@ if (typeof suite !== 'undefined') {
                     payload: {
                         field: oldField,
                         newType: 'number',
-                    }
+                        isManual: false,
+                    } as ChangeFieldTypePayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -451,7 +468,8 @@ if (typeof suite !== 'undefined') {
                     payload: {
                         field: oldField,
                         newType: 'Date',
-                    }
+                        isManual: false,
+                    } as ChangeFieldTypePayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -471,7 +489,8 @@ if (typeof suite !== 'undefined') {
                     payload: {
                         field: oldField,
                         newType: 'Purchase',
-                    }
+                        isManual: false,
+                    } as ChangeFieldTypePayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -499,7 +518,8 @@ if (typeof suite !== 'undefined') {
                     inputResponses[`Select a new type for 'field'`] = type;
                     const change = await tool.initiateManualRefactor(context);
                     assert.ok(change, `Should accept valid type: ${type}`);
-                    assert.strictEqual(change.payload.newType, type);
+                    const payload = change.payload as ChangeFieldTypePayload;
+                    assert.strictEqual(payload.newType, type);
                 }
             });
 
@@ -519,13 +539,15 @@ if (typeof suite !== 'undefined') {
                 inputResponses[`Select a new type for 'tags'`] = 'string[]';
                 let change = await tool.initiateManualRefactor(context);
                 assert.ok(change);
-                assert.strictEqual(change.payload.newType, 'string[]');
+                let payload = change.payload as ChangeFieldTypePayload;
+                assert.strictEqual(payload.newType, 'string[]');
 
                 // Test union type
                 inputResponses[`Select a new type for 'tags'`] = 'string | number';
                 change = await tool.initiateManualRefactor(context);
                 assert.ok(change);
-                assert.strictEqual(change.payload.newType, 'string | number');
+                payload = change.payload as ChangeFieldTypePayload;
+                assert.strictEqual(payload.newType, 'string | number');
             });
         });
     });

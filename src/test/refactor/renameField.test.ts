@@ -5,7 +5,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { RenameFieldTool } from '../../refactor/tools/renameField';
 import { MetadataCache, FileMetadata, DecoratedClass, PropertyMetadata } from '../../cache/cache';
-import { ChangeObject, ManualRefactorContext } from '../../refactor/refactorInterfaces';
+import { ChangeObject, ManualRefactorContext, RenameFieldPayload } from '../../refactor/refactorInterfaces';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -246,12 +246,12 @@ if (typeof suite !== 'undefined') {
                 const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
-                
+                const payload = changes[0]?.payload as RenameFieldPayload;
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'RENAME_FIELD');
-                assert.strictEqual(changes[0].payload.oldFieldMetadata.name, 'name');
-                assert.strictEqual(changes[0].payload.newName, 'fullName');
-                assert.strictEqual(changes[0].payload.modelName, 'User');
+                assert.strictEqual(payload.oldFieldMetadata.name, 'name');
+                assert.strictEqual(payload.newName, 'fullName');
+                assert.strictEqual(payload.modelName, 'User');
             });
 
             test('should not detect rename when only decorators change', () => {
@@ -305,13 +305,13 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(changes.length, 2);
                 
                 // Should match by position
-                const firstNameChange = changes.find(c => c.payload.oldFieldMetadata.name === 'firstName');
-                const lastNameChange = changes.find(c => c.payload.oldFieldMetadata.name === 'lastName');
-                
+                const firstNameChange = changes.find(c => (c.payload as RenameFieldPayload).oldFieldMetadata.name === 'firstName');
+                const lastNameChange = changes.find(c => (c.payload as RenameFieldPayload).oldFieldMetadata.name === 'lastName');
+
                 assert.ok(firstNameChange);
                 assert.ok(lastNameChange);
-                assert.strictEqual(firstNameChange.payload.newName, 'first');
-                assert.strictEqual(lastNameChange.payload.newName, 'last');
+                assert.strictEqual((firstNameChange.payload as RenameFieldPayload).newName, 'first');
+                assert.strictEqual((lastNameChange.payload as RenameFieldPayload).newName, 'last');
             });
 
             test('should not detect changes in non-model files', () => {
@@ -384,13 +384,13 @@ if (typeof suite !== 'undefined') {
                 inputResponses[`Rename field 'name'`] = 'fullName';
 
                 const change = await tool.initiateManualRefactor(context);
-                
+                const payload = change?.payload as RenameFieldPayload;
                 assert.ok(change);
                 assert.strictEqual(change.type, 'RENAME_FIELD');
-                assert.strictEqual(change.payload.oldName, 'name');
-                assert.strictEqual(change.payload.newName, 'fullName');
-                assert.strictEqual(change.payload.modelName, 'User');
-                assert.strictEqual(change.payload.isManual, true);
+                assert.strictEqual(payload.oldName, 'name');
+                assert.strictEqual(payload.newName, 'fullName');
+                assert.strictEqual(payload.modelName, 'User');
+                assert.strictEqual(payload.isManual, true);
             });
 
             test('should handle user cancellation', async () => {
@@ -504,12 +504,12 @@ if (typeof suite !== 'undefined') {
                     uri: modelUri,
                     description: 'Rename field from name to fullName',
                     payload: {
-                        oldFieldMetadata: oldField,
-                        newFieldMetadata: newField,
-                        newFieldName: 'fullName',
+                        oldName: oldField.name, 
+                        newName: newField.name, 
                         modelName: 'User',
+                        oldFieldMetadata: oldField,
                         isManual: true
-                    }
+                    } as RenameFieldPayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -531,11 +531,12 @@ if (typeof suite !== 'undefined') {
                     uri: modelUri,
                     description: 'Rename field from name to fullName',
                     payload: {
+                        oldName: oldField.name,
+                        newName: newField.name,
+                        modelName: 'User',
                         oldFieldMetadata: oldField,
-                        newFieldMetadata: newField,
-                        newFieldName: 'fullName',
-                        modelName: 'User'
-                    }
+                        isManual: true
+                    } as RenameFieldPayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -563,10 +564,11 @@ if (typeof suite !== 'undefined') {
                     uri: modelUri,
                     description: 'Rename field from name to fullName',
                     payload: {
+                        oldName: oldField.name,
+                        newName: newField.name,
+                        modelName: 'User',
                         oldFieldMetadata: oldField,
-                        newFieldMetadata: newField,
-                        newFieldName: 'fullName',
-                        modelName: 'User'
+                        isManual: true
                     }
                 };
 
@@ -611,7 +613,7 @@ if (typeof suite !== 'undefined') {
                     inputResponses[`Rename field 'name'`] = name;
                     const change = await tool.initiateManualRefactor(context);
                     assert.ok(change, `Should accept valid field name: ${name}`);
-                    assert.strictEqual(change.payload.newName, name);
+                    assert.strictEqual((change.payload as RenameFieldPayload).newName, name);
                 }
             });
 

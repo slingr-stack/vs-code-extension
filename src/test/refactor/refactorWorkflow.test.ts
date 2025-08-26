@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { RefactorController } from '../../refactor/RefactorController';
 import { MetadataCache, FileMetadata, DecoratedClass, PropertyMetadata } from '../../cache/cache';
-import { ChangeObject, ManualRefactorContext } from '../../refactor/refactorInterfaces';
+import { ChangeObject, ManualRefactorContext, RenameFieldPayload, RenameModelPayload } from '../../refactor/refactorInterfaces';
 import { RenameModelTool } from '../../refactor/tools/renameModel';
 import { DeleteModelTool } from '../../refactor/tools/deleteModel';
 import { RenameFieldTool } from '../../refactor/tools/renameField';
@@ -294,12 +294,12 @@ if (typeof suite !== 'undefined') {
                 // Execute the refactor
                 const tool = new RenameModelTool();
                 const change = await tool.initiateManualRefactor(context);
-                
+                const payload = change?.payload as RenameModelPayload;
                 assert.ok(change);
                 assert.strictEqual(change.type, 'RENAME_ENTITY');
-                assert.strictEqual(change.payload.oldModelMetadata.name, 'User');
-                assert.strictEqual(change.payload.newName, 'Person');
-                
+                assert.strictEqual(payload.oldModelMetadata.name, 'User');
+                assert.strictEqual(payload.newName, 'Person');
+
                 // Prepare and apply the edit
                 const edit = await tool.prepareEdit(change, cache);
                 assert.ok(edit);
@@ -394,11 +394,11 @@ if (typeof suite !== 'undefined') {
 
                 const tool = new RenameFieldTool();
                 const change = await tool.initiateManualRefactor(context);
-                
+                const payload = change?.payload as RenameFieldPayload;
                 assert.ok(change);
                 assert.strictEqual(change.type, 'RENAME_FIELD');
-                assert.strictEqual(change.payload.newName, 'fullName');
-                
+                assert.strictEqual(payload.newName, 'fullName');
+
                 const edit = await tool.prepareEdit(change, cache);
                 assert.ok(edit);
             });
@@ -466,14 +466,14 @@ if (typeof suite !== 'undefined') {
                 // Simulate change detection through tools
                 const renameModelTool = new RenameModelTool();
                 const changes = renameModelTool.analyze(oldFileMeta, newFileMeta);
-                
+                const payload = changes[0].payload as RenameModelPayload;
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'RENAME_ENTITY');
                 
                 // Test that the change has the correct payload
-                assert.strictEqual(changes[0].payload.oldName, 'User');
-                assert.strictEqual(changes[0].payload.newName, 'Person');
-                
+                assert.strictEqual(payload.oldName, 'User');
+                assert.strictEqual(payload.newName, 'Person');
+
                 // Test proposing automatic refactors
                 if (changes.length > 0) {
                     // Reset appliedEdits counter for this test
@@ -705,9 +705,9 @@ if (typeof suite !== 'undefined') {
                         description: `Rename Model${i} to NewModel${i}`,
                         payload: {
                             oldModelMetadata: model,
-                            newModelName: `NewModel${i}`,
+                            newName: `NewModel${i}`,
                             isManual: false
-                        }
+                        } as RenameModelPayload
                     });
                 }
                 

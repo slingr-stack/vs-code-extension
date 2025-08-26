@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ChangeObject, IRefactorTool, ManualRefactorContext } from '../refactorInterfaces';
+import { ChangeObject, ChangeType, DeleteFieldPayload, IRefactorTool, ManualRefactorContext, RenameModelPayload, RenameFieldPayload } from '../refactorInterfaces';
 import { DecoratedClass, FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
 import { areRangesEqual, isModel, isModelFile, isField } from '../../utils/metadata';
 
@@ -34,7 +34,7 @@ export class RenameFieldTool implements IRefactorTool {
         return 'Rename Field';
     }
 
-    public getHandledChangeTypes(): string[] {
+    public getHandledChangeTypes(): ChangeType[] {
         return ['RENAME_FIELD'];
     }
 
@@ -72,16 +72,22 @@ export class RenameFieldTool implements IRefactorTool {
         const classRenames = new Map<string, string>();
         const deletedFieldsByClass = new Map<string, Set<string>>();
         for (const change of accumulatedChanges) {
-            if (change.type === 'RENAME_ENTITY' && change.payload.oldName && change.payload.newName) {
-                classRenames.set(change.payload.oldName, change.payload.newName);
-            }
-            if (change.type === 'DELETE_FIELD' && change.payload.modelName && change.payload.oldFieldMetadata) {
-                const modelName = change.payload.modelName;
-                const fieldName = change.payload.oldFieldMetadata.name;
-                if (!deletedFieldsByClass.has(modelName)) {
-                    deletedFieldsByClass.set(modelName, new Set());
+            if (change.type === 'RENAME_ENTITY') {
+                const payload = change.payload as RenameModelPayload;
+                if (payload.oldName && payload.newName) {
+                    classRenames.set(payload.oldName, payload.newName);
                 }
-                deletedFieldsByClass.get(modelName)!.add(fieldName);
+            }
+            if (change.type === 'DELETE_FIELD') {
+                const payload = change.payload as DeleteFieldPayload;
+                if (payload.modelName && payload.oldFieldMetadata) {
+                    const modelName = payload.modelName;
+                    const fieldName = payload.oldFieldMetadata.name;
+                    if (!deletedFieldsByClass.has(modelName)) {
+                        deletedFieldsByClass.set(modelName, new Set());
+                    }
+                    deletedFieldsByClass.get(modelName)!.add(fieldName);
+                }
             }
         }
 
@@ -107,16 +113,18 @@ export class RenameFieldTool implements IRefactorTool {
                     const newProp = newClass.properties[addedProps[i]];
 
                     if (isField(oldProp) && isField(newProp)) {
+                        const payload: RenameFieldPayload = {
+                            oldName: oldProp.name,
+                            newName: newProp.name,
+                            modelName: oldClassName,
+                            oldFieldMetadata: oldProp,
+                            isManual: false
+                        };
                         changes.push({
                             type: 'RENAME_FIELD',
                             uri: newFileMeta.uri,
                             description: `Field '${oldProp.name}' was renamed to '${newProp.name}' in Model '${newClass.name}'.`,
-                            payload: {
-                                oldName: oldProp.name,
-                                newName: newProp.name,
-                                modelName: oldClassName,
-                                oldFieldMetadata: oldProp,
-                            }
+                            payload
                         });
                     }
                 }
@@ -171,17 +179,19 @@ export class RenameFieldTool implements IRefactorTool {
         }
 
 
+        const payload: RenameFieldPayload = {
+            oldName: field.name,
+            newName: newName,
+            modelName: containingModel.name,
+            oldFieldMetadata: field,
+            isManual: true
+        };
+
         return {
             type: 'RENAME_FIELD',
             uri: context.uri,
             description: `Rename field '${field.name}' to '${newName}'.`,
-            payload: {
-                oldName: field.name,
-                newName: newName,
-                modelName: containingModel.name,
-                oldFieldMetadata: field,
-                isManual: true
-            }
+            payload
         };
     }
 
@@ -198,7 +208,13 @@ export class RenameFieldTool implements IRefactorTool {
      * @returns A promise that resolves to a `WorkspaceEdit` with all necessary changes.
      */
     public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
-        const { newName, oldFieldMetadata } = change.payload;
+        // Type guard to ensure we're working with the correct payload type
+        if (change.type !== 'RENAME_FIELD') {
+            throw new Error(`RenameFieldTool can only handle RENAME_FIELD changes, received: ${change.type}`);
+        }
+        
+        const payload = change.payload as RenameFieldPayload;
+        const { newName, oldFieldMetadata } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
         const references = (oldFieldMetadata.references as vscode.Location[]) || [];
 

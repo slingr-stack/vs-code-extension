@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { DeleteModelTool } from '../../refactor/tools/deleteModel';
 import { MetadataCache, FileMetadata, DecoratedClass } from '../../cache/cache';
-import { ChangeObject, ManualRefactorContext } from '../../refactor/refactorInterfaces';
+import { ChangeObject, ManualRefactorContext, DeleteModelPayload } from '../../refactor/refactorInterfaces';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -133,12 +133,12 @@ if (typeof suite !== 'undefined') {
                 
                 // newFileMeta is undefined (file deleted)
                 const changes = tool.analyze(oldFileMeta, undefined);
-                
+                const payload = changes[0].payload as DeleteModelPayload;
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'DELETE_ENTITY');
-                assert.strictEqual(changes[0].payload.oldModelMetadata.name, 'User');
-                assert.ok(Array.isArray(changes[0].payload.urisToDelete));
-                assert.ok(changes[0].payload.urisToDelete.length > 0);
+                assert.strictEqual(payload.oldModelMetadata.name, 'User');
+                assert.ok(Array.isArray(payload.urisToDelete));
+                assert.ok(payload.urisToDelete.length > 0);
             });
 
             test('should detect model deletion when model class is removed', () => {
@@ -150,10 +150,10 @@ if (typeof suite !== 'undefined') {
                 const newFileMeta: FileMetadata = { uri: modelUri, classes: {} }; // Model removed from file
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
-                
+                const payload = changes[0].payload as DeleteModelPayload;
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'DELETE_ENTITY');
-                assert.strictEqual(changes[0].payload.oldModelMetadata.name, 'User');
+                assert.strictEqual(payload.oldModelMetadata.name, 'User');
             });
 
             test('should not detect deletion in non-model files', () => {
@@ -176,9 +176,10 @@ if (typeof suite !== 'undefined') {
                 
                 const changes = tool.analyze(oldFileMeta, undefined);
                 
+                const payload = changes[0].payload as DeleteModelPayload;
                 assert.strictEqual(changes.length, 1);
-                const urisToDelete = changes[0].payload.urisToDelete as vscode.Uri[];
-                
+                const urisToDelete = payload.urisToDelete as vscode.Uri[];
+
                 // Should include related directories
                 const actionsDirIncluded = urisToDelete.some(uri => 
                     uri.path.includes('src/data/actions/user')
@@ -229,12 +230,12 @@ if (typeof suite !== 'undefined') {
                 };
 
                 const change = await tool.initiateManualRefactor(context);
-                
+                const payload = change?.payload as DeleteModelPayload;
                 assert.ok(change);
                 assert.strictEqual(change.type, 'DELETE_ENTITY');
-                assert.strictEqual(change.payload.oldModelMetadata.name, 'User');
-                assert.strictEqual(change.payload.isManual, true);
-                assert.ok(Array.isArray(change.payload.urisToDelete));
+                assert.strictEqual(payload.oldModelMetadata.name, 'User');
+                assert.strictEqual(payload.isManual, true);
+                assert.ok(Array.isArray(payload.urisToDelete));
             });
 
             test('should handle user cancellation', async () => {
@@ -341,8 +342,9 @@ if (typeof suite !== 'undefined') {
                     description: 'Delete User model',
                     payload: {
                         oldModelMetadata: model,
-                        urisToDelete: [modelUri]
-                    }
+                        urisToDelete: [modelUri],
+                        isManual: true
+                    } as DeleteModelPayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -364,8 +366,9 @@ if (typeof suite !== 'undefined') {
                     description: 'Delete User model',
                     payload: {
                         oldModelMetadata: model,
-                        urisToDelete: [modelUri]
-                    }
+                        urisToDelete: [modelUri],
+                        isManual: true
+                    } as DeleteModelPayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -418,8 +421,9 @@ if (typeof suite !== 'undefined') {
                     description: 'Delete User model',
                     payload: {
                         oldModelMetadata: model,
-                        urisToDelete: [modelUri]
-                    }
+                        urisToDelete: [modelUri],
+                        isManual: true
+                    } as DeleteModelPayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);

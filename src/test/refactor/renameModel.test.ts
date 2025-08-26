@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { RenameModelTool } from '../../refactor/tools/renameModel';
 import { MetadataCache, FileMetadata, DecoratedClass } from '../../cache/cache';
-import { ChangeObject, ManualRefactorContext } from '../../refactor/refactorInterfaces';
+import { ChangeObject, DeleteModelPayload, ManualRefactorContext, RenameModelPayload } from '../../refactor/refactorInterfaces';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -118,11 +118,11 @@ if (typeof suite !== 'undefined') {
                 const newFileMeta: FileMetadata = { uri, classes: { 'Customer': newModel } };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
-                
+                const payload = changes[0].payload as RenameModelPayload;
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'RENAME_ENTITY');
-                assert.strictEqual(changes[0].payload.oldName, 'User');
-                assert.strictEqual(changes[0].payload.newName, 'Customer');
+                assert.strictEqual(payload.oldName, 'User');
+                assert.strictEqual(payload.newName, 'Customer');
                 assert.strictEqual(changes[0].description, 'Model \'User\' was renamed to \'Customer\'.');
             });
 
@@ -183,13 +183,14 @@ if (typeof suite !== 'undefined') {
                     type: 'DELETE_ENTITY',
                     uri,
                     description: 'Product model deleted',
-                    payload: { oldModelMetadata: oldModel2 }
-                }];
+                    payload: { oldModelMetadata: oldModel2 } as DeleteModelPayload
+                } as ChangeObject];
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta, accumulatedChanges);
+                const payload = changes[0].payload as RenameModelPayload;
                 assert.strictEqual(changes.length, 1);
-                assert.strictEqual(changes[0].payload.oldName, 'User');
-                assert.strictEqual(changes[0].payload.newName, 'Customer');
+                assert.strictEqual(payload.oldName, 'User');
+                assert.strictEqual(payload.newName, 'Customer');
             });
 
             test('should handle empty or undefined metadata', () => {
@@ -221,12 +222,12 @@ if (typeof suite !== 'undefined') {
 
                 userInputResponses['Rename model \'User\''] = 'ValidModelName';
                 const change = await tool.initiateManualRefactor(context);
-                
+                const payload = change?.payload as RenameModelPayload;
                 assert.ok(change);
                 assert.strictEqual(change.type, 'RENAME_ENTITY');
-                assert.strictEqual(change.payload.oldName, 'User');
-                assert.strictEqual(change.payload.newName, 'ValidModelName');
-                assert.strictEqual(change.payload.isManual, true);
+                assert.strictEqual(payload.oldName, 'User');
+                assert.strictEqual(payload.newName, 'ValidModelName');
+                assert.strictEqual(payload.isManual, true);
             });
 
             test('should reject invalid model name - lowercase start', async () => {

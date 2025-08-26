@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { DeleteFieldTool } from '../../refactor/tools/deleteField';
 import { MetadataCache, FileMetadata, DecoratedClass, PropertyMetadata } from '../../cache/cache';
-import { ChangeObject, ManualRefactorContext } from '../../refactor/refactorInterfaces';
+import { ChangeObject, ManualRefactorContext, DeleteFieldPayload } from '../../refactor/refactorInterfaces';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -147,8 +147,9 @@ if (typeof suite !== 'undefined') {
                 
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'DELETE_FIELD');
-                assert.strictEqual(changes[0].payload.oldFieldMetadata.name, 'name');
-                assert.strictEqual(changes[0].payload.modelName, 'User');
+                const payload = changes[0].payload as DeleteFieldPayload;
+                assert.strictEqual(payload.oldFieldMetadata.name, 'name');
+                assert.strictEqual(payload.modelName, 'User');
             });
 
             test('should detect multiple field deletions', () => {
@@ -171,13 +172,15 @@ if (typeof suite !== 'undefined') {
                 
                 assert.strictEqual(changes.length, 2);
                 
-                const nameChange = changes.find(c => c.payload.oldFieldMetadata.name === 'name');
-                const ageChange = changes.find(c => c.payload.oldFieldMetadata.name === 'age');
+                const nameChange = changes.find(c => (c.payload as DeleteFieldPayload).oldFieldMetadata.name === 'name');
+                const ageChange = changes.find(c => (c.payload as DeleteFieldPayload).oldFieldMetadata.name === 'age');
                 
                 assert.ok(nameChange);
                 assert.ok(ageChange);
-                assert.strictEqual(nameChange?.payload.modelName, 'User');
-                assert.strictEqual(ageChange?.payload.modelName, 'User');
+                const namePayload = nameChange?.payload as DeleteFieldPayload;
+                const agePayload = ageChange?.payload as DeleteFieldPayload;
+                assert.strictEqual(namePayload.modelName, 'User');
+                assert.strictEqual(agePayload.modelName, 'User');
             });
 
             test('should not detect deletions in non-model files', () => {
@@ -260,8 +263,9 @@ if (typeof suite !== 'undefined') {
                 
                 assert.ok(change);
                 assert.strictEqual(change.type, 'DELETE_FIELD');
-                assert.strictEqual(change.payload.oldFieldMetadata.name, 'name');
-                assert.strictEqual(change.payload.isManual, true);
+                const payload = change.payload as DeleteFieldPayload;
+                assert.strictEqual(payload.oldFieldMetadata.name, 'name');
+                assert.strictEqual(payload.isManual, true);
             });
 
             test('should handle user cancellation', async () => {
@@ -339,7 +343,7 @@ if (typeof suite !== 'undefined') {
                         oldFieldMetadata: field,
                         modelName: 'User',
                         isManual: true
-                    }
+                    } as DeleteFieldPayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -359,7 +363,7 @@ if (typeof suite !== 'undefined') {
                     payload: {
                         oldFieldMetadata: relationshipField,
                         modelName: 'User'
-                    }
+                    } as DeleteFieldPayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -382,7 +386,7 @@ if (typeof suite !== 'undefined') {
                     payload: {
                         oldFieldMetadata: field,
                         modelName: 'User'
-                    }
+                    } as DeleteFieldPayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -419,7 +423,7 @@ if (typeof suite !== 'undefined') {
                     payload: {
                         oldFieldMetadata: field,
                         modelName: 'User'
-                    }
+                    } as DeleteFieldPayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -461,7 +465,7 @@ if (typeof suite !== 'undefined') {
                     payload: {
                         oldFieldMetadata: relationshipField,
                         modelName: 'User'
-                    }
+                    } as DeleteFieldPayload
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
