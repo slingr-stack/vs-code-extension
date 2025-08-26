@@ -3,15 +3,18 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   transform: {
-    '^.+\\.(ts|tsx)$': [
+    '^.+\\.(ts|tsx|js|jsx)$': [
       'ts-jest',
       {
         tsconfig: {
-          module: 'commonjs',
+          allowJs: true,
         },
       },
     ],
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!bigint-money|class-transformer)',
+  ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
