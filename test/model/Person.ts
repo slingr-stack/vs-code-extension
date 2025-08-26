@@ -57,6 +57,20 @@ export class Person extends BaseModel {
   @Email()
   parentEmail!: string;
 
+  @Field({
+    available: false, // This field should be excluded from JSON operations
+    docs: "Internal identifier not exposed in JSON"
+  })
+  internalId!: string;
+
+  @Field({
+    required: false,
+    available: (person: Person) => {
+      return person.age >= 18;
+    },
+  })
+  phoneNumber!: string;
+
   @Field({})
   @HTML()
   additionalInfo!: string;
