@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { AppTreeItem } from "../../explorer/appTreeItem";
+import { AppTreeItem } from "../explorer/appTreeItem";
+import { DefineFieldsTool } from "./defineFields";
+import { MetadataCache } from "../cache/cache";
 
 
 
@@ -22,13 +24,20 @@ import { AppTreeItem } from "../../explorer/appTreeItem";
  */
 export class NewModelTool {
     
+    private defineFieldsTool: DefineFieldsTool;
+    
+    constructor() {
+        this.defineFieldsTool = new DefineFieldsTool();
+    }
+    
     /**
      * Creates a new model file in the specified directory.
      * 
      * @param targetUri - The URI where the new model should be created (file, folder, or AppTreeItem)
+     * @param cache - The metadata cache for context about existing models (optional)
      * @returns Promise that resolves when the model is created
      */
-    public async createNewModel(targetUri: vscode.Uri | AppTreeItem): Promise<void> {
+    public async createNewModel(targetUri: vscode.Uri | AppTreeItem, cache?: MetadataCache): Promise<void> {
         let finalTargetUri: vscode.Uri;
         
         // Handle different types of input
@@ -133,8 +142,31 @@ export class NewModelTool {
             const document = await vscode.workspace.openTextDocument(targetFileUri);
             await vscode.window.showTextDocument(document);
 
-            // Step 9: Show success message
-            vscode.window.showInformationMessage(`Model ${modelName} created successfully!`);
+            // Step 9: Process field descriptions if provided and cache is available
+            if (fieldsInfo?.trim() && cache) {
+                try {
+                    // Give the cache a moment to process the new file
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    await this.defineFieldsTool.processFieldDescriptions(
+                        fieldsInfo.trim(),
+                        targetFileUri,
+                        cache,
+                        modelName
+                    );
+                } catch (fieldError) {
+                    console.warn('Failed to process field descriptions:', fieldError);
+                    vscode.window.showWarningMessage(
+                        `Model created successfully, but field processing failed: ${fieldError}. You can manually use the Define Fields tool later.`
+                    );
+                }
+            }
+
+            // Step 10: Show success message
+            const successMessage = fieldsInfo?.trim() && cache 
+                ? `Model ${modelName} created and fields processed successfully!`
+                : `Model ${modelName} created successfully!`;
+            vscode.window.showInformationMessage(successMessage);
 
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to create model: ${error}`);
@@ -189,27 +221,11 @@ export class NewModelTool {
         }
         
         // Add Model decorator
-        if (docs) {
-            lines.push(`@Model({ docs: "${docs}" })`);
-        } else {
-            lines.push("@Model()");
-        }
+        lines.push(`@Model()`);
+       
         
         // Add class declaration
         lines.push(`export class ${modelName} extends BaseEntity {`);
-        
-        // Add fields information as a comment if provided
-        if (fieldsInfo) {
-            lines.push("");
-            lines.push("    // TODO: Process the following field information:");
-            lines.push(`    // ${fieldsInfo}`);
-            lines.push("    // Use the AI field processor tool to generate proper field definitions");
-        }
-        
-        // Add a sample field as placeholder
-        lines.push("");
-        lines.push("    @Field()");
-        lines.push("    name: string;");
         
         lines.push("}");
         lines.push("");

@@ -31,38 +31,38 @@ describe('MetadataCache Tests', () => {
             }
         });
 
-        it('should have getDataEntities method', () => {
-            assert.ok(typeof cache.getDataEntities === 'function');
+        it('should have getDataModels method', () => {
+            assert.ok(typeof cache.getDataModels === 'function');
         });
 
-        it('should have getDataEntityClasses method', () => {
-            assert.ok(typeof cache.getDataEntityClasses === 'function');
+        it('should have getDataModelClasses method', () => {
+            assert.ok(typeof cache.getDataModelClasses === 'function');
         });
     });
 
     describe('Data Entity Methods', () => {
-        it('should return array from getDataEntities', () => {
-            const entities = cache.getDataEntities();
-            assert.ok(Array.isArray(entities), 'getDataEntities should return an array');
+        it('should return array from getDataModels', () => {
+            const entities = cache.getDataModels();
+            assert.ok(Array.isArray(entities), 'getDataModels should return an array');
         });
 
-        it('should return array from getDataEntityClasses', () => {
-            const entities = cache.getDataEntityClasses();
-            assert.ok(Array.isArray(entities), 'getDataEntityClasses should return an array');
+        it('should return array from getDataModelClasses', () => {
+            const entities = cache.getDataModelClasses();
+            assert.ok(Array.isArray(entities), 'getDataModelClasses should return an array');
         });
 
-        it('should have isDataEntity flag on entities', () => {
-            const entities = cache.getDataEntities();
-            entities.forEach(entity => {
-                assert.strictEqual(entity.isDataEntity, true, 'All data entities should have isDataEntity = true');
+        it('should have isDataModel flag on entities', () => {
+            const entities = cache.getDataModels();
+            entities.forEach((entity: any) => {
+                assert.strictEqual(entity.isDataModel, true, 'All data entities should have isDataModel = true');
             });
         });
 
-        it('should only return Entity decorated classes from getDataEntityClasses', () => {
-            const entities = cache.getDataEntityClasses();
-            entities.forEach(entity => {
-                const hasEntityDecorator = entity.decorators.some(d => d.name === 'Entity');
-                assert.ok(hasEntityDecorator, 'All items from getDataEntityClasses should have @Entity decorator');
+        it('should only return Model decorated classes from getDataModelClasses', () => {
+            const entities = cache.getDataModelClasses();
+            entities.forEach((entity: any) => {
+                const hasModelDecorator = entity.decorators.some((d: any) => d.name === 'Model');
+                assert.ok(hasModelDecorator, 'All items from getDataModelClasses should have @Model decorator');
             });
         });
     });

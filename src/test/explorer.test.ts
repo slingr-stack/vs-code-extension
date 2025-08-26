@@ -321,11 +321,11 @@ describe('Explorer Provider Tests', () => {
 // Helper functions to create mock data
 function createMockCache(): MetadataCache {
     const mockCache = {
-        getDataEntityClasses: () => [
+        getDataModelClasses: () => [
             createMockEntity('UserEntity', 'User Entity'),
             createMockEntity('ProjectEntity', 'ProjectEntity')
         ],
-        getDataEntities: () => [
+        getDataModels: () => [
             createMockEntity('UserEntity', 'User Entity'),
             createMockEntity('ProjectEntity', 'ProjectEntity')
         ],
@@ -339,8 +339,8 @@ function createMockCache(): MetadataCache {
 
 function createEmptyMockCache(): MetadataCache {
     const mockCache = {
-        getDataEntityClasses: () => [],
-        getDataEntities: () => [],
+        getDataModelClasses: () => [],
+        getDataModels: () => [],
         onDidUpdate: new vscode.EventEmitter<void>().event,
         _onDidUpdate: new vscode.EventEmitter<void>(),
         getMetadataForFile: () => undefined
@@ -351,11 +351,11 @@ function createEmptyMockCache(): MetadataCache {
 
 function createMockCacheWithFolders(): MetadataCache {
     const mockCache = {
-        getDataEntityClasses: () => [
+        getDataModelClasses: () => [
             createMockEntity('RootEntity', 'Root Entity', '/test/project/src/data/root-entity.ts'),
             createMockEntity('FolderEntity', 'Folder Entity', '/test/project/src/data/models/folder-entity.ts')
         ],
-        getDataEntities: () => [
+        getDataModels: () => [
             createMockEntity('RootEntity', 'Root Entity', '/test/project/src/data/root-entity.ts'),
             createMockEntity('FolderEntity', 'Folder Entity', '/test/project/src/data/models/folder-entity.ts')
         ],
@@ -406,8 +406,8 @@ function createMockCacheWithComposition(): MetadataCache {
     ];
     
     const mockCache = {
-        getDataEntityClasses: () => [parentEntity, childEntity],
-        getDataEntities: () => [parentEntity, childEntity],
+        getDataModelClasses: () => [parentEntity, childEntity],
+        getDataModels: () => [parentEntity, childEntity],
         onDidUpdate: new vscode.EventEmitter<void>().event,
         _onDidUpdate: new vscode.EventEmitter<void>(),
         getMetadataForFile: (filePath: string) => {
@@ -446,7 +446,7 @@ function createMockEntity(name: string = 'UserEntity', label?: string, filePath:
             vscode.Uri.file(filePath),
             new vscode.Range(0, 0, 0, 10)
         ),
-        isDataEntity: true
+        isDataModel: true
     };
 }
 
@@ -467,7 +467,7 @@ function createMockEntityWithoutFields(): DecoratedClass {
             vscode.Uri.file('/test/project/src/data/empty-entity.ts'),
             new vscode.Range(0, 0, 0, 10)
         ),
-        isDataEntity: true
+        isDataModel: true
     };
 }
 

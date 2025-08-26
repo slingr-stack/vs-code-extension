@@ -3,7 +3,8 @@ import { MetadataCache } from './cache/cache';
 import { ExplorerProvider } from './explorer/explorerProvider';
 import { getAllRefactorTools, registerRefactorCommands } from './refactor/refactorDisposables';
 import { RefactorController } from './refactor/RefactorController';
-import { NewModelTool } from './refactor/tools/newModel';
+import { NewModelTool } from './commands/newModel';
+import { DefineFieldsTool } from './commands/defineFields';
 import { AppTreeItem } from './explorer/appTreeItem';
 
 export let cache: MetadataCache;
@@ -48,7 +49,57 @@ export async function activate(context: vscode.ExtensionContext) {
 	const newModelCommand = vscode.commands.registerCommand('slingr-vscode-extension.newModel', (uri?: vscode.Uri | AppTreeItem) => {
 		// If no URI provided, use the current workspace folder
 		const targetUri = uri || (vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri.file(''));
-		return newModelTool.createNewModel(targetUri);
+		return newModelTool.createNewModel(targetUri, cache);
+	});
+
+	// Register the standalone Define Fields Tool
+	const defineFieldsTool = new DefineFieldsTool();
+	const defineFieldsCommand = vscode.commands.registerCommand('slingr-vscode-extension.defineFields', async () => {
+		const activeEditor = vscode.window.activeTextEditor;
+		if (!activeEditor) {
+			vscode.window.showErrorMessage('Please open a model file to define fields.');
+			return;
+		}
+
+		const document = activeEditor.document;
+		const content = document.getText();
+		
+		// Check if this is a model file
+		if (!content.includes('@Model') || !content.includes('extends BaseEntity')) {
+			vscode.window.showErrorMessage('The current file does not appear to be a model file.');
+			return;
+		}
+
+		// Extract model name from class declaration
+		const classMatch = content.match(/export\s+class\s+(\w+)\s+extends\s+BaseEntity/);
+		if (!classMatch) {
+			vscode.window.showErrorMessage('Could not find model class definition.');
+			return;
+		}
+
+		const modelName = classMatch[1];
+		
+		// Get field descriptions from user
+		const fieldsDescription = await vscode.window.showInputBox({
+			prompt: "Enter field descriptions to be processed by AI",
+			placeHolder: "e.g., title, description, project (relationship to Project), status (enum: todo, in-progress, done)",
+			ignoreFocusOut: true
+		});
+
+		if (!fieldsDescription) {
+			return; // User cancelled
+		}
+
+		try {
+			await defineFieldsTool.processFieldDescriptions(
+				fieldsDescription,
+				document.uri,
+				cache,
+				modelName
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to process field descriptions: ${error}`);
+		}
 	});
 
 	// Add all disposables to context subscriptions
@@ -57,6 +108,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		navigateToCodeCommand,
 		cache,
 		newModelCommand,
+		defineFieldsCommand,
 		...refactorDisposables
 	);
 }

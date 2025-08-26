@@ -33,7 +33,7 @@ export interface DecoratedClass {
      methods: { [methodName: string]: MethodMetadata };
     references: vscode.Location[];
     declaration: vscode.Location;
-    isDataEntity: boolean;
+    isDataModel: boolean;
 }
 
 /**
@@ -278,7 +278,7 @@ export class MetadataCache {
 
         sourceFile.getClasses().forEach((classDeclaration: ClassDeclaration) => {
             const className = classDeclaration.getName() ?? '[Anonymous]';
-            const isDataEntity = filePath.includes('/src/data/');
+            const isDataModel = filePath.includes('/src/data/');
             const decoratedClass: DecoratedClass = {
                 name: className,
                 decorators: this.extractDecoratorMetadata(classDeclaration),
@@ -289,7 +289,7 @@ export class MetadataCache {
                     vscode.Uri.file(normalizedFilePath),
                     this.tsNodeToVscodeRange(classDeclaration.getNameNode() ?? classDeclaration)
                 ),
-                isDataEntity: isDataEntity
+                isDataModel: isDataModel
             };
 
             classDeclaration.getProperties().forEach((property: PropertyDeclaration) => {
@@ -662,11 +662,11 @@ export class MetadataCache {
      * These are the entities that will be shown in the explorer.
      * @returns An array of DecoratedClass objects that represent data entities.
      */
-    public getDataEntities(): DecoratedClass[] {
+    public getDataModels(): DecoratedClass[] {
         const dataEntities: DecoratedClass[] = [];
         for (const fileData of Object.values(this.cache)) {
             for (const classData of Object.values(fileData.classes)) {
-                if (classData.isDataEntity) {
+                if (classData.isDataModel) {
                     dataEntities.push(classData);
                 }
             }
@@ -676,12 +676,12 @@ export class MetadataCache {
 
     /**
      * Returns all Model decorated classes that are stored in the src/data folder.
-     * This is a more specific version of getDataEntities() that only returns
+     * This is a more specific version of getDataModels() that only returns
      * classes with the Model decorator.
      * @returns An array of DecoratedClass objects that represent Model classes in the data folder.
      */
-    public getDataEntityClasses(): DecoratedClass[] {
-        return this.getDataEntities().filter(classData => 
+    public getDataModelClasses(): DecoratedClass[] {
+        return this.getDataModels().filter(classData => 
             classData.decorators.some(decorator => decorator.name === 'Model')
         );
     }
