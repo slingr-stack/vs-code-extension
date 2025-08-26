@@ -223,7 +223,6 @@ export class ChangeFieldTypeTool implements IRefactorTool {
      * @returns A promise that resolves to a WorkspaceEdit containing all necessary changes
      */
      public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
-        // Type guard to ensure we're working with the correct payload type
         if (change.type !== 'CHANGE_FIELD_TYPE') {
             throw new Error(`ChangeFieldTypeTool can only handle CHANGE_FIELD_TYPE changes, received: ${change.type}`);
         }
@@ -244,8 +243,11 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                 positionToActOn = typeDecorator.position;
                 isReplacing = true;
             } else {
-                positionToActOn = field?.decorators.find((d: any) => d.name === 'Field')?.position;
-                isReplacing = false;
+                const anyDecorator = field?.decorators[0];
+                if (anyDecorator) {
+                    positionToActOn = anyDecorator.position;
+                    isReplacing = false;
+                }
             }
         }
 
