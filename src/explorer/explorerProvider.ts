@@ -284,7 +284,7 @@ export class ExplorerProvider
           )
         ) {
           const relationshipType = field.type;
-          const relatedEntity = this.cache.getDataEntityClasses().find((entity) => entity.name === relationshipType);
+          const relatedEntity = this.cache.getDataModelClasses().find((entity) => entity.name === relationshipType);
           const compositionItem = new AppTreeItem(
             field.decorators.find((d) => d.name === "Field")?.arguments[0]?.label || field.name,
             vscode.TreeItemCollapsibleState.Collapsed,
@@ -317,7 +317,7 @@ export class ExplorerProvider
    * Gets the children for the data root, which includes folders and entities in the src/data directory
    */
   private getDataRootChildren(): AppTreeItem[] {
-    const entities = this.cache.getDataEntityClasses();
+    const entities = this.cache.getDataModelClasses();
     const folderStructure = this.buildFolderStructure(entities);
 
     return this.createTreeItemsFromStructure(folderStructure, "");
@@ -327,7 +327,7 @@ export class ExplorerProvider
    * Gets the children for a specific folder
    */
   private getFolderChildren(folderElement: AppTreeItem): AppTreeItem[] {
-    const entities = this.cache.getDataEntityClasses();
+    const entities = this.cache.getDataModelClasses();
     const folderPath = folderElement.folderPath || ""; // Use folderPath property
     const folderStructure = this.buildFolderStructure(entities);
 

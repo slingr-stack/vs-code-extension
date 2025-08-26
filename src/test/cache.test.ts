@@ -35,8 +35,8 @@ describe('MetadataCache Tests', () => {
             assert.ok(typeof cache.getDataEntities === 'function');
         });
 
-        it('should have getDataEntityClasses method', () => {
-            assert.ok(typeof cache.getDataEntityClasses === 'function');
+        it('should have getDataModelClasses method', () => {
+            assert.ok(typeof cache.getDataModelClasses === 'function');
         });
     });
 
@@ -46,9 +46,9 @@ describe('MetadataCache Tests', () => {
             assert.ok(Array.isArray(entities), 'getDataEntities should return an array');
         });
 
-        it('should return array from getDataEntityClasses', () => {
-            const entities = cache.getDataEntityClasses();
-            assert.ok(Array.isArray(entities), 'getDataEntityClasses should return an array');
+        it('should return array from getDataModelClasses', () => {
+            const entities = cache.getDataModelClasses();
+            assert.ok(Array.isArray(entities), 'getDataModelClasses should return an array');
         });
 
         it('should have isDataEntity flag on entities', () => {
@@ -58,11 +58,11 @@ describe('MetadataCache Tests', () => {
             });
         });
 
-        it('should only return Entity decorated classes from getDataEntityClasses', () => {
-            const entities = cache.getDataEntityClasses();
+        it('should only return Entity decorated classes from getDataModelClasses', () => {
+            const entities = cache.getDataModelClasses();
             entities.forEach(entity => {
                 const hasEntityDecorator = entity.decorators.some(d => d.name === 'Entity');
-                assert.ok(hasEntityDecorator, 'All items from getDataEntityClasses should have @Entity decorator');
+                assert.ok(hasEntityDecorator, 'All items from getDataModelClasses should have @Entity decorator');
             });
         });
     });

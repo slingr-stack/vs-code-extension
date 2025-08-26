@@ -671,7 +671,7 @@ export class MetadataCache {
      * classes with the @Entity decorator.
      * @returns An array of DecoratedClass objects that represent Entity classes in the data folder.
      */
-    public getDataEntityClasses(): DecoratedClass[] {
+    public getDataModelClasses(): DecoratedClass[] {
         return this.getDataEntities().filter(classData => 
             classData.decorators.some(decorator => decorator.name === 'Model')
         );
