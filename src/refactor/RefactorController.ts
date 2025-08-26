@@ -28,7 +28,7 @@ import { AppTreeItem } from "../explorer/appTreeItem";
  * 
  * @example
  * ```typescript
- * const tools = [new RenameActionTool(), new DeleteEntityTool()];
+ * const tools = [new RenameActionTool(), new DeleteModelTool()];
  * const controller = new RefactorController(tools, metadataCache);
  * 
  * // Handle manual refactor command
@@ -170,7 +170,7 @@ export class RefactorController {
     allChanges?: ChangeObject[] 
   ): Promise<void> {
     const anchorUri = changeObject.uri;
-    const isDelete = changeObject.type === "DELETE_ACTION" || changeObject.type === "DELETE_ENTITY";
+    const isDelete = changeObject.type === "DELETE_ACTION" || changeObject.type === "DELETE_MODEL";
 
     let uriForDummyChange = anchorUri;
 

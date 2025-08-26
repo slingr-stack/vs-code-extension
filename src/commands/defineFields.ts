@@ -64,19 +64,19 @@ export class DefineFieldsTool {
             relationshipTargets: []
         };
 
-        // Get all data entities (models with @Model decorator)
-        const dataEntities = cache.getDataModelClasses();
+        // Get all data models (models with @Model decorator)
+        const dataModels = cache.getDataModelClasses();
         
-        for (const entity of dataEntities) {
+        for (const model of dataModels) {
             const modelInfo: ModelInfo = {
-                name: entity.name,
+                name: model.name,
                 fields: [],
-                filePath: entity.declaration.uri.fsPath,
-                documentation: this.extractModelDocumentation(entity)
+                filePath: model.declaration.uri.fsPath,
+                documentation: this.extractModelDocumentation(model)
             };
 
             // Extract field information
-            for (const [fieldName, field] of Object.entries(entity.properties)) {
+            for (const [fieldName, field] of Object.entries(model.properties)) {
                 const fieldInfo: FieldInfo = {
                     name: fieldName,
                     type: (field as PropertyMetadata).type,
@@ -92,7 +92,7 @@ export class DefineFieldsTool {
             }
 
             context.existingModels.push(modelInfo);
-            context.relationshipTargets.push(entity.name);
+            context.relationshipTargets.push(model.name);
         }
 
         return context;

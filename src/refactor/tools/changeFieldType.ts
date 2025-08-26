@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
-import { isEntity, isEntityFile, isField } from '../../utils/metadata';
+import { isModel, isModelFile, isField } from '../../utils/metadata';
 import { fieldTypeConfig } from '../../utils/fieldTypes';
 
 /**
- * A refactoring tool that handles changing field type decorators in entity classes.
+ * A refactoring tool that handles changing field type decorators in model classes.
  * 
  * This tool can automatically detect when field decorators or TypeScript types change
  * and propose refactorings to keep them consistent. It supports manual refactoring
@@ -51,23 +51,23 @@ export class ChangeFieldTypeTool implements IRefactorTool {
     /**
      * Analyzes changes between old and new file metadata to detect field type changes.
      * 
-     * This method compares entity classes and their field properties between two versions
+     * This method compares model classes and their field properties between two versions
      * of a file to identify when field types or decorators have been modified. It handles
      * two main scenarios:
      * 1. Explicit decorator changes by the user
      * 2. TypeScript type changes that suggest a different decorator should be used
      * 
-     * The method also accounts for entity and field renames that may have occurred
+     * The method also accounts for model and field renames that may have occurred
      * through other refactoring tools by examining accumulated changes.
      * 
      * @param oldFileMeta - The metadata from the previous version of the file
      * @param newFileMeta - The metadata from the current version of the file
-     * @param accumulatedChanges - Array of changes from other refactoring tools that may affect entity/field names
+     * @param accumulatedChanges - Array of changes from other refactoring tools that may affect model/field names
      * @returns An array of ChangeObject instances representing detected field type changes
      */
     public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata, accumulatedChanges: ChangeObject[] = []): ChangeObject[] {
         const changes: ChangeObject[] = [];
-        if (!oldFileMeta || !newFileMeta || !isEntityFile(newFileMeta.uri)) {
+        if (!oldFileMeta || !newFileMeta || !isModelFile(newFileMeta.uri)) {
             return [];
         }
 
@@ -75,11 +75,11 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         const fieldRenamesByClass = new Map<string, Map<string, string>>();
         // Check for accumulated changes that may affect the analysis
         for (const change of accumulatedChanges) {
-            if (change.type === 'RENAME_ENTITY' && change.payload.oldName && change.payload.newName) {
+            if (change.type === 'RENAME_MODEL' && change.payload.oldName && change.payload.newName) {
                 classRenames.set(change.payload.oldName, change.payload.newName);
             }
             if (change.type === 'RENAME_FIELD' && change.payload.oldName && change.payload.newName) {
-                const className = change.payload.entityName;
+                const className = change.payload.modelName;
                 if (!className) { continue; }
                 if (!fieldRenamesByClass.has(className)) {
                     fieldRenamesByClass.set(className, new Map());
@@ -92,7 +92,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
             const oldClass = oldFileMeta.classes[oldClassName];
             const expectedNewClassName = classRenames.get(oldClassName) || oldClassName;
             const newClass = newFileMeta.classes[expectedNewClassName];
-            if (!newClass || !isEntity(newClass) || !isEntity(oldClass)) {
+            if (!newClass || !isModel(newClass) || !isModel(oldClass)) {
                 continue;
             }
 

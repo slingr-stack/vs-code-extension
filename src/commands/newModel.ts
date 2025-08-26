@@ -210,7 +210,7 @@ export class NewModelTool {
         // Add imports with dynamically calculated relative paths
         lines.push(`import { Model } from '${relativePathToFramework}/Model';`);
         lines.push(`import { Field } from '${relativePathToFramework}/Field';`);
-        lines.push("import { BaseEntity } from 'typeorm';");
+        lines.push("import { BaseModel } from 'typeorm';");
         lines.push("");
         
         // Add documentation comment if provided
@@ -225,7 +225,7 @@ export class NewModelTool {
        
         
         // Add class declaration
-        lines.push(`export class ${modelName} extends BaseEntity {`);
+        lines.push(`export class ${modelName} extends BaseModel {`);
         
         lines.push("}");
         lines.push("");

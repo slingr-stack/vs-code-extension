@@ -12,7 +12,7 @@ const FIELD_MIME_TYPE = "application/vnd.slingr-vscode-extension.field";
 // Interface for folder structure
 interface FolderNode {
   folders: Map<string, FolderNode>;
-  entities: DecoratedClass[];
+  models: DecoratedClass[];
 }
 
 export class ExplorerProvider
@@ -52,35 +52,35 @@ export class ExplorerProvider
     }
     const draggedItem = source[0];
 
-    // We can drag fields or composition entities
+    // We can drag fields or composition models
     if (draggedItem.itemType === "field" && draggedItem.metadata && "name" in draggedItem.metadata) {
-      // The parent of a field item is the 'entityFieldsFolder', which holds the entity's metadata
-      const entityFilePath = draggedItem.parent?.metadata?.declaration.uri.fsPath;
-      const entityClassName = draggedItem.parent?.metadata?.name;
-      if (entityFilePath && entityClassName) {
+      // The parent of a field item is the 'modelFieldsFolder', which holds the model's metadata
+      const modelFilePath = draggedItem.parent?.metadata?.declaration.uri.fsPath;
+      const modelClassName = draggedItem.parent?.metadata?.name;
+      if (modelFilePath && modelClassName) {
         dataTransfer.set(
           FIELD_MIME_TYPE,
           new vscode.DataTransferItem({
             field: draggedItem.metadata.name,
-            entityPath: entityFilePath,
-            entityClassName: entityClassName,
+            modelPath: modelFilePath,
+            modelClassName: modelClassName,
           })
         );
       }
-    } else if (draggedItem.itemType === "entity" && draggedItem.parent && draggedItem.parent.itemType === "entity") {
-      // This is a composition entity (nested entity within another entity)
-      // The parent contains the host entity's metadata
-      const entityFilePath = draggedItem.parent.metadata?.declaration.uri.fsPath;
-      const entityClassName = draggedItem.parent.metadata?.name;
+    } else if (draggedItem.itemType === "model" && draggedItem.parent && draggedItem.parent.itemType === "model") {
+      // This is a composition model (nested model within another model)
+      // The parent contains the host model's metadata
+      const modelFilePath = draggedItem.parent.metadata?.declaration.uri.fsPath;
+      const modelClassName = draggedItem.parent.metadata?.name;
       
       // We need to find the property name that represents this composition relationship
-      // Look through the parent entity's properties to find the one that matches this composition
-      if (entityFilePath && entityClassName && draggedItem.parent.metadata && "properties" in draggedItem.parent.metadata) {
-        const parentEntity = draggedItem.parent.metadata;
+      // Look through the parent model's properties to find the one that matches this composition
+      if (modelFilePath && modelClassName && draggedItem.parent.metadata && "properties" in draggedItem.parent.metadata) {
+        const parentModel = draggedItem.parent.metadata;
         let compositionFieldName = null;
         
         // Find the field that represents this composition relationship
-        for (const [propName, prop] of Object.entries(parentEntity.properties)) {
+        for (const [propName, prop] of Object.entries(parentModel.properties)) {
           if (prop.decorators.some(d => d.name === "Field") && 
               prop.decorators.some(d => d.name === "Relationship" && d.arguments.some(arg => arg.type === "Composition")) &&
               prop.type === draggedItem.metadata?.name) {
@@ -94,8 +94,8 @@ export class ExplorerProvider
             FIELD_MIME_TYPE,
             new vscode.DataTransferItem({
               field: compositionFieldName,
-              entityPath: entityFilePath,
-              entityClassName: entityClassName,
+              modelPath: modelFilePath,
+              modelClassName: modelClassName,
             })
           );
         }
@@ -115,22 +115,22 @@ export class ExplorerProvider
 
     const draggedData = transferItem.value;
 
-    // Ensure we have a valid target to drop onto (field or composition entity)
+    // Ensure we have a valid target to drop onto (field or composition model)
     let targetFieldName: string | null = null;
-    let targetEntityPath: string | undefined = undefined;
+    let targetModelPath: string | undefined = undefined;
     
     if (target && target.itemType === "field" && target.metadata && "name" in target.metadata) {
       // Dropping onto a regular field
       targetFieldName = target.metadata.name;
-      targetEntityPath = target.parent?.metadata?.declaration.uri.fsPath;
-    } else if (target && target.itemType === "entity" && target.parent && target.parent.itemType === "entity") {
-      // Dropping onto a composition entity
-      targetEntityPath = target.parent.metadata?.declaration.uri.fsPath;
+      targetModelPath = target.parent?.metadata?.declaration.uri.fsPath;
+    } else if (target && target.itemType === "model" && target.parent && target.parent.itemType === "model") {
+      // Dropping onto a composition model
+      targetModelPath = target.parent.metadata?.declaration.uri.fsPath;
       
       // Find the field name that represents this composition relationship
       if (target.parent.metadata && "properties" in target.parent.metadata) {
-        const parentEntity = target.parent.metadata;
-        for (const [propName, prop] of Object.entries(parentEntity.properties)) {
+        const parentModel = target.parent.metadata;
+        for (const [propName, prop] of Object.entries(parentModel.properties)) {
           if (prop.decorators.some(d => d.name === "Field") && 
               prop.decorators.some(d => d.name === "Relationship" && d.arguments.some(arg => arg.type === "Composition")) &&
               prop.type === target.metadata?.name) {
@@ -141,14 +141,14 @@ export class ExplorerProvider
       }
     }
     
-    if (!target || !targetFieldName || !targetEntityPath) {
-      vscode.window.showWarningMessage("A field can only be dropped onto another field or composition entity.");
+    if (!target || !targetFieldName || !targetModelPath) {
+      vscode.window.showWarningMessage("A field can only be dropped onto another field or composition model.");
       return;
     }
 
     // Validate the drop operation
-    if (draggedData.entityPath !== targetEntityPath) {
-      vscode.window.showWarningMessage("Fields can only be reordered within the same entity.");
+    if (draggedData.modelPath !== targetModelPath) {
+      vscode.window.showWarningMessage("Fields can only be reordered within the same model.");
       return;
     }
 
@@ -160,8 +160,8 @@ export class ExplorerProvider
     try {
       // 1. Get the new text from ts-morph *without saving*.
       const newText = await this.reorderFieldsAndGetText(
-        draggedData.entityPath,
-        draggedData.entityClassName,
+        draggedData.modelPath,
+        draggedData.modelClassName,
         draggedData.field,
         targetFieldName
       );
@@ -172,7 +172,7 @@ export class ExplorerProvider
       }
 
       // 2. Apply the changes to the editor and format.
-      const uri = vscode.Uri.file(draggedData.entityPath);
+      const uri = vscode.Uri.file(draggedData.modelPath);
       const document = await vscode.workspace.openTextDocument(uri);
       const editor = await vscode.window.showTextDocument(document);
 
@@ -199,28 +199,28 @@ export class ExplorerProvider
   }
 
   /**
-   * Reorders fields in the entity class file and returns the updated text.
+   * Reorders fields in the model class file and returns the updated text.
    * This function uses ts-morph to manipulate the source code without saving it.
-   * @param entityPath The path to the entity class file.
-   * @param entityClassName The name of the entity class to modify.
+   * @param modelPath The path to the model class file.
+   * @param modelClassName The name of the model class to modify.
    * @param sourceFieldName The name of the field to move.
    * @param targetFieldName The name of the field to move before.
    * @returns The updated source code as a string, or null if an error occurs.
    */
   private async reorderFieldsAndGetText(
-    entityPath: string,
-    entityClassName: string,
+    modelPath: string,
+    modelClassName: string,
     sourceFieldName: string,
     targetFieldName: string
   ): Promise<string | null> {
     const project = new Project();
-    const sourceFile = project.addSourceFileAtPath(entityPath);
+    const sourceFile = project.addSourceFileAtPath(modelPath);
 
     // Find the specific class by name to handle multiple classes in the same file
-    const classDeclaration = sourceFile.getClass(entityClassName);
+    const classDeclaration = sourceFile.getClass(modelClassName);
 
     if (!classDeclaration) {
-      console.error(`Class ${entityClassName} not found in ${entityPath}`);
+      console.error(`Class ${modelClassName} not found in ${modelPath}`);
       return null;
     }
 
@@ -270,9 +270,9 @@ export class ExplorerProvider
       return this.getFolderChildren(element);
     }
 
-    // --- Children of a specific Entity ---
-    if (element.itemType === "entity" && this.isDecoratedClass(element.metadata)) {
-      const entityClass = element.metadata;
+    // --- Children of a specific Model ---
+    if (element.itemType === "model" && this.isDecoratedClass(element.metadata)) {
+      const modelClass = element.metadata;
 
       const fields = Object.values(element.metadata.properties).filter((prop) =>
         prop.decorators.some((d) => d.name === "Field")
@@ -286,22 +286,22 @@ export class ExplorerProvider
           )
         ) {
           const relationshipType = field.type;
-          const relatedEntity = this.cache.getDataModelClasses().find((entity) => entity.name === relationshipType);
+          const relatedModel = this.cache.getDataModelClasses().find((model) => model.name === relationshipType);
           const compositionItem = new AppTreeItem(
             field.decorators.find((d) => d.name === "Field")?.arguments[0]?.label || field.name,
             vscode.TreeItemCollapsibleState.Collapsed,
-            "entity",
+            "model",
             this.extensionUri,
-            relatedEntity,
+            relatedModel,
             element
           );
           
-          // Add navigation command to go to related entity definition when clicked
-          if (relatedEntity) {
+          // Add navigation command to go to related model definition when clicked
+          if (relatedModel) {
             compositionItem.command = {
               command: "slingr-vscode-extension.navigateToCode",
               title: "Go to Definition",
-              arguments: [relatedEntity.declaration],
+              arguments: [relatedModel.declaration],
             };
           }
           
@@ -316,11 +316,11 @@ export class ExplorerProvider
   }
 
   /**
-   * Gets the children for the data root, which includes folders and entities in the src/data directory
+   * Gets the children for the data root, which includes folders and models in the src/data directory
    */
   private getDataRootChildren(): AppTreeItem[] {
-    const entities = this.cache.getDataModelClasses();
-    const folderStructure = this.buildFolderStructure(entities);
+    const models = this.cache.getDataModelClasses();
+    const folderStructure = this.buildFolderStructure(models);
 
     return this.createTreeItemsFromStructure(folderStructure, "");
   }
@@ -329,21 +329,21 @@ export class ExplorerProvider
    * Gets the children for a specific folder
    */
   private getFolderChildren(folderElement: AppTreeItem): AppTreeItem[] {
-    const entities = this.cache.getDataModelClasses();
+    const models = this.cache.getDataModelClasses();
     const folderPath = folderElement.folderPath || ""; // Use folderPath property
-    const folderStructure = this.buildFolderStructure(entities);
+    const folderStructure = this.buildFolderStructure(models);
 
     return this.createTreeItemsFromStructure(folderStructure, folderPath);
   }
 
   /**
-   * Builds a hierarchical folder structure from entity file paths
+   * Builds a hierarchical folder structure from model file paths
    */
-  private buildFolderStructure(entities: DecoratedClass[]): FolderNode {
-    const root: FolderNode = { folders: new Map(), entities: [] };
+  private buildFolderStructure(models: DecoratedClass[]): FolderNode {
+    const root: FolderNode = { folders: new Map(), models: [] };
 
-    for (const entity of entities) {
-      const filePath = entity.declaration.uri.fsPath;
+    for (const model of models) {
+      const filePath = model.declaration.uri.fsPath;
 
       // Extract the relative path from src/data/ (handle both Unix and Windows paths)
       const srcDataPattern = /[\/\\]src[\/\\]data[\/\\]/;
@@ -360,10 +360,10 @@ export class ExplorerProvider
       const fileName = pathParts.pop();
 
       if (pathParts.length === 0) {
-      // Entity is directly in src/data/
-      root.entities.push(entity);
+      // Model is directly in src/data/
+      root.models.push(model);
       } else {
-      // Entity is in a subfolder
+      // Model is in a subfolder
       let currentNode = root;
       let currentPath = "";
 
@@ -371,12 +371,12 @@ export class ExplorerProvider
         currentPath = currentPath ? `${currentPath}/${part}` : part;
 
         if (!currentNode.folders.has(part)) {
-        currentNode.folders.set(part, { folders: new Map(), entities: [] });
+        currentNode.folders.set(part, { folders: new Map(), models: [] });
         }
         currentNode = currentNode.folders.get(part)!;
       }
 
-      currentNode.entities.push(entity);
+      currentNode.models.push(model);
       }
     }
 
@@ -406,7 +406,7 @@ export class ExplorerProvider
     const sortedFolders = Array.from(currentNode.folders.entries()).sort(([a], [b]) => a.localeCompare(b));
     for (const [folderName, folderNode] of sortedFolders) {
       const folderPath = basePath ? `${basePath}/${folderName}` : folderName;
-      const hasChildren = folderNode.folders.size > 0 || folderNode.entities.length > 0;
+      const hasChildren = folderNode.folders.size > 0 || folderNode.models.length > 0;
 
       items.push(
         new AppTreeItem(
@@ -421,31 +421,31 @@ export class ExplorerProvider
       );
     }
 
-    // Add entities (sorted alphabetically by label)
-    const sortedEntities = currentNode.entities.sort((a, b) => {
-      const aDecorator = a.decorators.find((d) => d.name === "Entity");
+    // Add models (sorted alphabetically by label)
+    const sortedModels = currentNode.models.sort((a, b) => {
+      const aDecorator = a.decorators.find((d) => d.name === "Model");
       const aLabel = aDecorator?.arguments[0]?.label || a.name;
-      const bDecorator = b.decorators.find((d) => d.name === "Entity");
+      const bDecorator = b.decorators.find((d) => d.name === "Model");
       const bLabel = bDecorator?.arguments[0]?.label || b.name;
       return aLabel.localeCompare(bLabel);
     });
 
-    for (const entity of sortedEntities) {
-      const decorator = entity.decorators.find((d) => d.name === "Entity");
-      const label = decorator?.arguments[0]?.label || entity.name;
+    for (const model of sortedModels) {
+      const decorator = model.decorators.find((d) => d.name === "Model");
+      const label = decorator?.arguments[0]?.label || model.name;
       
-      // Only show entities that are NOT referenced by composition relationships
-      if (!this.isEntityReferencedByComposition(entity)) {
-        const entityItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "entity", this.extensionUri, entity);
+      // Only show models that are NOT referenced by composition relationships
+      if (!this.isModelReferencedByComposition(model)) {
+        const modelItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "model", this.extensionUri, model);
         
-        // Add navigation command to go to entity definition when clicked
-        entityItem.command = {
+        // Add navigation command to go to model definition when clicked
+        modelItem.command = {
           command: "slingr-vscode-extension.navigateToCode",
           title: "Go to Definition",
-          arguments: [entity.declaration],
+          arguments: [model.declaration],
         };
         
-        items.push(entityItem);
+        items.push(modelItem);
       }
     }
 
@@ -488,12 +488,12 @@ export class ExplorerProvider
     );
   }
 
-  private isEntityReferencedByComposition(item: DecoratedClass): boolean {
-    // Get all references to this entity
-    const entityReferences = item.references;
+  private isModelReferencedByComposition(item: DecoratedClass): boolean {
+    // Get all references to this model
+    const modelReferences = item.references;
     
     // For each external reference, check if it's part of a composition relationship
-    for (const reference of entityReferences) {
+    for (const reference of modelReferences) {
       // Get the file metadata for the reference
       const referencingFile = this.cache.getMetadataForFile(reference.uri.fsPath);
       if (!referencingFile) {
@@ -504,7 +504,7 @@ export class ExplorerProvider
       for (const referencingClass of Object.values(referencingFile.classes)) {
         // Search through all properties in the class
         for (const property of Object.values(referencingClass.properties)) {
-          // Check if this property references our entity type
+          // Check if this property references our model type
           if (property.type === item.name) {
             // Check if this property has a @Relationship decorator with type: "Composition"
             const relationshipDecorator = property.decorators.find(d => d.name === "Relationship");

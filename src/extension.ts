@@ -65,13 +65,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		const content = document.getText();
 		
 		// Check if this is a model file
-		if (!content.includes('@Model') || !content.includes('extends BaseEntity')) {
+		if (!content.includes('@Model') || !content.includes('extends BaseModel')) {
 			vscode.window.showErrorMessage('The current file does not appear to be a model file.');
 			return;
 		}
 
 		// Extract model name from class declaration
-		const classMatch = content.match(/export\s+class\s+(\w+)\s+extends\s+BaseEntity/);
+		const classMatch = content.match(/export\s+class\s+(\w+)\s+extends\s+BaseModel/);
 		if (!classMatch) {
 			vscode.window.showErrorMessage('Could not find model class definition.');
 			return;

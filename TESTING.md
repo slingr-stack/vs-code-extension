@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document explains how to test the explorer functionality in the Slingr VS Code extension. The tests are designed to ensure that the explorer correctly displays entities from the `src/data` folder and provides proper navigation and interaction capabilities.
+This document explains how to test the explorer functionality in the Slingr VS Code extension. The tests are designed to ensure that the explorer correctly displays models from the `src/data` folder and provides proper navigation and interaction capabilities.
 
 ## Test Structure
 
@@ -10,8 +10,8 @@ This document explains how to test the explorer functionality in the Slingr VS C
 Tests the `ExplorerProvider` class in isolation using mock data:
 
 - **Root Level Items**: Tests that the explorer shows the correct root structure
-- **Data Root Children**: Tests that entities are properly loaded from the cache
-- **Entity Children**: Tests that entity fields are displayed correctly
+- **Data Root Children**: Tests that models are properly loaded from the cache
+- **Model Children**: Tests that model fields are displayed correctly
 - **Tree Item Properties**: Tests tree item creation and properties
 - **Drag and Drop**: Tests field reordering functionality
 - **Cache Integration**: Tests cache update event handling
@@ -20,7 +20,7 @@ Tests the `ExplorerProvider` class in isolation using mock data:
 Tests the `MetadataCache` class functionality:
 
 - **Cache Initialization**: Tests that the cache initializes without errors
-- **Data Entity Methods**: Tests `getDataEntities()` and `getDataEntityClasses()` methods
+- **Data Model Methods**: Tests `getDataModels()` and `getDataModelClasses()` methods
 - **Event Handling**: Tests the `onDidUpdate` event
 - **findMetadata Method**: Tests the metadata search functionality
 
@@ -59,7 +59,7 @@ npm run test -- --grep "Explorer"
 
 ### For Unit Tests
 Unit tests use mock data and don't require real files. They test:
-- Mock entities with `@Entity` decorators
+- Mock models with `@Model` decorators
 - Mock properties with `@Field` decorators
 - Mock cache responses
 
@@ -67,16 +67,16 @@ Unit tests use mock data and don't require real files. They test:
 ## What Each Test Verifies
 
 ### Explorer Provider Tests
-1. **Correct Tree Structure**: Verifies the explorer shows "Data" root with entities underneath
-2. **Entity Loading**: Ensures only data entities (from `src/data/`) are shown
-3. **Field Display**: Confirms entity fields are properly displayed
+1. **Correct Tree Structure**: Verifies the explorer shows "Data" root with models underneath
+2. **Model Loading**: Ensures only data models (from `src/data/`) are shown
+3. **Field Display**: Confirms model fields are properly displayed
 4. **Navigation**: Tests that clicking items navigates to the correct code location
 5. **Drag & Drop**: Verifies field reordering works correctly
 
 ### Cache Tests
 1. **File Discovery**: Ensures cache finds TypeScript files in `src/data/`
-2. **Decorator Parsing**: Verifies `@Entity` and `@Field` decorators are correctly parsed
-3. **Data Entity Flag**: Confirms `isDataEntity` flag is set correctly
+2. **Decorator Parsing**: Verifies `@Model` and `@Field` decorators are correctly parsed
+3. **Data Model Flag**: Confirms `isDataModel` flag is set correctly
 4. **Update Events**: Tests that file changes trigger cache updates
 
 
@@ -84,9 +84,9 @@ Unit tests use mock data and don't require real files. They test:
 
 ### Common Issues and Solutions
 
-1. **No entities found**:
+1. **No models found**:
    - Check that `src/data/` directory exists
-   - Verify entity files have `` decorators
+   - Verify model files have `` decorators
    - Ensure `tsconfig.json` is properly configured
 
 2. **Tests timeout**:
