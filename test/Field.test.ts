@@ -1,6 +1,8 @@
+import { Person } from "./model/Person";
+import { Product } from "./model/Product";
 
 import type { ValidationError } from "class-validator";
-import { Person } from "./model/Person";
+
 
 /**
  * Converts an array of class-validator ValidationError objects into a stable, plain summary.
@@ -36,8 +38,16 @@ describe("Person Model Validation", () => {
     const errors = await invalidUser.validate();
     const summary = summarizeErrors(errors);
     const expected = [
-      { field: "lastName", codes: ["isNotEmpty"], messages: ["lastName should not be empty"] },
-      { field: "age", codes: ["isNotEmpty"], messages: ["age should not be empty"] },
+      {
+        field: "lastName",
+        codes: ["isNotEmpty"],
+        messages: ["lastName should not be empty"],
+      },
+      {
+        field: "age",
+        codes: ["isNotEmpty"],
+        messages: ["age should not be empty"],
+      },
     ];
     expect(summary).toStrictEqual(expected);
   });
@@ -63,7 +73,11 @@ describe("Person Model Validation", () => {
     const errors = await invalidUser.validate();
     const summary = summarizeErrors(errors);
     const expected = [
-      { field: "age", codes: ["invalidAge"], messages: ["Age must be between 0 and 120"] },
+      {
+        field: "age",
+        codes: ["invalidAge"],
+        messages: ["Age must be between 0 and 120"],
+      },
     ];
     expect(summary).toStrictEqual(expected);
   });
@@ -91,7 +105,49 @@ describe("Person Model Validation", () => {
     const errors = await invalidUser.validate();
     expect(errors.length).toBeGreaterThan(0);
   });
+});
 
+describe("Product Model Validation", () => {
+  it("should not calculate total if calculation is not called", async () => {
+    const product = new Product();
+    product.name = "Test Product";
+    product.price = 100;
+    product.quantity = 2;
+
+    const total = product.total;
+    expect(total).toBe(undefined);
+  });
+
+  it("should calculate total when calculation is called", async () => {
+    const product = new Product();
+    product.name = "Test Product";
+    product.price = 100;
+    product.quantity = 2;
+
+    product.calculate();
+    const total = product.total;
+    expect(total).toBe(200);
+  });
+
+  it("should output double the price when requested", async () => {
+    const product = new Product();
+    product.name = "Test Product";
+    product.price = 100;
+    product.quantity = 2;
+
+    const doublePrice = product.doublePrice;
+    expect(doublePrice).toBe(200);
+  });
+
+  it("should output the stringified double when requested", async () => {
+    const product = new Product();
+    product.name = "Test Product";
+    product.price = 100;
+    product.quantity = 2;
+
+    const stringifyDoublePrice = product.stringifyDoublePrice;
+    expect(stringifyDoublePrice).toBe(JSON.stringify({ double: 200 }));
+  });
   it("should fail validation for invalid height", async () => {
     const invalidUser = new Person();
     invalidUser.firstName = "John";

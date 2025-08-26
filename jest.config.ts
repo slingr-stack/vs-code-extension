@@ -1,13 +1,16 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} */
-module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
+import type { Config } from "jest";
+
+const config: Config = {
+  preset: "ts-jest",
+  testEnvironment: "node",
   transform: {
     '^.+\\.(ts|tsx|js|jsx)$': [
       'ts-jest',
       {
         tsconfig: {
+          module: 'commonjs',
           allowJs: true,
+
         },
       },
     ],
@@ -15,7 +18,11 @@ module.exports = {
   transformIgnorePatterns: [
     '/node_modules/(?!bigint-money|class-transformer)',
   ],
+  testMatch: ["<rootDir>/test/**/*.test.ts"],
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
+    "^@/(.*)$": "<rootDir>/src/$1",
   },
+  coverageProvider: "v8",
 };
+
+module.exports = config;
