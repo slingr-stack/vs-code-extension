@@ -1,5 +1,5 @@
 import { ValidationError, validate } from "class-validator";
-import type { ValidationIssue } from "./Field";
+import type { ValidationIssue } from "./Field.js";
 import { instanceToPlain, plainToInstance, Transform } from "class-transformer";
 
 /**
