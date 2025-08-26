@@ -2,7 +2,7 @@ import { Field } from "../../src/model/Field";
 import { Model } from "../../src/model/Model";
 import { BaseModel } from "../../src/model/BaseModel";
 import { Text } from "../../src/model/types/Text";
-import { DateTime, DateTimeRange, DateTimeRangeClass } from "../../src/model/types/DateTime";
+import { DateTime, DateTimeRange, DateTimeRangeType } from "../../src/model/types/DateTime";
 
 @Model({
   docs: "Represents a project with date-related fields",
@@ -42,7 +42,7 @@ export class Project extends BaseModel {
     openStart: false,
     openEnd: false,
   })
-  activeRange!: DateTimeRangeClass;
+  activeRange!: DateTimeRangeType;
 
 
   @Field({
@@ -52,7 +52,7 @@ export class Project extends BaseModel {
     openStart: true,
     openEnd: true,
   })
-  flexibleRange?: DateTimeRangeClass;
+  flexibleRange?: DateTimeRangeType;
 
 
   @Field({

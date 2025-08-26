@@ -1,6 +1,6 @@
 import type { ValidationError } from "class-validator";
 import { Project } from "./model/Project";
-import { DateTimeRangeClass } from "../src/model/types/DateTime";
+import { DateTimeRangeType } from "../src/model/types/DateTime";
 
 /**
  * Converts an array of class-validator ValidationError objects into a stable, plain summary.
@@ -25,12 +25,12 @@ describe("Project Model DateTime Validation", () => {
       validProject.startDate = new Date('2024-06-15');
       validProject.endDate = new Date('2024-12-31');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       validProject.activeRange = activeRange;
       
-      const flexibleRange = new DateTimeRangeClass();
+      const flexibleRange = new DateTimeRangeType();
       flexibleRange.from = new Date('2024-01-01');
       flexibleRange.to = new Date('2024-12-31');
       validProject.flexibleRange = flexibleRange;
@@ -46,7 +46,7 @@ describe("Project Model DateTime Validation", () => {
       validProject.name = "Minimal Project";
       validProject.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       validProject.activeRange = activeRange;
@@ -74,7 +74,7 @@ describe("Project Model DateTime Validation", () => {
       validProject.name = "Optional Fields Test";
       validProject.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       validProject.activeRange = activeRange;
@@ -92,7 +92,7 @@ describe("Project Model DateTime Validation", () => {
       invalidProject.name = "Date Test";
       invalidProject.startDate = new Date('2019-12-31'); // Before 2020-01-01 minimum
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       invalidProject.activeRange = activeRange;
@@ -110,7 +110,7 @@ describe("Project Model DateTime Validation", () => {
       invalidProject.name = "Date Test";
       invalidProject.startDate = new Date('2031-01-01'); // After 2030-12-31 maximum
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       invalidProject.activeRange = activeRange;
@@ -128,7 +128,7 @@ describe("Project Model DateTime Validation", () => {
       validProject.name = "Date Test";
       validProject.startDate = new Date('2024-06-15'); // Within 2020-2030 range
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       validProject.activeRange = activeRange;
@@ -143,7 +143,7 @@ describe("Project Model DateTime Validation", () => {
       validProject.startDate = new Date('2024-06-15');
       validProject.endDate = new Date('1990-01-01'); // No constraints on endDate
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       validProject.activeRange = activeRange;
@@ -159,7 +159,7 @@ describe("Project Model DateTime Validation", () => {
       invalidProject.name = "Range Test";
       invalidProject.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       // Both from and to are undefined, but openStart and openEnd are false
       invalidProject.activeRange = activeRange;
 
@@ -176,7 +176,7 @@ describe("Project Model DateTime Validation", () => {
       invalidProject.name = "Range Test";
       invalidProject.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-09-15'); // After 'to' date
       activeRange.to = new Date('2024-06-15');
       invalidProject.activeRange = activeRange;
@@ -194,7 +194,7 @@ describe("Project Model DateTime Validation", () => {
       validProject.name = "Range Test";
       validProject.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       validProject.activeRange = activeRange;
@@ -208,12 +208,12 @@ describe("Project Model DateTime Validation", () => {
       validProject.name = "Flexible Range Test";
       validProject.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       validProject.activeRange = activeRange;
       
-      const flexibleRange = new DateTimeRangeClass();
+      const flexibleRange = new DateTimeRangeType();
       flexibleRange.from = new Date('2024-01-01');
       // to is undefined, but openEnd is true
       validProject.flexibleRange = flexibleRange;
@@ -227,12 +227,12 @@ describe("Project Model DateTime Validation", () => {
       validProject.name = "Flexible Range Test";
       validProject.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       validProject.activeRange = activeRange;
       
-      const flexibleRange = new DateTimeRangeClass();
+      const flexibleRange = new DateTimeRangeType();
       // from is undefined, but openStart is true
       flexibleRange.to = new Date('2024-12-31');
       validProject.flexibleRange = flexibleRange;
@@ -246,12 +246,12 @@ describe("Project Model DateTime Validation", () => {
       validProject.name = "Flexible Range Test";
       validProject.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       validProject.activeRange = activeRange;
       
-      const flexibleRange = new DateTimeRangeClass();
+      const flexibleRange = new DateTimeRangeType();
       // Both from and to are undefined, but both openStart and openEnd are true
       validProject.flexibleRange = flexibleRange;
 
@@ -266,7 +266,7 @@ describe("Project Model DateTime Validation", () => {
       invalidProject.name = "Invalid Date Test";
       invalidProject.startDate = new Date('invalid-date'); // Invalid date
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       invalidProject.activeRange = activeRange;
@@ -286,7 +286,7 @@ describe("Project Model DateTime Validation", () => {
       invalidProject.name = "A"; // Too short (minLength is 2)
       invalidProject.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       invalidProject.activeRange = activeRange;
@@ -304,7 +304,7 @@ describe("Project Model DateTime Validation", () => {
       invalidProject.name = "A".repeat(101); // Too long (maxLength is 100)
       invalidProject.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       invalidProject.activeRange = activeRange;
@@ -323,7 +323,7 @@ describe("Project Model DateTime Validation", () => {
       invalidProject.startDate = new Date('2024-06-15');
       invalidProject.description = "A".repeat(501); // Too long (maxLength is 500)
       
-      const activeRange = new DateTimeRangeClass();
+      const activeRange = new DateTimeRangeType();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       invalidProject.activeRange = activeRange;
@@ -345,7 +345,7 @@ describe("Project Model DateTime Validation", () => {
         project.startDate = new Date('2024-06-15T10:30:45.123Z');
         project.endDate = new Date('2024-12-31T23:59:59.999Z');
         
-        const activeRange = new DateTimeRangeClass();
+        const activeRange = new DateTimeRangeType();
         activeRange.from = new Date('2024-06-15T08:00:00.000Z');
         activeRange.to = new Date('2024-09-15T17:00:00.000Z');
         project.activeRange = activeRange;
@@ -366,7 +366,7 @@ describe("Project Model DateTime Validation", () => {
         project.name = "Minimal JSON Project";
         project.startDate = new Date('2024-06-15T10:30:45.123Z');
         
-        const activeRange = new DateTimeRangeClass();
+        const activeRange = new DateTimeRangeType();
         activeRange.from = new Date('2024-06-15T08:00:00.000Z');
         activeRange.to = new Date('2024-09-15T17:00:00.000Z');
         project.activeRange = activeRange;
@@ -388,12 +388,12 @@ describe("Project Model DateTime Validation", () => {
         project.name = "Partial Range Project";
         project.startDate = new Date('2024-06-15T10:30:45.123Z');
         
-        const activeRange = new DateTimeRangeClass();
+        const activeRange = new DateTimeRangeType();
         activeRange.from = new Date('2024-06-15T08:00:00.000Z');
         activeRange.to = new Date('2024-09-15T17:00:00.000Z');
         project.activeRange = activeRange;
         
-        const flexibleRange = new DateTimeRangeClass();
+        const flexibleRange = new DateTimeRangeType();
         flexibleRange.from = new Date('2024-01-01T00:00:00.000Z');
         // to is undefined (open end)
         project.flexibleRange = flexibleRange;
@@ -431,13 +431,13 @@ describe("Project Model DateTime Validation", () => {
         expect(project.endDate).toBeInstanceOf(Date);
         expect(project.endDate!.toISOString()).toBe("2024-12-31T23:59:59.999Z");
         
-        expect(project.activeRange).toBeInstanceOf(DateTimeRangeClass);
+        expect(project.activeRange).toBeInstanceOf(DateTimeRangeType);
         expect(project.activeRange.from).toBeInstanceOf(Date);
         expect(project.activeRange.from!.toISOString()).toBe("2024-06-15T08:00:00.000Z");
         expect(project.activeRange.to).toBeInstanceOf(Date);
         expect(project.activeRange.to!.toISOString()).toBe("2024-09-15T17:00:00.000Z");
         
-        expect(project.flexibleRange).toBeInstanceOf(DateTimeRangeClass);
+        expect(project.flexibleRange).toBeInstanceOf(DateTimeRangeType);
         expect(project.flexibleRange!.from).toBeInstanceOf(Date);
         expect(project.flexibleRange!.from!.toISOString()).toBe("2024-01-01T00:00:00.000Z");
         expect(project.flexibleRange!.to).toBeInstanceOf(Date);
@@ -509,7 +509,7 @@ describe("Project Model DateTime Validation", () => {
         expect(project.startDate).toBeInstanceOf(Date);
         expect(project.endDate).toBeUndefined();
         expect(project.flexibleRange).toBeUndefined();
-        expect(project.activeRange).toBeInstanceOf(DateTimeRangeClass);
+        expect(project.activeRange).toBeInstanceOf(DateTimeRangeType);
       });
 
       it("should handle partial DateTimeRange in JSON input", async () => {
@@ -528,7 +528,7 @@ describe("Project Model DateTime Validation", () => {
         
         const project = Project.fromJSON(jsonData);
         
-        expect(project.flexibleRange).toBeInstanceOf(DateTimeRangeClass);
+        expect(project.flexibleRange).toBeInstanceOf(DateTimeRangeType);
         expect(project.flexibleRange!.from).toBeInstanceOf(Date);
         expect(project.flexibleRange!.from!.toISOString()).toBe("2024-01-01T00:00:00.000Z");
         expect(project.flexibleRange!.to).toBeUndefined();
@@ -543,12 +543,12 @@ describe("Project Model DateTime Validation", () => {
         originalProject.endDate = new Date('2024-12-31T23:59:59.999Z');
         originalProject.description = "Test description";
         
-        const activeRange = new DateTimeRangeClass();
+        const activeRange = new DateTimeRangeType();
         activeRange.from = new Date('2024-06-15T08:00:00.000Z');
         activeRange.to = new Date('2024-09-15T17:00:00.000Z');
         originalProject.activeRange = activeRange;
         
-        const flexibleRange = new DateTimeRangeClass();
+        const flexibleRange = new DateTimeRangeType();
         flexibleRange.from = new Date('2024-01-01T00:00:00.000Z');
         flexibleRange.to = new Date('2024-12-31T23:59:59.999Z');
         originalProject.flexibleRange = flexibleRange;
@@ -579,7 +579,7 @@ describe("Project Model DateTime Validation", () => {
         project.name = "Hotel Reservation System";
         project.startDate = new Date('2025-08-21T13:42:24.123Z');
         
-        const activeRange = new DateTimeRangeClass();
+        const activeRange = new DateTimeRangeType();
         activeRange.from = new Date('2025-08-21T13:42:24.123Z');
         activeRange.to = new Date('2025-08-23T13:42:24.123Z');
         project.activeRange = activeRange;

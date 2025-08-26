@@ -80,7 +80,7 @@ type DateTimeKey<T, K extends keyof T & string> = T[K] extends Date | undefined
     ? K
     : `DateTime: requires Date field`;
 
-type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRangeClass | undefined
+type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRangeType | undefined
     ? K
     : `DateTimeRange: requires DateTimeRange field`;
 
@@ -99,7 +99,7 @@ function validateDateType(proto: Object, propertyKey: string): void {
  */
 function validateDateTimeRangeType(proto: Object, propertyKey: string): void {
     const designType = Reflect.getMetadata('design:type', proto, propertyKey);
-    if (designType !== DateTimeRangeClass) {
+    if (designType !== DateTimeRangeType) {
         throw new Error(`@DateTimeRange can only be applied to 'DateTimeRange' properties: ${propertyKey}`);
     }
 }
@@ -247,7 +247,7 @@ export function DateTime(options?: DateTimeOptions) {
  * DateTimeRange class that represents a range between two dates.
  * Used as a nested object in models that need date ranges.
  */
-export class DateTimeRangeClass {
+export class DateTimeRangeType {
     @IsOptional()
     @Expose()
     @Transform(({ value, type }) => {
@@ -294,7 +294,7 @@ function IsValidDateTimeRange(options?: DateTimeRangeOptions, validationOptions?
                         return true; // Allow null/undefined values
                     }
 
-                    if (!(value instanceof DateTimeRangeClass)) {
+                    if (!(value instanceof DateTimeRangeType)) {
                         return false;
                     }
 
@@ -370,7 +370,7 @@ export function DateTimeRange(options?: DateTimeRangeOptions) {
 
         // Apply nested validation for DateTimeRange
         ValidateNested()(target as any, propName);
-        Type(() => DateTimeRangeClass)(target as any, propName);
+        Type(() => DateTimeRangeType)(target as any, propName);
 
         // Apply custom range validation
         IsValidDateTimeRange(options)(target as any, propName);
