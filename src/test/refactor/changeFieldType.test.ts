@@ -81,14 +81,14 @@ if (typeof suite !== 'undefined') {
         });
 
         suite('Manual Trigger Capability', () => {
-            test('should handle valid field in entity file', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+            test('should handle valid field in model file', async () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', entityUri, fieldRange);
+                const fieldMeta = createMockField('name', 'string', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
-                    uri: entityUri,
+                    uri: modelUri,
                     range: fieldRange,
                     metadata: fieldMeta
                 };
@@ -98,15 +98,15 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should reject non-field metadata', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const range = new vscode.Range(5, 0, 5, 4);
-                const entity = createMockEntity('User', entityUri, range);
+                const model = createMockModel('User', modelUri, range);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
-                    uri: entityUri,
+                    uri: modelUri,
                     range: range,
-                    metadata: entity
+                    metadata: model
                 };
 
                 const canHandle = await tool.canHandleManualTrigger(context);
@@ -114,13 +114,13 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should reject field without Field decorator', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockNonField('name', 'string', entityUri, fieldRange);
+                const fieldMeta = createMockNonField('name', 'string', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
-                    uri: entityUri,
+                    uri: modelUri,
                     range: fieldRange,
                     metadata: fieldMeta
                 };
@@ -132,20 +132,20 @@ if (typeof suite !== 'undefined') {
 
         suite('Automatic Change Detection', () => {
             test('should detect field type change when type changes', () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
                 
-                const oldField = createMockField('age', 'string', entityUri, fieldRange);
-                const newField = createMockField('age', 'number', entityUri, fieldRange);
+                const oldField = createMockField('age', 'string', modelUri, fieldRange);
+                const newField = createMockField('age', 'number', modelUri, fieldRange);
                 
-                const oldEntity = createMockEntity('User', entityUri, new vscode.Range(5, 0, 5, 4));
-                oldEntity.properties = { 'age': oldField };
+                const oldModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
+                oldModel.properties = { 'age': oldField };
                 
-                const newEntity = createMockEntity('User', entityUri, new vscode.Range(5, 0, 5, 4));
-                newEntity.properties = { 'age': newField };
+                const newModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
+                newModel.properties = { 'age': newField };
                 
-                const oldFileMeta: FileMetadata = { uri: entityUri, classes: { 'User': oldEntity } };
-                const newFileMeta: FileMetadata = { uri: entityUri, classes: { 'User': newEntity } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 
@@ -156,22 +156,22 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should detect multiple field type changes', () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 
-                const oldAgeField = createMockField('age', 'string', entityUri, new vscode.Range(8, 4, 8, 7));
-                const oldStatusField = createMockField('status', 'string', entityUri, new vscode.Range(9, 4, 9, 10));
+                const oldAgeField = createMockField('age', 'string', modelUri, new vscode.Range(8, 4, 8, 7));
+                const oldStatusField = createMockField('status', 'string', modelUri, new vscode.Range(9, 4, 9, 10));
                 
-                const newAgeField = createMockField('age', 'number', entityUri, new vscode.Range(8, 4, 8, 7));
-                const newStatusField = createMockField('status', 'boolean', entityUri, new vscode.Range(9, 4, 9, 10));
+                const newAgeField = createMockField('age', 'number', modelUri, new vscode.Range(8, 4, 8, 7));
+                const newStatusField = createMockField('status', 'boolean', modelUri, new vscode.Range(9, 4, 9, 10));
                 
-                const oldEntity = createMockEntity('User', entityUri, new vscode.Range(5, 0, 5, 4));
-                oldEntity.properties = { 'age': oldAgeField, 'status': oldStatusField };
+                const oldModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
+                oldModel.properties = { 'age': oldAgeField, 'status': oldStatusField };
                 
-                const newEntity = createMockEntity('User', entityUri, new vscode.Range(5, 0, 5, 4));
-                newEntity.properties = { 'age': newAgeField, 'status': newStatusField };
+                const newModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
+                newModel.properties = { 'age': newAgeField, 'status': newStatusField };
                 
-                const oldFileMeta: FileMetadata = { uri: entityUri, classes: { 'User': oldEntity } };
-                const newFileMeta: FileMetadata = { uri: entityUri, classes: { 'User': newEntity } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 
@@ -187,11 +187,11 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should not detect change when only decorators change', () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
                 
-                const oldField = createMockField('name', 'string', entityUri, fieldRange);
-                const newField = createMockField('name', 'string', entityUri, fieldRange);
+                const oldField = createMockField('name', 'string', modelUri, fieldRange);
+                const newField = createMockField('name', 'string', modelUri, fieldRange);
                 // Same type, just different decorator arguments
                 newField.decorators = [{ 
                     name: 'Field', 
@@ -199,41 +199,41 @@ if (typeof suite !== 'undefined') {
                     position: new vscode.Range(7, 4, 7, 17) 
                 }];
                 
-                const oldEntity = createMockEntity('User', entityUri, new vscode.Range(5, 0, 5, 4));
-                oldEntity.properties = { 'name': oldField };
+                const oldModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
+                oldModel.properties = { 'name': oldField };
                 
-                const newEntity = createMockEntity('User', entityUri, new vscode.Range(5, 0, 5, 4));
-                newEntity.properties = { 'name': newField };
+                const newModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
+                newModel.properties = { 'name': newField };
                 
-                const oldFileMeta: FileMetadata = { uri: entityUri, classes: { 'User': oldEntity } };
-                const newFileMeta: FileMetadata = { uri: entityUri, classes: { 'User': newEntity } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 assert.strictEqual(changes.length, 0);
             });
 
-            test('should not detect changes in non-entity files', () => {
-                const nonEntityUri = vscode.Uri.file('/test/src/utils/helper.ts');
+            test('should not detect changes in non-model files', () => {
+                const nonModelUri = vscode.Uri.file('/test/src/utils/helper.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
                 
-                const oldField = createMockNonField('value', 'string', nonEntityUri, fieldRange);
-                const newField = createMockNonField('value', 'number', nonEntityUri, fieldRange);
+                const oldField = createMockNonField('value', 'string', nonModelUri, fieldRange);
+                const newField = createMockNonField('value', 'number', nonModelUri, fieldRange);
                 
-                const oldNonEntity = createMockNonEntity('Helper', nonEntityUri, new vscode.Range(5, 0, 5, 6));
-                oldNonEntity.properties = { 'value': oldField };
+                const oldNonModel = createMockNonModel('Helper', nonModelUri, new vscode.Range(5, 0, 5, 6));
+                oldNonModel.properties = { 'value': oldField };
                 
-                const newNonEntity = createMockNonEntity('Helper', nonEntityUri, new vscode.Range(5, 0, 5, 6));
-                newNonEntity.properties = { 'value': newField };
+                const newNonModel = createMockNonModel('Helper', nonModelUri, new vscode.Range(5, 0, 5, 6));
+                newNonModel.properties = { 'value': newField };
                 
-                const oldFileMeta: FileMetadata = { uri: nonEntityUri, classes: { 'Helper': oldNonEntity } };
-                const newFileMeta: FileMetadata = { uri: nonEntityUri, classes: { 'Helper': newNonEntity } };
+                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': oldNonModel } };
+                const newFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': newNonModel } };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 assert.strictEqual(changes.length, 0);
             });
 
             test('should handle empty or undefined metadata', () => {
-                const uri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const uri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const emptyFileMeta: FileMetadata = { uri, classes: {} };
                 
                 // Test with empty files
@@ -242,22 +242,22 @@ if (typeof suite !== 'undefined') {
                 // Test with undefined
                 assert.strictEqual(tool.analyze(undefined, emptyFileMeta).length, 0);
                 
-                // Test with non-entity files
-                const nonEntityUri = vscode.Uri.file('/test/src/utils/helper.ts');
-                const nonEntityMeta: FileMetadata = { uri: nonEntityUri, classes: {} };
-                assert.strictEqual(tool.analyze(nonEntityMeta, undefined).length, 0);
+                // Test with non-model files
+                const nonModelUri = vscode.Uri.file('/test/src/utils/helper.ts');
+                const nonModelMeta: FileMetadata = { uri: nonModelUri, classes: {} };
+                assert.strictEqual(tool.analyze(nonModelMeta, undefined).length, 0);
             });
         });
 
         suite('Manual Refactor Initiation', () => {
             test('should proceed with valid new field type', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('age', 'string', entityUri, fieldRange);
+                const fieldMeta = createMockField('age', 'string', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
-                    uri: entityUri,
+                    uri: modelUri,
                     range: fieldRange,
                     metadata: fieldMeta
                 };
@@ -274,17 +274,17 @@ if (typeof suite !== 'undefined') {
                 assert.ok(change.payload.field, 'Payload should include the field metadata');
                 assert.strictEqual(change.payload.field.name, 'age');
                 assert.strictEqual(change.payload.field.type, 'string');
-                assert.strictEqual(change.uri?.toString(), entityUri.toString());
+                assert.strictEqual(change.uri?.toString(), modelUri.toString());
             });
 
             test('should handle user cancellation', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('age', 'string', entityUri, fieldRange);
+                const fieldMeta = createMockField('age', 'string', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
-                    uri: entityUri,
+                    uri: modelUri,
                     range: fieldRange,
                     metadata: fieldMeta
                 };
@@ -297,13 +297,13 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should reject empty field types', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('age', 'string', entityUri, fieldRange);
+                const fieldMeta = createMockField('age', 'string', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
-                    uri: entityUri,
+                    uri: modelUri,
                     range: fieldRange,
                     metadata: fieldMeta
                 };
@@ -316,12 +316,12 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should handle invalid metadata', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
-                    uri: entityUri,
+                    uri: modelUri,
                     range: fieldRange,
                     metadata: undefined
                 };
@@ -333,21 +333,21 @@ if (typeof suite !== 'undefined') {
 
         suite('Workspace Edit Preparation', () => {
             test('should prepare edit for field type change', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const oldField = createMockField('age', 'string', entityUri, fieldRange);
-                const newField = createMockField('age', 'number', entityUri, fieldRange);
+                const oldField = createMockField('age', 'string', modelUri, fieldRange);
+                const newField = createMockField('age', 'number', modelUri, fieldRange);
                 
                 // Add some references
                 oldField.references = [
-                    { uri: entityUri, range: fieldRange },
+                    { uri: modelUri, range: fieldRange },
                     { uri: vscode.Uri.file('/test/other.ts'), range: new vscode.Range(10, 5, 10, 8) },
                     { uri: vscode.Uri.file('/test/another.ts'), range: new vscode.Range(15, 0, 15, 3) }
                 ];
 
                 const change: ChangeObject = {
                     type: 'CHANGE_FIELD_TYPE',
-                    uri: entityUri,
+                    uri: modelUri,
                     description: 'Change field type from string to number',
                     payload: {
                         field: oldField,
@@ -362,9 +362,9 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should handle type change with decorator updates', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const oldField = createMockField('isActive', 'string', entityUri, fieldRange);
+                const oldField = createMockField('isActive', 'string', modelUri, fieldRange);
                 
                 // Add type-specific decorators that might need updating
                 oldField.decorators.push({
@@ -375,7 +375,7 @@ if (typeof suite !== 'undefined') {
 
                 const change: ChangeObject = {
                     type: 'CHANGE_FIELD_TYPE',
-                    uri: entityUri,
+                    uri: modelUri,
                     description: 'Change field type from string to boolean',
                     payload: {
                         field: oldField,
@@ -389,13 +389,13 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should handle complex type changes', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const oldField = createMockField('data', 'string', entityUri, fieldRange);
+                const oldField = createMockField('data', 'string', modelUri, fieldRange);
                 
                 const change: ChangeObject = {
                     type: 'CHANGE_FIELD_TYPE',
-                    uri: entityUri,
+                    uri: modelUri,
                     description: 'Change field type from string to UserData',
                     payload: {
                         field: oldField,
@@ -411,9 +411,9 @@ if (typeof suite !== 'undefined') {
 
         suite('Type-Specific Decorator Handling', () => {
             test('should update type-specific decorators for string to number', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const oldField = createMockField('score', 'string', entityUri, fieldRange);
+                const oldField = createMockField('score', 'string', modelUri, fieldRange);
                 
                 // Add string-specific decorators
                 oldField.decorators.push({
@@ -425,7 +425,7 @@ if (typeof suite !== 'undefined') {
 
                 const change: ChangeObject = {
                     type: 'CHANGE_FIELD_TYPE',
-                    uri: entityUri,
+                    uri: modelUri,
                     description: 'Change field type from string to number',
                     payload: {
                         field: oldField,
@@ -440,13 +440,13 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should handle date type changes', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const oldField = createMockField('createdAt', 'string', entityUri, fieldRange);
+                const oldField = createMockField('createdAt', 'string', modelUri, fieldRange);
 
                 const change: ChangeObject = {
                     type: 'CHANGE_FIELD_TYPE',
-                    uri: entityUri,
+                    uri: modelUri,
                     description: 'Change field type from string to Date',
                     payload: {
                         field: oldField,
@@ -460,13 +460,13 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should handle relationship field type changes', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const oldField = createMockRelationshipField('order', 'Order', entityUri, fieldRange);
+                const oldField = createMockRelationshipField('order', 'Order', modelUri, fieldRange);
 
                 const change: ChangeObject = {
                     type: 'CHANGE_FIELD_TYPE',
-                    uri: entityUri,
+                    uri: modelUri,
                     description: 'Change relationship field type from Order to Purchase',
                     payload: {
                         field: oldField,
@@ -482,13 +482,13 @@ if (typeof suite !== 'undefined') {
 
         suite('Type Validation', () => {
             test('should accept valid TypeScript types', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('field', 'string', entityUri, fieldRange);
+                const fieldMeta = createMockField('field', 'string', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
-                    uri: entityUri,
+                    uri: modelUri,
                     range: fieldRange,
                     metadata: fieldMeta
                 };
@@ -504,13 +504,13 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should handle array and union types', async () => {
-                const entityUri = vscode.Uri.file('/test/src/data/entities/User.ts');
+                const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('tags', 'string', entityUri, fieldRange);
+                const fieldMeta = createMockField('tags', 'string', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
-                    uri: entityUri,
+                    uri: modelUri,
                     range: fieldRange,
                     metadata: fieldMeta
                 };
@@ -542,7 +542,7 @@ function createMockCache(): MetadataCache {
     } as any;
 }
 
-function createMockEntity(name: string, uri: vscode.Uri, range: vscode.Range): DecoratedClass {
+function createMockModel(name: string, uri: vscode.Uri, range: vscode.Range): DecoratedClass {
     return {
         name,
         decorators: [{ 
@@ -554,11 +554,11 @@ function createMockEntity(name: string, uri: vscode.Uri, range: vscode.Range): D
         methods: {},
         declaration: { uri, range },
         references: [{ uri, range }],
-        isDataEntity: true
+        isDataModel: true
     };
 }
 
-function createMockNonEntity(name: string, uri: vscode.Uri, range: vscode.Range): DecoratedClass {
+function createMockNonModel(name: string, uri: vscode.Uri, range: vscode.Range): DecoratedClass {
     return {
         name,
         decorators: [], // No Model decorator
@@ -566,7 +566,7 @@ function createMockNonEntity(name: string, uri: vscode.Uri, range: vscode.Range)
         methods: {},
         declaration: { uri, range },
         references: [{ uri, range }],
-        isDataEntity: false
+        isDataModel: false
     };
 }
 

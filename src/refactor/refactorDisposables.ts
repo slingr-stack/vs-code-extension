@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { RefactorController } from './RefactorController';
 import { IRefactorTool, ManualRefactorContext } from './refactorInterfaces';
-import { RenameEntityTool } from './tools/renameEntity';
-import { DeleteEntityTool } from './tools/deleteEntity';
+import { RenameModelTool } from './tools/renameModel';
+import { DeleteModelTool } from './tools/deleteModel';
 import { RenameFieldTool } from './tools/renameField';
 import { DeleteFieldTool } from './tools/deleteField';
 import { ChangeFieldTypeTool } from './tools/changeFieldType';
@@ -18,16 +18,16 @@ import { AppTreeItem } from '../explorer/appTreeItem';
  * operations may have dependencies on or affect the behavior of others.
  * 
  * @returns An array containing instances of all refactor tools including:
- * - DeleteEntityTool: Handles entity deletion operations  
- * - RenameEntityTool: Handles entity renaming operations
+ * - DeleteModelTool: Handles model deletion operations  
+ * - RenameModelTool: Handles model renaming operations
  * - RenameFieldTool: Handles field renaming operations
  * - DeleteFieldTool: Handles field deletion operations
  * - ChangeFieldTypeTool: Handles field type modification operations
  */
 export function getAllRefactorTools(): IRefactorTool[] {
     return [
-        new DeleteEntityTool(),
-        new RenameEntityTool(),
+        new DeleteModelTool(),
+        new RenameModelTool(),
         new RenameFieldTool(),
         new DeleteFieldTool(),
         new ChangeFieldTypeTool(),

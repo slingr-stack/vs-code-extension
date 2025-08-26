@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext } from '../refactorInterfaces';
 import { DecoratedClass, FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
-import { areRangesEqual, isEntity, isEntityFile, isField } from '../../utils/metadata';
+import { areRangesEqual, isModel, isModelFile, isField } from '../../utils/metadata';
 
 
 /**
- * Tool for handling field property renaming within an entity class.
+ * Tool for handling field property renaming within an model class.
  * 
  * This tool provides functionality to:
- * - Detect when a field property is renamed within an entity class.
+ * - Detect when a field property is renamed within an model class.
  * - Handle manual rename commands triggered by users.
  * - Update all references to the renamed field throughout the codebase.
  * 
@@ -47,15 +47,15 @@ export class RenameFieldTool implements IRefactorTool {
         if (!context.metadata) {
             return false;
         }
-        return (isEntityFile(context.uri) && isField(context.metadata));
+        return (isModelFile(context.uri) && isField(context.metadata));
     }
 
     /**
      * Analyzes file metadata changes to detect field renames.
      * 
      * A rename is detected by correlating removed and added properties within the same
-     * entity class. It assumes that if an equal number of fields were removed and added,
-     * they correspond to renames. It accounts for entity renames and field deletions
+     * model class. It assumes that if an equal number of fields were removed and added,
+     * they correspond to renames. It accounts for model renames and field deletions
      * that may have occurred in the same operation.
      * 
      * @param oldFileMeta The metadata of the file before the change.
@@ -65,7 +65,7 @@ export class RenameFieldTool implements IRefactorTool {
      */
     public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata, accumulatedChanges: ChangeObject[] = []): ChangeObject[] {
         const changes: ChangeObject[] = [];
-        if (!oldFileMeta || !newFileMeta || !isEntityFile(newFileMeta.uri)) {
+        if (!oldFileMeta || !newFileMeta || !isModelFile(newFileMeta.uri)) {
             return [];
         }
 
@@ -75,13 +75,13 @@ export class RenameFieldTool implements IRefactorTool {
             if (change.type === 'RENAME_ENTITY' && change.payload.oldName && change.payload.newName) {
                 classRenames.set(change.payload.oldName, change.payload.newName);
             }
-            if (change.type === 'DELETE_FIELD' && change.payload.entityName && change.payload.oldFieldMetadata) {
-                const entityName = change.payload.entityName;
+            if (change.type === 'DELETE_FIELD' && change.payload.modelName && change.payload.oldFieldMetadata) {
+                const modelName = change.payload.modelName;
                 const fieldName = change.payload.oldFieldMetadata.name;
-                if (!deletedFieldsByClass.has(entityName)) {
-                    deletedFieldsByClass.set(entityName, new Set());
+                if (!deletedFieldsByClass.has(modelName)) {
+                    deletedFieldsByClass.set(modelName, new Set());
                 }
-                deletedFieldsByClass.get(entityName)!.add(fieldName);
+                deletedFieldsByClass.get(modelName)!.add(fieldName);
             }
         }
 
@@ -90,7 +90,7 @@ export class RenameFieldTool implements IRefactorTool {
             const expectedNewClassName = classRenames.get(oldClassName) || oldClassName;
             const newClass = newFileMeta.classes[expectedNewClassName];
 
-            if (!newClass || !isEntity(newClass)) {
+            if (!newClass || !isModel(newClass)) {
                 continue;
             }
 
@@ -110,11 +110,11 @@ export class RenameFieldTool implements IRefactorTool {
                         changes.push({
                             type: 'RENAME_FIELD',
                             uri: newFileMeta.uri,
-                            description: `Field '${oldProp.name}' was renamed to '${newProp.name}' in Entity '${newClass.name}'.`,
+                            description: `Field '${oldProp.name}' was renamed to '${newProp.name}' in Model '${newClass.name}'.`,
                             payload: {
                                 oldName: oldProp.name,
                                 newName: newProp.name,
-                                entityName: oldClassName,
+                                modelName: oldClassName,
                                 oldFieldMetadata: oldProp,
                             }
                         });
@@ -130,7 +130,7 @@ export class RenameFieldTool implements IRefactorTool {
      * 
      * This method validates that the context contains a valid field, then prompts the
      * user for a new name. It validates the new name to ensure it's a valid property name.
-     * It also identifies the containing entity for the field.
+     * It also identifies the containing model for the field.
      * 
      * @param context The manual refactor context.
      * @returns A promise that resolves to a `ChangeObject` for the rename, or `undefined` if the user cancels or validation fails.
@@ -153,20 +153,20 @@ export class RenameFieldTool implements IRefactorTool {
             return undefined;
         }
 
-        let containingEntity: DecoratedClass | undefined;
+        let containingModel: DecoratedClass | undefined;
         const filePath = context.uri.fsPath.replace(/\\/g, '/');
         const fileMeta = context.cache.getMetadataForFile(filePath);
         if (fileMeta) {
             for (const classData of Object.values(fileMeta.classes)) {
                 if (classData.properties[field.name]) {
-                    containingEntity = classData;
+                    containingModel = classData;
                     break;
                 }
             }
         }
 
-        if (!containingEntity) {
-            vscode.window.showErrorMessage('Could not determine the parent entity for this field.');
+        if (!containingModel) {
+            vscode.window.showErrorMessage('Could not determine the parent model for this field.');
             return undefined;
         }
 
@@ -178,7 +178,7 @@ export class RenameFieldTool implements IRefactorTool {
             payload: {
                 oldName: field.name,
                 newName: newName,
-                entityName: containingEntity.name,
+                modelName: containingModel.name,
                 oldFieldMetadata: field,
                 isManual: true
             }

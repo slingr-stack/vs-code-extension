@@ -28,7 +28,7 @@ import { AppTreeItem } from "../explorer/appTreeItem";
  * 
  * @example
  * ```typescript
- * const tools = [new RenameActionTool(), new DeleteEntityTool()];
+ * const tools = [new RenameActionTool(), new DeleteModelTool()];
  * const controller = new RefactorController(tools, metadataCache);
  * 
  * // Handle manual refactor command

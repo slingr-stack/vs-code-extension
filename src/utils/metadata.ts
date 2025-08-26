@@ -4,20 +4,20 @@ import { DecoratedClass, PropertyMetadata } from "../cache/cache";
 import { fieldTypeConfig } from '../utils/fieldTypes';
 
 /**
- * Checks if a URI corresponds to a file in the entity directory.
+ * Checks if a URI corresponds to a file in the model directory.
  * @param uri - The VS Code URI to check.
- * @returns True if the URI is for an entity file, false otherwise.
+ * @returns True if the URI is for an model file, false otherwise.
  */
-export function isEntityFile(uri: vscode.Uri): boolean {
+export function isModelFile(uri: vscode.Uri): boolean {
     return uri.path.includes('/src/data/');
 }
 
 /**
- * Checks if a class metadata object is an Entity.
+ * Checks if a class metadata object is an Model.
  * @param metadata - The class or property metadata to check.
- * @returns True if the metadata is for an Entity class, false otherwise.
+ * @returns True if the metadata is for an Model class, false otherwise.
  */
-export function isEntity(metadata: DecoratedClass | PropertyMetadata): metadata is DecoratedClass {
+export function isModel(metadata: DecoratedClass | PropertyMetadata): metadata is DecoratedClass {
     return 'decorators' in metadata && metadata.decorators.some(d => d.name === 'Model');
 }
 

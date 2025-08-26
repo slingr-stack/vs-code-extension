@@ -33,7 +33,7 @@ export interface DecoratedClass {
      methods: { [methodName: string]: MethodMetadata };
     references: vscode.Location[];
     declaration: vscode.Location;
-    isDataEntity: boolean;
+    isDataModel: boolean;
 }
 
 /**
@@ -278,7 +278,7 @@ export class MetadataCache {
 
         sourceFile.getClasses().forEach((classDeclaration: ClassDeclaration) => {
             const className = classDeclaration.getName() ?? '[Anonymous]';
-            const isDataEntity = filePath.includes('/src/data/');
+            const isDataModel = filePath.includes('/src/data/');
             const decoratedClass: DecoratedClass = {
                 name: className,
                 decorators: this.extractDecoratorMetadata(classDeclaration),
@@ -289,7 +289,7 @@ export class MetadataCache {
                     vscode.Uri.file(normalizedFilePath),
                     this.tsNodeToVscodeRange(classDeclaration.getNameNode() ?? classDeclaration)
                 ),
-                isDataEntity: isDataEntity
+                isDataModel: isDataModel
             };
 
             classDeclaration.getProperties().forEach((property: PropertyDeclaration) => {
@@ -449,7 +449,7 @@ export class MetadataCache {
     /**
      * Iterates through all cached items and finds their references throughout the project.
      * This includes direct references found by ts-morph and implicit references
-     * from string literals in places like EntityView `getFields` methods.
+     * from string literals in places like ModelView `getFields` methods.
      */
     private buildAllReferences(): void {
         for (const file of Object.values(this.cache)) {
@@ -530,28 +530,28 @@ export class MetadataCache {
     }
 
     /**
-     * Finds implicit field references within `getFields` methods of `EntityView` classes.
+     * Finds implicit field references within `getFields` methods of `ModelView` classes.
      * This is necessary because `ts-morph`'s `findReferences` does not detect references
      * made via string literals (e.g., `{ field: 'fieldName' }`).
      */
     private buildImplicitViewFieldReferences(): void {
-        const entityMap = new Map<string, DecoratedClass>();
+        const modelMap = new Map<string, DecoratedClass>();
         this.findMetadata(item => 'properties' in item && item.decorators.some(d => d.name === 'Model'))
-            .forEach(entity => entityMap.set((entity as DecoratedClass).name, entity as DecoratedClass));
+            .forEach(model => modelMap.set((model as DecoratedClass).name, model as DecoratedClass));
 
         const viewClasses = this.findMetadata(
-            item => 'properties' in item && item.decorators.some(d => d.name === 'EntityView')
+            item => 'properties' in item && item.decorators.some(d => d.name === 'ModelView')
         ) as DecoratedClass[];
 
         for (const viewClass of viewClasses) {
-            const entityViewDecorator = viewClass.decorators.find(d => d.name === 'EntityView');
-            const entityName = entityViewDecorator?.arguments[0]?.entity;
+            const modelViewDecorator = viewClass.decorators.find(d => d.name === 'ModelView');
+            const modelName = modelViewDecorator?.arguments[0]?.model;
 
-            if (!entityName || !entityMap.has(entityName)) {
+            if (!modelName || !modelMap.has(modelName)) {
                 continue;
             }
 
-            const entityClass = entityMap.get(entityName)!;
+            const modelClass = modelMap.get(modelName)!;
             const normalizedViewPath = viewClass.declaration.uri.fsPath.replace(/\\/g, '/');
             const viewSourceFile = this.tsMorphProject.getSourceFile(normalizedViewPath);
             const viewClassNode = viewSourceFile?.getClass(viewClass.name);
@@ -570,7 +570,7 @@ export class MetadataCache {
                         const initializer = fieldProperty.getInitializer();
                         if (initializer && Node.isStringLiteral(initializer)) {
                             const fieldName = initializer.getLiteralValue();
-                            const targetProperty = entityClass.properties[fieldName];
+                            const targetProperty = modelClass.properties[fieldName];
                             if (targetProperty) {
 
                                 const contentStartPos = initializer.getStart() + 1;
@@ -658,30 +658,30 @@ export class MetadataCache {
     }
 
     /**
-     * Returns all entities that are stored in the src/data folder.
-     * These are the entities that will be shown in the explorer.
-     * @returns An array of DecoratedClass objects that represent data entities.
+     * Returns all models that are stored in the src/data folder.
+     * These are the models that will be shown in the explorer.
+     * @returns An array of DecoratedClass objects that represent data models.
      */
-    public getDataEntities(): DecoratedClass[] {
-        const dataEntities: DecoratedClass[] = [];
+    public getDataModels(): DecoratedClass[] {
+        const dataModels: DecoratedClass[] = [];
         for (const fileData of Object.values(this.cache)) {
             for (const classData of Object.values(fileData.classes)) {
-                if (classData.isDataEntity) {
-                    dataEntities.push(classData);
+                if (classData.isDataModel) {
+                    dataModels.push(classData);
                 }
             }
         }
-        return dataEntities;
+        return dataModels;
     }
 
     /**
      * Returns all Model decorated classes that are stored in the src/data folder.
-     * This is a more specific version of getDataEntities() that only returns
+     * This is a more specific version of getDataModels() that only returns
      * classes with the Model decorator.
      * @returns An array of DecoratedClass objects that represent Model classes in the data folder.
      */
-    public getDataEntityClasses(): DecoratedClass[] {
-        return this.getDataEntities().filter(classData => 
+    public getDataModelClasses(): DecoratedClass[] {
+        return this.getDataModels().filter(classData => 
             classData.decorators.some(decorator => decorator.name === 'Model')
         );
     }

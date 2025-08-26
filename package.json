@@ -33,12 +33,12 @@
         "title": "Refactor"
       },
       {
-        "command": "slingr-vscode-extension.renameEntity",
-        "title": "Slingr: Rename Entity"
+        "command": "slingr-vscode-extension.renameModel",
+        "title": "Slingr: Rename Model"
       },
       {
-        "command": "slingr-vscode-extension.deleteEntity",
-        "title": "Slingr: Delete Entity"
+        "command": "slingr-vscode-extension.deleteModel",
+        "title": "Slingr: Delete Model"
       },
       {
         "command": "slingr-vscode-extension.renameField",
@@ -76,20 +76,20 @@
       ],
       "view/item/context": [
         {
-          "when": "view == slingrExplorer && (viewItem == 'entity' || viewItem == 'field')",
+          "when": "view == slingrExplorer && (viewItem == 'model' || viewItem == 'field')",
           "submenu": "slingr-vscode-extension.refactorings",
           "group": "1_modification"
         }
       ],
       "slingr-vscode-extension.refactorings": [
         {
-          "command": "slingr-vscode-extension.renameEntity",
-          "when": "(view == slingrExplorer && viewItem == 'entity') || !viewItem",
+          "command": "slingr-vscode-extension.renameModel",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
           "group": "1_modification"
         },
         {
-          "command": "slingr-vscode-extension.deleteEntity",
-          "when": "(view == slingrExplorer && viewItem == 'entity') || !viewItem",
+          "command": "slingr-vscode-extension.deleteModel",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
           "group": "2_modification"
         },
         {

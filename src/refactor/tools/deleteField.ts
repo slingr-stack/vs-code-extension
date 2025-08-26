@@ -1,15 +1,15 @@
 import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
-import { isEntity, isEntityFile, isField } from '../../utils/metadata';
+import { isModel, isModelFile, isField } from '../../utils/metadata';
 import { areRangesEqual } from '../../utils/metadata';
 import * as fs from 'fs';
 
 /**
- * Tool for handling field deletion from an entity in TypeScript applications.
+ * Tool for handling field deletion from an model in TypeScript applications.
  * 
  * This tool provides functionality to:
- * - Detect when a field property is removed from an entity class
+ * - Detect when a field property is removed from an model class
  * - Handle manual deletion commands triggered by users
  * - Clean up references to the deleted field throughout the codebase
  * 
@@ -23,7 +23,7 @@ import * as fs from 'fs';
  * 
  * @example
  * // Manual usage:
- * // 1. Position the cursor on a field property within an entity class.
+ * // 1. Position the cursor on a field property within an model class.
  * // 2. Execute the "Delete Field" command.
  * // 3. Review changes in the Refactor Preview panel and apply.
  * @implements @see {@link IRefactorTool}
@@ -50,16 +50,16 @@ export class DeleteFieldTool implements IRefactorTool {
         if (!context.metadata) {
             return false;
         }
-        return (isEntityFile(context.uri) && isField(context.metadata));
+        return (isModelFile(context.uri) && isField(context.metadata));
     }
         
 
     /**
      * Analyzes file metadata changes to detect field deletions.
      * 
-     * This method compares the properties of an entity class between two versions of a file.
+     * This method compares the properties of an model class between two versions of a file.
      * A field deletion is detected when a property that is a field is present in the old
-     * metadata but not in the new. It accounts for entity/field renames that may have
+     * metadata but not in the new. It accounts for model/field renames that may have
      * occurred in the same operation. It also includes a heuristic to avoid false positives
      * during active typing by checking the line content.
      * 
@@ -70,7 +70,7 @@ export class DeleteFieldTool implements IRefactorTool {
      */
     public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata, accumulatedChanges: ChangeObject[] = []): ChangeObject[] {
         const changes: ChangeObject[] = [];
-        if (!oldFileMeta || !newFileMeta || !isEntityFile(newFileMeta.uri)) {
+        if (!oldFileMeta || !newFileMeta || !isModelFile(newFileMeta.uri)) {
             return [];
         }
 
@@ -81,8 +81,8 @@ export class DeleteFieldTool implements IRefactorTool {
             if (change.type === 'RENAME_ENTITY' && change.payload.oldName && change.payload.newName) {
                 classRenames.set(change.payload.oldName, change.payload.newName);
             }
-            if (change.type === 'RENAME_FIELD' && change.payload.oldName && change.payload.entityName) {
-                const oldClassName = change.payload.entityName;
+            if (change.type === 'RENAME_FIELD' && change.payload.oldName && change.payload.modelName) {
+                const oldClassName = change.payload.modelName;
                 if (!renamedFieldsByClass.has(oldClassName)) {
                     renamedFieldsByClass.set(oldClassName, new Set());
                 }
@@ -95,7 +95,7 @@ export class DeleteFieldTool implements IRefactorTool {
             const expectedNewClassName = classRenames.get(oldClassName) || oldClassName;
             const newClass = newFileMeta.classes[expectedNewClassName];
 
-            if (!newClass || !isEntity(oldClass) || !isEntity(newClass)) {
+            if (!newClass || !isModel(oldClass) || !isModel(newClass)) {
                 continue;
             }
 
@@ -134,8 +134,8 @@ export class DeleteFieldTool implements IRefactorTool {
                     changes.push({
                         type: 'DELETE_FIELD',
                         uri: newFileMeta.uri,
-                        description: `Field '${oldProp.name}' was deleted from Entity '${newClass.name}'.`,
-                        payload: { oldFieldMetadata: oldProp, entityName: newClass.name }
+                        description: `Field '${oldProp.name}' was deleted from Model '${newClass.name}'.`,
+                        payload: { oldFieldMetadata: oldProp, modelName: newClass.name }
                     });
                 }
             }
@@ -229,8 +229,8 @@ export class DeleteFieldTool implements IRefactorTool {
      * Executes a prompt to help fix broken field references after a field deletion.
      * 
      * This method generates and executes a chat prompt that guides the user through
-     * fixing code references that were broken when a field was deleted from an entity.
-     * The prompt includes information about the deleted field, affected entity, and
+     * fixing code references that were broken when a field was deleted from an model.
+     * The prompt includes information about the deleted field, affected model, and
      * lists of modified file paths where broken references may exist.
      * 
      * @param change - The change object containing details about the field deletion
@@ -240,7 +240,7 @@ export class DeleteFieldTool implements IRefactorTool {
      * @throws Will log an error to console if the chat command fails to execute
      */
     public async executePrompt(change: ChangeObject): Promise<void> {
-        const { entityName, oldFieldMetadata } = change.payload;
+        const { modelName, oldFieldMetadata } = change.payload;
         const fieldName = oldFieldMetadata?.name || 'unknown';
         const modifiedRanges = change.payload.modifiedRanges || [];
 
@@ -250,7 +250,7 @@ export class DeleteFieldTool implements IRefactorTool {
             affectedPathsMessage = `\n\n${paths}`;
         }
 
-        const prompt = `I have just deleted the field "${fieldName}" from the entity "${entityName}".
+        const prompt = `I have just deleted the field "${fieldName}" from the model "${modelName}".
         This has left broken references in the code, marked with a "/* DELETED_FIELD_REFERENCE */" comment.
 
         Your task is to help me fix these broken references by proposing concrete code modifications and asking the user if it wants you to apply them.
