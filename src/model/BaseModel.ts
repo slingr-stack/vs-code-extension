@@ -1,6 +1,6 @@
 import { ValidationError, validate } from "class-validator";
-import type { ValidationIssue } from "./Field";
 import { instanceToPlain, plainToInstance, Transform } from "class-transformer";
+import { ValidationIssue } from "./types/SharedTypes";
 
 /**
  * Abstract base class for all model classes in the framework.
