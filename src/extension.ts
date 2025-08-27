@@ -3,51 +3,31 @@ import { MetadataCache } from './cache/cache';
 import { ExplorerProvider } from './explorer/explorerProvider';
 import { getAllRefactorTools, registerRefactorCommands } from './refactor/refactorDisposables';
 import { RefactorController } from './refactor/RefactorController';
+import { registerExplorer } from './explorer/explorerRegistration';
+import { registerInfoPanel } from './quickInfoPanel/infoPanelRegistration';
+import { registerGeneralCommands } from './commands/commandRegistration';
 
 export let cache: MetadataCache;
 
 export async function activate(context: vscode.ExtensionContext) {
 
-	// Initialize the metadata cache
-	cache = new MetadataCache(context.extensionPath);
-	await cache.initialize().then(() => {
-		console.log('Metadata cache initialized successfully');
-	}).catch(error => {
-		console.error('Failed to initialize metadata cache:', error);
-	});
-
-	// Initialize the explorer provider
-	const explorerProvider = new ExplorerProvider(cache, context.extensionUri);
-	
-	// Register the tree view
-	const treeView = vscode.window.createTreeView('slingrExplorer', {
-		treeDataProvider: explorerProvider,
-		dragAndDropController: explorerProvider,
-		showCollapseAll: true
-	});
-
-	// Register the navigation command
-	const navigateToCodeCommand = vscode.commands.registerCommand('slingr-vscode-extension.navigateToCode', (location: vscode.Location) => {
-		vscode.window.showTextDocument(location.uri).then(editor => {
-			editor.selection = new vscode.Selection(location.range.start, location.range.end);
-			editor.revealRange(location.range, vscode.TextEditorRevealType.InCenter);
-		});
-	});
-
-	const refactorTools = getAllRefactorTools();
+	// --- 1. Core Services Initialization ---
+    cache = new MetadataCache(context.extensionPath);
+    await cache.initialize();
+    
+    const refactorTools = getAllRefactorTools();
 	const refactorController = new RefactorController(refactorTools, cache);
-
 	cache.setRefactorController(refactorController);
 
-	const refactorDisposables = registerRefactorCommands(refactorController);
+    // --- 2. Feature Registration ---
+    // Each function now handles the setup for a specific feature.
+    const quickInfoProvider = registerInfoPanel(context);
+    const treeView = registerExplorer(context, cache, quickInfoProvider);
+    registerGeneralCommands(context);
+    registerRefactorCommands(refactorController, context); // Pass context if needed for subscriptions
 
-	// Add all disposables to context subscriptions
-	context.subscriptions.push(
-		treeView,
-		navigateToCodeCommand,
-		cache,
-		...refactorDisposables
-	);
+    // --- 3. Push remaining disposables ---
+    context.subscriptions.push(cache);
 }
 
 // This method is called when your extension is deactivated
