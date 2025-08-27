@@ -5,7 +5,7 @@ import { SimpleProduct } from './model/SimpleProduct';
 describe('Decimal Decorator with financial-number', () => {
 
     describe('JSON Serialization (toJSON)', () => {
-        it('should serialize a Decimal value with truncate rounding', async () => {
+        it('should serialize a Decimal value with truncate rounding', () => {
             const product = new SimpleProduct();
             product.name = 'Test';
             product.priceTruncate = number('123.456'); // Input with more decimals
@@ -27,7 +27,7 @@ describe('Decimal Decorator with financial-number', () => {
 
             expect(jsonObject).toEqual({
                 name: 'Test',
-                priceRound: '123.46'
+                priceRound: '123.46',
             });
         });
     });
@@ -115,4 +115,53 @@ describe('Decimal Decorator with financial-number', () => {
         });
     });
 
+});
+
+describe('Money Decorator with financial-number', () => {
+    describe('JSON Serialization and Deserialization', () => {
+        it('should correctly serialize and deserialize a Money value', async () => {
+            const product = new SimpleProduct();
+            product.name = 'Ice Cream';
+            product.priceMoney = number('1.25');
+
+            const jsonObject = product.toJSON();
+            expect(jsonObject.priceMoney).toBe('1.25');
+
+            const newProduct = SimpleProduct.fromJSON(jsonObject);
+            const errors = await newProduct.validate();
+            expect(errors).toHaveLength(0);
+            expect(newProduct.priceMoney.toString()).toBe('1.25');
+        });
+
+        it('should round the value on deserialization and pass validation', async () => {
+            const json = { name: 'Ice Cream', priceMoney: '1.259' };
+            const product = SimpleProduct.fromJSON(json);
+
+            const errors = await product.validate();
+            expect(errors).toHaveLength(0);
+            expect(product.priceMoney.toString()).toBe('1.26');
+        });
+    });
+
+    describe('Validations', () => {
+        it('should fail if an incorrect number of decimals is set manually', async () => {
+            const product = new SimpleProduct();
+            product.name = 'Ice Cream';
+            product.priceMoney = number('1.245');
+
+            const errors = await product.validate();
+            expect(errors.length).toBeGreaterThan(0);
+            expect(errors[0]?.property).toBe('priceMoney');
+            expect(errors[0]?.constraints).toHaveProperty('isMoney');
+        });
+
+        it('should pass validation when the correct number of decimals is set manually', async () => {
+            const product = new SimpleProduct();
+            product.name = 'Ice Cream';
+            product.priceMoney = number('1.25');
+
+            const errors = await product.validate();
+            expect(errors).toHaveLength(0);
+        });
+    });
 });

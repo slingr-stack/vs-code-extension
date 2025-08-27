@@ -4,16 +4,14 @@ import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
 import { Expose, Transform } from 'class-transformer';
 
 /**
- * Type alias for the `FinancialNumber` object.
- * This should be used for all monetary or high-precision decimal values.
+ * Type alias for the `FinancialNumber` object, representing a monetary value.
  */
-export type Decimal = FinancialNumber;
+export type Money = FinancialNumber;
 
 /**
- * Configuration options for the @Decimal decorator.
- * Note: financial-number primarily supports 'trim' (truncate) and 'round' (round half up).
+ * Configuration options for the @Money decorator.
  */
-export interface DecimalOptions {
+export interface MoneyOptions {
     /** The number of decimal places to maintain. Required. */
     decimals: number;
     /** Defines the rounding strategy when parsing data. */
@@ -32,7 +30,7 @@ export interface DecimalOptions {
  * Maps the decorator's roundingType string to the financial-number rounding strategy.
  * @private
  */
-function getRoundingStrategy(roundingType: DecimalOptions['roundingType']): RoundingStrategy {
+function getRoundingStrategy(roundingType: MoneyOptions['roundingType']): RoundingStrategy {
     switch (roundingType) {
         case 'truncate':
             return number.trim;
@@ -43,17 +41,17 @@ function getRoundingStrategy(roundingType: DecimalOptions['roundingType']): Roun
     }
 }
 
-type DecimalKey<T, K extends keyof T & string> = T[K] extends Decimal | undefined | null ? K : `Decimal: requires a property of type 'Decimal'`;
+type MoneyKey<T, K extends keyof T & string> = T[K] extends Money | undefined | null ? K : `Money: requires a property of type 'Money'`;
 
-function validateDecimalType(proto: Object, propertyKey: string): void {
+function validateMoneyType(proto: Object, propertyKey: string): void {
     const designType = Reflect.getMetadata('design:type', proto, propertyKey);
-    if (designType && designType !== Object && designType.name !== 'Decimal' && designType.name !== 'Object') {
-        throw new Error(`@Decimal can only be applied to properties of type 'Decimal', but it was used on '${propertyKey}' which is of type '${designType?.name}'.`);
+    if (designType && designType !== Object && designType.name !== 'Money' && designType.name !== 'Object' && designType.name !== 'FinancialNumber') {
+        throw new Error(`@Money can only be applied to properties of type 'Money', but it was used on '${propertyKey}' which is of type '${designType?.name}'.`);
     }
 }
 
-function storeDecimalMetadata(proto: Object, propName: string, options: DecimalOptions): void {
-    Reflect.defineMetadata('field:type', 'decimal', proto, propName);
+function storeMoneyMetadata(proto: Object, propName: string, options: MoneyOptions): void {
+    Reflect.defineMetadata('field:type', 'money', proto, propName);
     Reflect.defineMetadata('field:type:options', options, proto, propName);
 }
 
@@ -74,12 +72,12 @@ function createOptionalValidatorAdder(proto: Object, propName: string) {
     };
 }
 
-function applyDecimalValidations(
+function applyMoneyValidations(
     addOptionalValidator: ReturnType<typeof createOptionalValidatorAdder>,
     propName: string,
-    options: DecimalOptions
+    options: MoneyOptions
 ): void {
-    addOptionalValidator('isDecimal', (value: any) => {
+    addOptionalValidator('isMoney', (value: any) => {
         if (!value || typeof value.toString !== 'function' || typeof value.plus !== 'function') {
             return false;
         }
@@ -123,16 +121,14 @@ function applyDecimalValidations(
     }
 }
 
-export function Decimal(options: DecimalOptions) {
-    return function <T extends Object, K extends keyof T & string>(target: T, propertyKey: DecimalKey<T, K>) {
+export function Money(options: MoneyOptions) {
+    return function <T extends Object, K extends keyof T & string>(target: T, propertyKey: MoneyKey<T, K>) {
         const propName = propertyKey as string;
         const proto = target as Object;
 
-        validateDecimalType(proto, propName);
-        storeDecimalMetadata(proto, propName, options);
+        validateMoneyType(proto, propName);
+        storeMoneyMetadata(proto, propName, options);
 
-
-        // Serialization (toJSON)
         Transform(({ value }) => {
             if (value && typeof value.toString === 'function') {
                 const roundingStrategy = getRoundingStrategy(options.roundingType);
@@ -141,8 +137,6 @@ export function Decimal(options: DecimalOptions) {
             return value;
         }, { toPlainOnly: true })(target, propertyKey);
 
-
-        // Deserialization (fromJSON)
         Transform(({ value }) => {
             if (typeof value === 'string' || typeof value === 'number') {
                 try {
@@ -156,10 +150,9 @@ export function Decimal(options: DecimalOptions) {
             return value;
         }, { toClassOnly: true })(target, propertyKey);
 
-        // Expose the property for serialization/deserialization
         Expose()(target, propertyKey);
 
         const addOptionalValidator = createOptionalValidatorAdder(proto, propName);
-        applyDecimalValidations(addOptionalValidator, propName, options);
+        applyMoneyValidations(addOptionalValidator, propName, options);
     };
 }
