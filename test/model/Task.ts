@@ -1,7 +1,8 @@
 import { Field } from "@/model/Field";
 import { Model } from "@/model/Model";
 import { BaseModel } from "@/model/BaseModel";
-import { Choice, Text } from "@/model/types";
+import { Choice, Text, Relationship } from "@/model/types";
+import { Project } from "./Project";
 
 export enum TaskStatus {
     ToDo = 'toDo',
@@ -28,11 +29,19 @@ export class Task extends BaseModel {
     })
     title!: string;
 
-    @Field({})
+    @Field({required: true})
     @Choice()
     status: TaskStatus = TaskStatus.ToDo;
 
-    @Field({})
+    @Field({required: true})
     @Choice()
     priority: Priority = Priority.Medium;
+
+    @Field({
+        required: false,
+    })
+    @Relationship({
+        type: 'reference'
+    })
+    project!: Project;
 }

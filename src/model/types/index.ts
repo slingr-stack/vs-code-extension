@@ -8,3 +8,5 @@ export { DateTime } from './DateTime';
 export type { DateTimeOptions } from './DateTime';
 export { DateTimeRange, DateTimeRangeType } from './DateTimeRange';
 export type { DateTimeRangeOptions } from './DateTimeRange';
+export { Relationship } from './Relationship';
+export type { RelationshipOptions } from './Relationship';
