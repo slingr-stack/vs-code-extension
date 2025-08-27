@@ -285,8 +285,9 @@ export class ExplorerProvider
         ) {
           const relationshipType = field.type;
           const relatedEntity = this.cache.getDataModelClasses().find((entity) => entity.name === relationshipType);
+          const upperFieldName = field.name.charAt(0).toUpperCase() + field.name.slice(1);
           const compositionItem = new AppTreeItem(
-            field.decorators.find((d) => d.name === "Field")?.arguments[0]?.label || field.name,
+            upperFieldName,
             vscode.TreeItemCollapsibleState.Collapsed,
             "entity",
             this.extensionUri,
@@ -451,11 +452,10 @@ export class ExplorerProvider
   }
 
   private mapPropertyToTreeItem(propData: PropertyMetadata, itemType: string, parent?: AppTreeItem): AppTreeItem {
-    const decorator = propData.decorators.find((d) => d.name === "Field");
-    const label = decorator?.arguments[0]?.label || propData.name;
+    const upperFieldName = propData.name.charAt(0).toUpperCase() + propData.name.slice(1);
 
     const item = new AppTreeItem(
-      label,
+      upperFieldName,
       vscode.TreeItemCollapsibleState.None,
       itemType,
       this.extensionUri,
