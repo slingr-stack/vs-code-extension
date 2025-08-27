@@ -9,8 +9,8 @@
   ],
   "scripts": {
     "test": "jest --verbose",
-    "watch": "tsc --watch",
-    "build": "tsc"
+    "watch": "tsc --project tsconfig.build.json --watch",
+    "build": "tsc --project tsconfig.build.json"
   },
   "repository": {
     "type": "git",

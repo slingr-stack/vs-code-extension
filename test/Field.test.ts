@@ -1,5 +1,5 @@
-import { Person } from "./model/Person";
-import { Product } from "./model/Product";
+import { Person } from "./model/Person.js";
+import { Product } from "./model/Product.js";
 
 import type { ValidationError } from "class-validator";
 

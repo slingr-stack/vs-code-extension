@@ -1,6 +1,6 @@
-import { Field } from "@/model/Field";
-import { Model } from "@/model/Model";
-import { BaseModel } from "@/model/BaseModel";
+import { Field } from "../../src/model/Field.js";
+import { Model } from "../../src/model/Model.js";
+import { BaseModel } from "../../src/model/BaseModel.js";
 
 @Model({
   docs: "Represents a product",

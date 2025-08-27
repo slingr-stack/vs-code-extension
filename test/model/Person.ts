@@ -1,6 +1,6 @@
-import { Field } from "../../src/model/Field";
-import { Model } from "../../src/model/Model";
-import { BaseModel } from "../../src/model/BaseModel";
+import { Field } from "../../src/model/Field.js";
+import { Model } from "../../src/model/Model.js";
+import { BaseModel } from "../../src/model/BaseModel.js";
 import { IsEmail } from "class-validator";
 
 @Model({

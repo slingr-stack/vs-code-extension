@@ -1,4 +1,4 @@
-import { Person } from "./model/Person";
+import { Person } from "./model/Person.js";
 
 describe("BaseModel JSON Conversion", () => {
   describe("toJSON", () => {
