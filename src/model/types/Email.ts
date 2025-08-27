@@ -35,7 +35,7 @@ type EmailKey<T, K extends keyof T & string> = T[K] extends string
  *
  * @remarks
  * - Uses standard class-validator email validation
- * - Metadata is stored under 'field:logicalType' key with value 'email'
+ * - Metadata is stored under 'field:type' key with value 'email'
  * - The decorator uses reflection to verify the property type at runtime
  */
 export function Email() {
@@ -47,7 +47,7 @@ export function Email() {
         const proto = target as unknown as Object;
 
         validateStringType(proto, propName);
-        Reflect.defineMetadata('field:logicalType', 'email', proto, propName);
+        Reflect.defineMetadata('field:type', 'email', proto, propName);
         
         // Use standard class-validator email decorator
         IsEmail()(target as any, propName);

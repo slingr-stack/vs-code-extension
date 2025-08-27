@@ -34,7 +34,7 @@ type HtmlKey<T, K extends keyof T & string> = T[K] extends string
  *
  * @remarks
  * - Currently identical to Text() decorator in functionality
- * - Metadata is stored under 'field:logicalType' key with value 'html'
+ * - Metadata is stored under 'field:type' key with value 'html'
  * - The decorator uses reflection to verify the property type at runtime
  * - Inherits all validation capabilities from the Text decorator
  */
@@ -47,7 +47,7 @@ export function HTML() {
         const proto = target as unknown as Object;
 
         validateStringType(proto, propName);
-        Reflect.defineMetadata('field:logicalType', 'html', proto, propName);
+        Reflect.defineMetadata('field:type', 'html', proto, propName);
         Text()(target as any, propName as any);
     };
 }
