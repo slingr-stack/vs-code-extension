@@ -37,12 +37,6 @@ export class Person extends BaseModel {
   })
   age!: number;
 
-  @Field({})
-  @Number({
-    min: 1900,
-    max: new Date().getFullYear(),
-  })
-  birthYear!: number;
 
   @Field({
     required: (person: Person) => {
@@ -51,11 +45,6 @@ export class Person extends BaseModel {
   })
   parentEmail!: string;
 
-  @Field({})
-  @Number({
-    positive: true,
-  })
-  height!: number;
 
   @Field({
     available: false, // This field should be excluded from JSON operations

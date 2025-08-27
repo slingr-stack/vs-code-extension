@@ -3,11 +3,12 @@ import { Model } from "@/model/Model";
 import { BaseModel } from "@/model/BaseModel";
 import { Decimal } from "@/model/types/Decimal";
 import { Money } from "@/model/types/Money";
+import { Integer } from "@/model/types/Integer";
 
 @Model({
     docs: "Represents a product",
 })
-export class SimpleProduct extends BaseModel {
+export class DecimalMoneyModel extends BaseModel {
     @Field({
         required: true,
     })
@@ -28,7 +29,7 @@ export class SimpleProduct extends BaseModel {
     })
     @Decimal({
         decimals: 2,
-        roundingType: 'roundHalfToEven', 
+        roundingType: 'roundHalfToEven',
     })
     priceRound!: Decimal;
 
