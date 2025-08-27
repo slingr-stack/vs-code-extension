@@ -207,7 +207,8 @@ export interface FieldOptions<TObject extends object = object, TValue = unknown>
  */
 export function Field<TObject extends object = object, TValue = unknown>(options: FieldOptions<TObject, TValue>) {
   return function (target: Object, propertyKey: string, descriptor?: PropertyDescriptor) {
-    if (options?.docs) {
+    // Add documentation metadata if provided
+    if (options.docs) {
       Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
     }
 
@@ -295,5 +296,6 @@ export function Field<TObject extends object = object, TValue = unknown>(options
         (this as any)[memoizedSymbol] = value;
       };
     }
+
   };
 }

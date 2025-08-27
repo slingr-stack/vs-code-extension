@@ -1,3 +1,4 @@
+import { App } from "./model/App";
 import { Person } from "./model/Person";
 import { Product } from "./model/Product";
 
@@ -40,8 +41,13 @@ describe("Person Model Validation", () => {
     const expected = [
       {
         field: "lastName",
-        codes: ["isNotEmpty"],
-        messages: ["lastName should not be empty"],
+        codes: ["minLength", "maxLength", "matches", "isNotEmpty"],
+        messages: [
+          "lastName must be longer than or equal to 2 characters",
+          "lastName must be shorter than or equal to 30 characters",
+          "lastName must contain only letters",
+          "lastName should not be empty"
+        ],
       },
       {
         field: "age",
@@ -264,5 +270,79 @@ describe("Product Model Validation", () => {
     const errors = await validUser.validate();
     const summary = summarizeErrors(errors);
     expect(summary).toStrictEqual([]);
+  });
+});
+
+describe("App Model Validation", () => {
+  it("should return isNotEmpty and other errors for missing name", async () => {
+    const invalidApp = new App();
+    invalidApp.version = "01.00.00";
+    invalidApp.description = "A sample application";
+    invalidApp.author = "JohnDoe";
+
+    const errors = await invalidApp.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { 
+        field: "name", 
+        codes: ["minLength", "maxLength", "matches", "isNotEmpty"], 
+        messages: [
+          "name must be longer than or equal to 4 characters",
+          "name must be shorter than or equal to 20 characters",
+          "Name must contain only letters and dots (no underscores, no consecutive dots, no dot at start/end)",
+          "name should not be empty"
+        ] 
+      },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
+
+  it("should return errors for invalid version length and format", async () => {
+    const invalidApp = new App();
+    invalidApp.name = "MyApp";
+    invalidApp.version = "1.0"; // Invalid format
+    invalidApp.description = "A sample application";
+    invalidApp.author = "JohnDoe";
+
+    const errors = await invalidApp.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "version", codes: ["minLength", "matches"], messages: [
+          "version must be longer than or equal to 5 characters",
+          "Version must be in the format AA.BB.CC, where AA, BB, and CC are two-digit numbers"
+        ] 
+      },
+    ];
+    expect(summary).toStrictEqual(expected);
+  });
+
+  it("should not return error for non-required but empty fields", async () => {
+    const validApp = new App();
+    validApp.name = "MyApp";
+    validApp.version = "01.00.00";
+    validApp.description = "A sample application";
+    // validApp.author = undefined;
+
+    const errors = await validApp.validate();
+    const summary = summarizeErrors(errors);
+    expect(summary).toStrictEqual([]);
+  });
+
+  it("should return errors for invalid author name", async () => {
+    const invalidApp = new App();
+    invalidApp.name = "MyApp";
+    invalidApp.version = "01.00.00";
+    invalidApp.description = "A sample application";
+    invalidApp.author = "JohnDoe123"; // Invalid author name
+
+    const errors = await invalidApp.validate();
+    const summary = summarizeErrors(errors);
+    const expected = [
+      { field: "author", codes: ["matches"], messages: [
+          "Author must contain only letters, numbers, dots, underscores, and hyphens"
+        ] 
+      },
+    ];
+    expect(summary).toStrictEqual(expected);
   });
 });

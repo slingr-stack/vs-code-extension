@@ -2,7 +2,7 @@ import { Field } from "../../src/model/Field";
 import { Model } from "../../src/model/Model";
 import { BaseModel } from "../../src/model/BaseModel";
 import { IsEmail } from "class-validator";
-import { Text, Email, HTML } from "../../src/model/types/Text";
+import { Text, Email, HTML } from "@/model/types";
 
 @Model({
   docs: "Represents a person",
@@ -70,4 +70,9 @@ export class Person extends BaseModel {
     },
   })
   phoneNumber!: string;
+
+  @Field({})
+  @HTML()
+  additionalInfo!: string;
+
 }
