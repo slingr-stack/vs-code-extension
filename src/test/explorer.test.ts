@@ -35,7 +35,7 @@ describe('Explorer Provider Tests', () => {
     });
 
     describe('Data Root Children', () => {
-        it('should return entities from data folder when dataRoot is expanded', async () => {
+        it('should return models from data folder when dataRoot is expanded', async () => {
             const dataRootItem = new AppTreeItem(
                 'Data',
                 vscode.TreeItemCollapsibleState.Expanded,
@@ -45,15 +45,15 @@ describe('Explorer Provider Tests', () => {
 
             const children = await explorerProvider.getChildren(dataRootItem);
             
-            // Should return the mock entities (sorted alphabetically by label)
+            // Should return the mock models (sorted alphabetically by label)
             assert.strictEqual(children.length, 2);
-            assert.strictEqual(children[0].label, 'ProjectEntity'); // alphabetically first
-            assert.strictEqual(children[0].itemType, 'entity');
-            assert.strictEqual(children[1].label, 'User Entity'); // alphabetically second
-            assert.strictEqual(children[1].itemType, 'entity');
+            assert.strictEqual(children[0].label, 'ProjectModel'); // alphabetically first
+            assert.strictEqual(children[0].itemType, 'model');
+            assert.strictEqual(children[1].label, 'User Model'); // alphabetically second
+            assert.strictEqual(children[1].itemType, 'model');
         });
 
-        it('should return empty array when no data entities exist', async () => {
+        it('should return empty array when no data models exist', async () => {
             const emptyCache = createEmptyMockCache();
             const emptyExplorerProvider = new ExplorerProvider(emptyCache, extensionUri);
             
@@ -68,7 +68,7 @@ describe('Explorer Provider Tests', () => {
             assert.strictEqual(children.length, 0);
         });
 
-        it('should display folders when entities are in subfolders', async () => {
+        it('should display folders when models are in subfolders', async () => {
             const cacheWithFolders = createMockCacheWithFolders();
             const folderExplorerProvider = new ExplorerProvider(cacheWithFolders, extensionUri);
             
@@ -81,19 +81,19 @@ describe('Explorer Provider Tests', () => {
 
             const children = await folderExplorerProvider.getChildren(dataRootItem);
             
-            // Should have 1 entity in root and 1 folder
+            // Should have 1 model in root and 1 folder
             assert.strictEqual(children.length, 2);
             
             // First should be the folder (alphabetically)
             assert.strictEqual(children[0].label, 'models');
             assert.strictEqual(children[0].itemType, 'folder');
             
-            // Second should be the entity
-            assert.strictEqual(children[1].label, 'Root Entity');
-            assert.strictEqual(children[1].itemType, 'entity');
+            // Second should be the model
+            assert.strictEqual(children[1].label, 'Root Model');
+            assert.strictEqual(children[1].itemType, 'model');
         });
 
-        it('should display entities inside folders when folder is expanded', async () => {
+        it('should display models inside folders when folder is expanded', async () => {
             const cacheWithFolders = createMockCacheWithFolders();
             const folderExplorerProvider = new ExplorerProvider(cacheWithFolders, extensionUri);
             
@@ -110,75 +110,75 @@ describe('Explorer Provider Tests', () => {
 
             const children = await folderExplorerProvider.getChildren(folderItem);
             
-            // Should have 1 entity in the models folder
+            // Should have 1 model in the models folder
             assert.strictEqual(children.length, 1);
-            assert.strictEqual(children[0].label, 'Folder Entity');
-            assert.strictEqual(children[0].itemType, 'entity');
+            assert.strictEqual(children[0].label, 'Folder Model');
+            assert.strictEqual(children[0].itemType, 'model');
         });
     });
 
-    describe('Entity Children', () => {
-        it('should return fields when entity is expanded', async () => {
-            const mockEntity = createMockEntity();
-            const entityItem = new AppTreeItem(
-                'User Entity',
+    describe('Model Children', () => {
+        it('should return fields when model is expanded', async () => {
+            const mockModel = createMockModel();
+            const modelItem = new AppTreeItem(
+                'User Model',
                 vscode.TreeItemCollapsibleState.Collapsed,
-                'entity',
+                'model',
                 extensionUri,
-                mockEntity
+                mockModel
             );
 
-            const children = await explorerProvider.getChildren(entityItem);
+            const children = await explorerProvider.getChildren(modelItem);
             
             assert.strictEqual(children.length, 2);
             assert.strictEqual(children[0].itemType, 'field');
             assert.strictEqual(children[1].itemType, 'field');
         });
 
-        it('should return empty array when entity has no fields', async () => {
-            const mockEntityNoFields = createMockEntityWithoutFields();
-            const entityItem = new AppTreeItem(
-                'Empty Entity',
+        it('should return empty array when model has no fields', async () => {
+            const mockModelNoFields = createMockModelWithoutFields();
+            const modelItem = new AppTreeItem(
+                'Empty Model',
                 vscode.TreeItemCollapsibleState.Collapsed,
-                'entity',
+                'model',
                 extensionUri,
-                mockEntityNoFields
+                mockModelNoFields
             );
 
-            const children = await explorerProvider.getChildren(entityItem);
+            const children = await explorerProvider.getChildren(modelItem);
             assert.strictEqual(children.length, 0);
         });
     });
 
     describe('Tree Item Properties', () => {
         it('should create tree item with correct properties', () => {
-            const mockEntity = createMockEntity();
+            const mockModel = createMockModel();
             const treeItem = explorerProvider.getTreeItem(
                 new AppTreeItem(
-                    'Test Entity',
+                    'Test Model',
                     vscode.TreeItemCollapsibleState.Collapsed,
-                    'entity',
+                    'model',
                     extensionUri,
-                    mockEntity
+                    mockModel
                 )
             );
 
-            assert.strictEqual(treeItem.label, 'Test Entity');
+            assert.strictEqual(treeItem.label, 'Test Model');
             assert.strictEqual(treeItem.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
-            assert.strictEqual(treeItem.contextValue, 'entity');
+            assert.strictEqual(treeItem.contextValue, 'model');
         });
 
         it('should set navigation command for property items', async () => {
-            const mockEntity = createMockEntity();
-            const entityItem = new AppTreeItem(
-                'User Entity',
+            const mockModel = createMockModel();
+            const modelItem = new AppTreeItem(
+                'User Model',
                 vscode.TreeItemCollapsibleState.Collapsed,
-                'entity',
+                'model',
                 extensionUri,
-                mockEntity
+                mockModel
             );
 
-            const children = await explorerProvider.getChildren(entityItem);
+            const children = await explorerProvider.getChildren(modelItem);
             const fieldItem = children[0];
             
             assert.ok(fieldItem.command);
@@ -190,13 +190,13 @@ describe('Explorer Provider Tests', () => {
     describe('Drag and Drop', () => {
         it('should handle drag operation for field items', () => {
             const mockProperty = createMockProperty('testField');
-            const mockEntity = createMockEntity();
+            const mockModel = createMockModel();
             const parentItem = new AppTreeItem(
-                'User Entity',
+                'User Model',
                 vscode.TreeItemCollapsibleState.Collapsed,
-                'entity',
+                'model',
                 extensionUri,
-                mockEntity
+                mockModel
             );
             
             const fieldItem = new AppTreeItem(
@@ -220,33 +220,33 @@ describe('Explorer Provider Tests', () => {
         });
 
         it('should not handle drag for non-field items', () => {
-            const mockEntity = createMockEntity();
-            const entityItem = new AppTreeItem(
-                'User Entity',
+            const mockModel = createMockModel();
+            const modelItem = new AppTreeItem(
+                'User Model',
                 vscode.TreeItemCollapsibleState.Collapsed,
-                'entity',
+                'model',
                 extensionUri,
-                mockEntity
+                mockModel
             );
 
             const dataTransfer = new vscode.DataTransfer();
             const token = new vscode.CancellationTokenSource().token;
 
-            explorerProvider.handleDrag([entityItem], dataTransfer, token);
+            explorerProvider.handleDrag([modelItem], dataTransfer, token);
             
             // Should not set any data for non-field items
             const transferItem = dataTransfer.get('application/vnd.slingr-vscode-extension.field');
             assert.strictEqual(transferItem, undefined);
         });
 
-        it('should handle drag operation for composition entity items', () => {
-            const childEntity = createMockEntity('ChildEntity', 'Child Entity', '/test/project/src/data/child-entity.ts');
-            const parentEntity = createMockEntity('ParentEntity', 'Parent Entity', '/test/project/src/data/parent-entity.ts');
+        it('should handle drag operation for composition model items', () => {
+            const childModel = createMockModel('ChildModel', 'Child Model', '/test/project/src/data/child-model.ts');
+            const parentModel = createMockModel('ParentModel', 'Parent Model', '/test/project/src/data/parent-model.ts');
             
-            // Add a composition relationship property to the parent entity
-            parentEntity.properties['children'] = {
+            // Add a composition relationship property to the parent model
+            parentModel.properties['children'] = {
                 name: 'children',
-                type: 'ChildEntity',
+                type: 'ChildModel',
                 decorators: [
                     {
                         name: 'Field',
@@ -261,40 +261,40 @@ describe('Explorer Provider Tests', () => {
                 ],
                 references: [],
                 declaration: new vscode.Location(
-                    vscode.Uri.file('/test/project/src/data/parent-entity.ts'),
+                    vscode.Uri.file('/test/project/src/data/parent-model.ts'),
                     new vscode.Range(5, 0, 5, 10)
                 )
             };
 
             const parentItem = new AppTreeItem(
-                'Parent Entity',
+                'Parent Model',
                 vscode.TreeItemCollapsibleState.Collapsed,
-                'entity',
+                'model',
                 extensionUri,
-                parentEntity
+                parentModel
             );
             
             const compositionItem = new AppTreeItem(
                 'Children',
                 vscode.TreeItemCollapsibleState.Collapsed,
-                'entity',
+                'model',
                 extensionUri,
-                childEntity,
+                childModel,
                 parentItem
             );
 
             const dataTransfer = new vscode.DataTransfer();
             const token = new vscode.CancellationTokenSource().token;
 
-            // This should handle drag for composition entity items
+            // This should handle drag for composition model items
             explorerProvider.handleDrag([compositionItem], dataTransfer, token);
             
             const transferItem = dataTransfer.get('application/vnd.slingr-vscode-extension.field');
-            assert.ok(transferItem, 'Drag data should be set for composition entity items');
+            assert.ok(transferItem, 'Drag data should be set for composition model items');
             
             const dragData = transferItem.value;
             assert.strictEqual(dragData.field, 'children', 'Should drag the composition field name');
-            assert.strictEqual(dragData.entityClassName, 'ParentEntity', 'Should reference the parent entity class');
+            assert.strictEqual(dragData.modelClassName, 'ParentModel', 'Should reference the parent model class');
         });
     });
 });
@@ -302,13 +302,13 @@ describe('Explorer Provider Tests', () => {
 // Helper functions to create mock data
 function createMockCache(): MetadataCache {
     const mockCache = {
-        getDataEntityClasses: () => [
-            createMockEntity('UserEntity', 'User Entity'),
-            createMockEntity('ProjectEntity', 'ProjectEntity')
+        getDataModelClasses: () => [
+            createMockModel('UserModel', 'User Model'),
+            createMockModel('ProjectModel', 'ProjectModel')
         ],
-        getDataEntities: () => [
-            createMockEntity('UserEntity', 'User Entity'),
-            createMockEntity('ProjectEntity', 'ProjectEntity')
+        getDataModels: () => [
+            createMockModel('UserModel', 'User Model'),
+            createMockModel('ProjectModel', 'ProjectModel')
         ],
         onDidUpdate: new vscode.EventEmitter<void>().event,
         _onDidUpdate: new vscode.EventEmitter<void>(),
@@ -320,8 +320,8 @@ function createMockCache(): MetadataCache {
 
 function createEmptyMockCache(): MetadataCache {
     const mockCache = {
-        getDataEntityClasses: () => [],
-        getDataEntities: () => [],
+        getDataModelClasses: () => [],
+        getDataModels: () => [],
         onDidUpdate: new vscode.EventEmitter<void>().event,
         _onDidUpdate: new vscode.EventEmitter<void>(),
         getMetadataForFile: () => undefined
@@ -332,13 +332,13 @@ function createEmptyMockCache(): MetadataCache {
 
 function createMockCacheWithFolders(): MetadataCache {
     const mockCache = {
-        getDataEntityClasses: () => [
-            createMockEntity('RootEntity', 'Root Entity', '/test/project/src/data/root-entity.ts'),
-            createMockEntity('FolderEntity', 'Folder Entity', '/test/project/src/data/models/folder-entity.ts')
+        getDataModelClasses: () => [
+            createMockModel('RootModel', 'Root Model', '/test/project/src/data/root-model.ts'),
+            createMockModel('FolderModel', 'Folder Model', '/test/project/src/data/models/folder-model.ts')
         ],
-        getDataEntities: () => [
-            createMockEntity('RootEntity', 'Root Entity', '/test/project/src/data/root-entity.ts'),
-            createMockEntity('FolderEntity', 'Folder Entity', '/test/project/src/data/models/folder-entity.ts')
+        getDataModels: () => [
+            createMockModel('RootModel', 'Root Model', '/test/project/src/data/root-model.ts'),
+            createMockModel('FolderModel', 'Folder Model', '/test/project/src/data/models/folder-model.ts')
         ],
         onDidUpdate: new vscode.EventEmitter<void>().event,
         _onDidUpdate: new vscode.EventEmitter<void>(),
@@ -349,16 +349,16 @@ function createMockCacheWithFolders(): MetadataCache {
 }
 
 function createMockCacheWithComposition(): MetadataCache {
-    // Create child entity that will be referenced by composition
-    const childEntity = createMockEntity('ChildEntity', 'Child Entity', '/test/project/src/data/child-entity.ts');
+    // Create child model that will be referenced by composition
+    const childModel = createMockModel('ChildModel', 'Child Model', '/test/project/src/data/child-model.ts');
     
-    // Create parent entity with composition relationship to child
-    const parentEntity = createMockEntity('ParentEntity', 'Parent Entity', '/test/project/src/data/parent-entity.ts');
+    // Create parent model with composition relationship to child
+    const parentModel = createMockModel('ParentModel', 'Parent Model', '/test/project/src/data/parent-model.ts');
     
-    // Add composition relationship field to parent entity
-    parentEntity.properties['child'] = {
+    // Add composition relationship field to parent model
+    parentModel.properties['child'] = {
         name: 'child',
-        type: 'ChildEntity',
+        type: 'ChildModel',
         decorators: [
             {
                 name: 'Field',
@@ -373,30 +373,30 @@ function createMockCacheWithComposition(): MetadataCache {
         ],
         references: [],
         declaration: new vscode.Location(
-            vscode.Uri.file('/test/project/src/data/parent-entity.ts'),
+            vscode.Uri.file('/test/project/src/data/parent-model.ts'),
             new vscode.Range(5, 0, 5, 10)
         )
     };
     
-    // Add reference from parent to child entity
-    childEntity.references = [
+    // Add reference from parent to child model
+    childModel.references = [
         new vscode.Location(
-            vscode.Uri.file('/test/project/src/data/parent-entity.ts'),
+            vscode.Uri.file('/test/project/src/data/parent-model.ts'),
             new vscode.Range(5, 0, 5, 10)
         )
     ];
     
     const mockCache = {
-        getDataEntityClasses: () => [parentEntity, childEntity],
-        getDataEntities: () => [parentEntity, childEntity],
+        getDataModelClasses: () => [parentModel, childModel],
+        getDataModels: () => [parentModel, childModel],
         onDidUpdate: new vscode.EventEmitter<void>().event,
         _onDidUpdate: new vscode.EventEmitter<void>(),
         getMetadataForFile: (filePath: string) => {
-            if (filePath === '/test/project/src/data/parent-entity.ts') {
+            if (filePath === '/test/project/src/data/parent-model.ts') {
                 return {
                     uri: vscode.Uri.file(filePath),
                     classes: {
-                        'ParentEntity': parentEntity
+                        'ParentModel': parentModel
                     }
                 };
             }
@@ -407,12 +407,12 @@ function createMockCacheWithComposition(): MetadataCache {
     return mockCache;
 }
 
-function createMockEntity(name: string = 'UserEntity', label?: string, filePath: string = '/test/project/src/data/entity.ts'): DecoratedClass {
+function createMockModel(name: string = 'UserModel', label?: string, filePath: string = '/test/project/src/data/model.ts'): DecoratedClass {
     return {
         name,
         decorators: [
             {
-                name: 'Entity',
+                name: 'Model',
                 arguments: [{ label: label || name }],
                 position: new vscode.Range(0, 0, 0, 10)
             }
@@ -427,17 +427,17 @@ function createMockEntity(name: string = 'UserEntity', label?: string, filePath:
             vscode.Uri.file(filePath),
             new vscode.Range(0, 0, 0, 10)
         ),
-        isDataEntity: true
+        isDataModel: true
     };
 }
 
-function createMockEntityWithoutFields(): DecoratedClass {
+function createMockModelWithoutFields(): DecoratedClass {
     return {
-        name: 'EmptyEntity',
+        name: 'EmptyModel',
         decorators: [
             {
-                name: 'Entity',
-                arguments: [{ label: 'Empty Entity' }],
+                name: 'Model',
+                arguments: [{ label: 'Empty Model' }],
                 position: new vscode.Range(0, 0, 0, 10)
             }
         ],
@@ -445,14 +445,14 @@ function createMockEntityWithoutFields(): DecoratedClass {
         methods: {},
         references: [],
         declaration: new vscode.Location(
-            vscode.Uri.file('/test/project/src/data/empty-entity.ts'),
+            vscode.Uri.file('/test/project/src/data/empty-model.ts'),
             new vscode.Range(0, 0, 0, 10)
         ),
-        isDataEntity: true
+        isDataModel: true
     };
 }
 
-function createMockProperty(name: string, label?: string, filePath: string = '/test/project/src/data/entity.ts'): PropertyMetadata {
+function createMockProperty(name: string, label?: string, filePath: string = '/test/project/src/data/model.ts'): PropertyMetadata {
     return {
         name,
         type: 'string',

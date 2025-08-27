@@ -30,19 +30,19 @@ export class AppTreeItem extends vscode.TreeItem {
         case "folder":
           iconFileName = "folder.svg";
           break;
-        case "entitiesFolder":
+        case "modelsFolder":
           iconFileName = "folder.svg";
           break;
-        case "entity":
-          iconFileName = "entity-type.svg";
+        case "model":
+          iconFileName = "model-type.svg";
           break;
-        case "entityFieldsFolder":
+        case "modelFieldsFolder":
           iconFileName = "folder.svg";
           break;
         case "field":
           iconFileName = "field.svg";
           break;
-        case "entityActionsFolder":
+        case "modelActionsFolder":
           iconFileName = "action.svg";
           break;
         case "actionsFolder":
@@ -51,19 +51,19 @@ export class AppTreeItem extends vscode.TreeItem {
         case "globalActionsFolder":
           iconFileName = "folder.svg";
           break;
-        case "actionEntityLink":
+        case "actionModelLink":
           iconFileName = "folder.svg";
           break;
         case "action":
           iconFileName = "action.svg";
           break;
-        case "entityViewsFolder":
+        case "modelViewsFolder":
           iconFileName = "eye.svg";
           break;
-        case "viewsByEntityFolder":
+        case "viewsByModelFolder":
           iconFileName = "folder.svg";
           break;
-        case "viewEntityLink":
+        case "viewModelLink":
           iconFileName = "folder.svg";
           break;
         case "view":
@@ -79,7 +79,7 @@ export class AppTreeItem extends vscode.TreeItem {
         case "modelActionsRoot":
           iconFileName = "action.svg";
           break;
-        case "actionsByEntityFolder":
+        case "actionsByModelFolder":
           iconFileName = "folder.svg";
           break;
         case "actionsGlobalFolder":
@@ -88,7 +88,7 @@ export class AppTreeItem extends vscode.TreeItem {
         case "globalAction":
           iconFileName = "action.svg";
           break;
-        case "entityLinkForActions":
+        case "modelLinkForActions":
           iconFileName = "folder.svg";
           break;
 
@@ -98,7 +98,7 @@ export class AppTreeItem extends vscode.TreeItem {
         case "uiByTypeFolder":
           iconFileName = "folder.svg";
           break;
-        case "uiByEntityFolder":
+        case "uiByModelFolder":
           iconFileName = "folder.svg";
           break;
         case "uiRecordViewsFolder":
@@ -107,7 +107,7 @@ export class AppTreeItem extends vscode.TreeItem {
         case "uiGridViewsFolder":
           iconFileName = "eye.svg";
           break;
-        case "entityLinkForUiViews":
+        case "modelLinkForUiViews":
           iconFileName = "eye.svg";
           break;
 
