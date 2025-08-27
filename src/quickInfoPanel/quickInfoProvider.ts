@@ -217,6 +217,28 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                 .back-button:hover {
                     background-color: var(--vscode-button-secondary-hover-background);
                 }
+                .decorators-container { display: flex; flex-direction: column; gap: 0.5em; }
+                .decorator-block {
+                    padding: 0.5em;
+                    border: 1px solid var(--vscode-editor-widget-border);
+                    border-radius: 4px;
+                }
+                .decorator-name {
+                    font-weight: 600;
+                    color: var(--vscode-textLink-foreground);
+                    margin-bottom: 0.4em;
+                }
+                .decorator-args { 
+                    list-style: none;
+                    padding-left: 1em;
+                    margin: 0.2em 0 0 0;
+                    color: var(--vscode-description-foreground); 
+                }
+                .decorator-args-nested {
+                    list-style: none;
+                    padding-left: 1em;
+                    margin: 0.2em 0 0 0;
+                }
             </style>
         </head>
         <body>
