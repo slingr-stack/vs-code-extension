@@ -1,43 +1,53 @@
 import 'reflect-metadata';
 import { registerDecorator } from 'class-validator';
-import { Money, Round } from 'bigint-money';
-import { Transform } from 'class-transformer';
+import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
+import { Expose, Transform } from 'class-transformer';
 
-export type Decimal = Money;
+/**
+ * Type alias for the `FinancialNumber` object.
+ * This should be used for all monetary or high-precision decimal values.
+ */
+export type Decimal = FinancialNumber;
 
+/**
+ * Configuration options for the @Decimal decorator.
+ * Note: financial-number primarily supports 'trim' (truncate) and 'round' (round half up).
+ */
 export interface DecimalOptions {
+    /** The number of decimal places to maintain. Required. */
     decimals: number;
-    roundingType: 'truncate' | 'roundHalfToEven' | 'roundAwayFromZero' | 'roundHalfTowardsZero' | 'Error';
+    /** Defines the rounding strategy when parsing data. */
+    roundingType: 'truncate' | 'roundHalfToEven';
+    /** The minimum allowed value as a string (e.g., "10.50"). Optional. */
     min?: string;
+    /** The maximum allowed value as a string (e.g., "100.00"). Optional. */
     max?: string;
+    /** If true, the value must be positive (> 0). Optional. */
     positive?: boolean;
+    /** If true, the value must be negative (< 0). Optional. */
     negative?: boolean;
 }
 
 /**
- * Mapea nuestro string de roundingType a la enumeración de la librería bigint-money.
+ * Maps the decorator's roundingType string to the financial-number rounding strategy.
+ * @private
  */
-function getRoundingMode(roundingType: DecimalOptions['roundingType']): Round | undefined {
+function getRoundingStrategy(roundingType: DecimalOptions['roundingType']): RoundingStrategy {
     switch (roundingType) {
         case 'truncate':
-            return Round.TRUNCATE;
+            return number.trim;
         case 'roundHalfToEven':
-            return Round.BANKERS;
-        //case 'roundAwayFromZero':
-        //    return Round.AWAY_FROM_0;
-        case 'roundHalfTowardsZero':
-            return Round.HALF_TOWARDS_0;
+            return number.round;
         default:
-            return undefined; // Para 'Error' u otros casos
+            return number.trim; // Default to truncate
     }
 }
 
-// El alias `DecimalKey` asegura que el decorador solo se aplique a propiedades del tipo `Decimal`.
 type DecimalKey<T, K extends keyof T & string> = T[K] extends Decimal | undefined | null ? K : `Decimal: requires a property of type 'Decimal'`;
 
 function validateDecimalType(proto: Object, propertyKey: string): void {
     const designType = Reflect.getMetadata('design:type', proto, propertyKey);
-    if (designType && designType !== Object && designType.name !== 'Decimal') {
+    if (designType && designType !== Object && designType.name !== 'Decimal' && designType.name !== 'Object') {
         throw new Error(`@Decimal can only be applied to properties of type 'Decimal', but it was used on '${propertyKey}' which is of type '${designType?.name}'.`);
     }
 }
@@ -69,19 +79,48 @@ function applyDecimalValidations(
     propName: string,
     options: DecimalOptions
 ): void {
-    addOptionalValidator('isDecimal', (v) => v instanceof Money, `${propName} must be a Decimal object`);
+    // financial-number objects don't have a specific class, so we check if it has the expected methods.
+    addOptionalValidator('isDecimal', (value: any) => {
+        if (!value || typeof value.toString !== 'function' || typeof value.plus !== 'function') {
+            return false;
+        }
+        const stringValue = value.toString();
+        const parts = stringValue.split('.');
+        const numDecimalPlaces = parts.length === 2 ? parts[1].length : 0;
+        return numDecimalPlaces === options.decimals;
+    }, `${propName} must have exactly ${options.decimals} decimal places.`);
 
     if (options.positive) {
-        addOptionalValidator('isPositive', (v) => v instanceof Money && v.isGreaterThan('0'), `${propName} must be a positive amount`);
+        addOptionalValidator('isPositive', (value: unknown) => {
+            if (typeof value === 'object' && value !== null && 'gt' in value && typeof (value as FinancialNumber).gt === 'function') {
+                return (value as FinancialNumber).gt('0');
+            }
+            return false;
+        }, `${propName} must be a positive amount`);
     }
     if (options.negative) {
-        addOptionalValidator('isNegative', (v) => v instanceof Money && v.isLesserThan('0'), `${propName} must be a negative amount`);
+        addOptionalValidator('isNegative', (value: unknown) => {
+            if (typeof value === 'object' && value !== null && 'lt' in value && typeof (value as FinancialNumber).lt === 'function') {
+                return (value as FinancialNumber).lt('0');
+            }
+            return false;
+        }, `${propName} must be a negative amount`);
     }
     if (options.min) {
-        addOptionalValidator('min', (v) => v instanceof Money && v.isGreaterThanOrEqual(options.min!), `${propName} must not be less than ${options.min}`);
+        addOptionalValidator('min', (value: unknown) => {
+            if (typeof value === 'object' && value !== null && 'gte' in value && typeof (value as FinancialNumber).gte === 'function') {
+                return (value as FinancialNumber).gte(options.min!);
+            }
+            return false;
+        }, `${propName} must not be less than ${options.min}`);
     }
     if (options.max) {
-        addOptionalValidator('max', (v) => v instanceof Money && v.isLesserThanOrEqual(options.max!), `${propName} must not be greater than ${options.max}`);
+        addOptionalValidator('max', (value: unknown) => {
+            if (typeof value === 'object' && value !== null && 'lte' in value && typeof (value as FinancialNumber).lte === 'function') {
+                return (value as FinancialNumber).lte(options.max!);
+            }
+            return false;
+        }, `${propName} must not be greater than ${options.max}`);
     }
 }
 
@@ -93,51 +132,33 @@ export function Decimal(options: DecimalOptions) {
         validateDecimalType(proto, propName);
         storeDecimalMetadata(proto, propName, options);
 
-        Transform(({ value, key, obj, type }) => {
-            const opts = Reflect.getMetadata('field:type:options', obj, key) as DecimalOptions;
-            if (!opts) return value;
 
-            // --- Deserialización: plainToClass (fromJSON) ---
-            if (type === 1) {
-                if (typeof value !== 'string' && typeof value !== 'number') {
+        // Serialization (toJSON)
+        Transform(({ value }) => {
+            if (value && typeof value.toString === 'function') {
+                const roundingStrategy = getRoundingStrategy(options.roundingType);
+                return value.toString(options.decimals, roundingStrategy);
+            }
+            return value;
+        }, { toPlainOnly: true })(target, propertyKey);
+
+
+        // Deserialization (fromJSON)
+        Transform(({ value }) => {
+            if (typeof value === 'string' || typeof value === 'number') {
+                try {
+                    const roundingStrategy = getRoundingStrategy(options.roundingType);
+                    const formattedValue = number(String(value)).toString(options.decimals, roundingStrategy);
+                    return number(formattedValue);
+                } catch {
                     return value;
                 }
-
-                const stringValue = String(value);
-
-                // Validación para roundingType: 'Error'
-                if (opts.roundingType === 'Error') {
-                    const decimalPart = stringValue.split('.')[1] || '';
-                    if (decimalPart.length > opts.decimals) {
-                        // Devuelve un valor inválido para que la validación 'isDecimal' falle
-                        return `Invalid decimal places for ${key}. Expected ${opts.decimals}, but got ${decimalPart.length}.`;
-                    }
-                }
-
-                try {
-                    // Creamos el objeto Money. La librería maneja el parseo.
-                    // El redondeo se aplica en el constructor si se especifica.
-                    const roundingMode = getRoundingMode(opts.roundingType);
-                    const moneyValue = new Money(stringValue, 'XXX', roundingMode);
-
-                    // La librería trabaja con alta precisión interna. El formateo final se hace en toFixed.
-                    // Aquí solo nos aseguramos de que el objeto se cree correctamente.
-                    return moneyValue;
-                } catch (error) {
-                    return value; // Dejar que la validación falle si hay un error de parseo
-                }
             }
-
-            // --- Serialización: classToPlain (toJSON) ---
-            if (type === 0) {
-                if (value instanceof Money) {
-                    // Usamos toFixed() para formatear la salida con la precisión correcta
-                    return value.toFixed(opts.decimals);
-                }
-            }
-
             return value;
-        })(target, propName);
+        }, { toClassOnly: true })(target, propertyKey);
+
+        // Expose the property for serialization/deserialization
+        Expose()(target, propertyKey);
 
         const addOptionalValidator = createOptionalValidatorAdder(proto, propName);
         applyDecimalValidations(addOptionalValidator, propName, options);

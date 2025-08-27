@@ -8,10 +8,12 @@ import { Decimal } from "@/model/types/Decimal";
 })
 export class SimpleProduct extends BaseModel {
     @Field({
+        required: true,
     })
     name!: string;
 
-    @Field({})
+    @Field({
+    })
     @Decimal({
         decimals: 2,
         roundingType: 'truncate',
@@ -21,25 +23,20 @@ export class SimpleProduct extends BaseModel {
     })
     priceTruncate!: Decimal;
 
+    @Field({
+    })
+    @Decimal({
+        decimals: 2,
+        roundingType: 'roundHalfToEven', 
+    })
+    priceRound!: Decimal;
+
     @Field({})
     @Decimal({
         decimals: 2,
         roundingType: 'roundHalfToEven',
+        negative: true
     })
-    priceHalfToEven!: Decimal;
-
-    @Field({})
-    @Decimal({
-        decimals: 2,
-        roundingType: 'roundAwayFromZero',
-    })
-    priceHalfToEvenRoundAwayFromZero!: Decimal;
-
-    @Field({})
-    @Decimal({
-        decimals: 2,
-        roundingType: 'roundHalfTowardsZero',
-    })
-    priceHalfToEvenRoundHalfTowardsZero!: Decimal;
+    priceNegative!: Decimal;
 
 }
