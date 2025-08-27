@@ -1,20 +1,31 @@
-import { IMetadataRenderer } from './iMetadataRenderer';
-import { DecoratedClass, DecoratorMetadata } from '../../cache/cache';
+import { DecoratedClass } from '../../cache/cache';
 import * as vscode from 'vscode';
-import { renderDecorators } from './rendererUtils';
+import { BaseRenderer } from './baseRenderer';
+import { IRendererContext } from './iMetadataRenderer';
 
-export class ModelRenderer implements IMetadataRenderer {
-    public render(metadata: DecoratedClass): string {
+export class ModelRenderer extends BaseRenderer {
+    public render(metadata: DecoratedClass, context: IRendererContext): string {
         const cls = metadata;
         const mainDecorator = cls.decorators.find(d => d.name === 'Model');
         const label = mainDecorator?.arguments[0]?.label || cls.name;
+
+        const titleCommand = {
+            command: 'goToLocation',
+            data: cls.declaration
+        };
+
+        const sourceFileLocation = new vscode.Location(cls.declaration.uri, new vscode.Position(0, 0));
+        const sourceCommand = {
+            command: 'goToLocation',
+            data: sourceFileLocation
+        };
 
         // Generate the list of fields
         const fieldsListHtml = Object.values(cls.properties)
             .filter(prop => prop.decorators.some(d => d.name === 'Field'))
             .map(prop => {
                 // This creates the clickable data attribute for each field
-                const commandData = {
+                const fieldClickCommand  = {
                     command: 'itemClicked',
                     data: {
                         itemType: 'field',
@@ -22,62 +33,45 @@ export class ModelRenderer implements IMetadataRenderer {
                         parentClassName: cls.name
                     }
                 };
+                const typeAsModel = context.findModel(prop.type);
+                let typeHtml: string;
+                if (typeAsModel) {
+                    // If it's a model, make the type clickable
+                    const typeClickCommand = {
+                        command: 'itemClicked',
+                        data: {
+                            itemType: 'model',
+                            name: prop.type
+                        }
+                    };
+                    typeHtml = `
+                            <a href="#" class="clickable" data-command='${JSON.stringify(typeClickCommand)}'>
+                                <span class="tag clickable-type">${prop.type}</span>
+                            </a>`;
+                } else {
+                    // Otherwise, just display it as a normal tag
+                    typeHtml = `<span class="tag">${prop.type}</span>`;
+                }
+
                 return `
                     <li>
-                        <a href="#" class="clickable" data-command='${JSON.stringify(commandData)}'>
+                        <a href="#" class="clickable item-link" data-command='${JSON.stringify(fieldClickCommand)}'>
                             <code>${prop.name}</code>
                         </a>
-                        <span class="tag">${prop.type}</span>
+                        ${typeHtml}
                     </li>
                 `;
             }).join('');
 
         return `
-            <h1><span class="tag">Model</span> ${label}</h1>
+            <h1>
+                <h1><span class="tag">Model</span> ${cls.name}</h1>
+            </h1>
             <table>
-                ${this._renderTableRow('Class Name', `<code>${cls.name}</code>`)}
-                ${this._renderTableRow('Source', `<code>${vscode.workspace.asRelativePath(cls.declaration.uri)}</code>`)}
-                ${renderDecorators(cls.decorators)} 
+                ${this._renderTableRow('Source', `<a href="#" class="clickable" data-command='${JSON.stringify(sourceCommand)}'><code>${vscode.workspace.asRelativePath(cls.declaration.uri)}</code></a>`)}
+                ${this._renderDecorators(cls.decorators, cls.declaration.uri)} 
             </table>
             ${fieldsListHtml ? `<h2>Fields</h2><ul class="item-list">${fieldsListHtml}</ul>` : ''}
         `;
-    }
-    // ... (_renderTableRow method remains the same)
-    private _renderTableRow(label: string, value: any): string {
-        if (value === undefined || value === null || value === '') { return ''; }
-        return `<tr><td class="label">${label}</td><td>${value}</td></tr>`;
-    }
-
-    private _renderDecorators(decorators: DecoratorMetadata[]): string {
-        if (!decorators || decorators.length === 0) {
-            return '';
-        }
-
-        const decoratorHtml = decorators.map(dec => {
-            if (!dec || !dec.name) {
-                return '';
-            }
-            // We are interested in decorators like @Field, @Text, not internal ones
-            if (dec.name === 'Model' || dec.name === 'Field') {
-                return '';
-            }
-
-            let argsHtml = '';
-            if (Array.isArray(dec.arguments) && dec.arguments.length > 0 && typeof dec.arguments[0] === 'object' && dec.arguments[0] !== null) {
-                const argsObject = dec.arguments[0];
-                const argList = Object.entries(argsObject).map(([key, value]) => {
-                    return `<li><code>${key}:</code> ${JSON.stringify(value)}</li>`;
-                }).join('');
-                argsHtml = `<ul class="decorator-args">${argList}</ul>`;
-            }
-        
-            return `<div class="decorator-block">
-                    <div class="decorator-name">@${dec.name}</div>
-                    ${argsHtml}
-                    </div>`;
-
-        }).join('');
-
-        return `<tr><td class="label">Decorators</td><td><div class="decorators-container">${decoratorHtml}</div></td></tr>`;
     }
 }

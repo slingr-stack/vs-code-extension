@@ -1,26 +1,21 @@
 import * as vscode from 'vscode';
 import { DecoratedClass, PropertyMetadata, MethodMetadata, DecoratorMetadata, MetadataCache } from '../cache/cache';
-import { AppTreeItem } from '../explorer/appTreeItem';
-import { IMetadataRenderer } from './renderers/iMetadataRenderer';  
+import { rendererRegistry } from './renderers/rendererRegistry';
+import { IMetadataRenderer, IRendererContext } from './renderers/iMetadataRenderer';  
 import { ModelRenderer } from './renderers/modelRenderer';
 import { FieldRenderer } from './renderers/fieldRenderer';
 
 export class QuickInfoProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'slingrQuickInfo';
     private _view?: vscode.WebviewView;
-    private readonly rendererRegistry: Map<string, IMetadataRenderer>;
+    private readonly rendererRegistry: Map<string, IMetadataRenderer> = rendererRegistry;
     private _navigationHistory: { itemType: string; metadata: any }[] = [];
     private _currentState: { itemType: string; metadata: any } | undefined;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
         private readonly cache: MetadataCache
-    ) {
-        this.rendererRegistry = new Map<string, IMetadataRenderer>([
-            ['model', new ModelRenderer()],
-            ['field', new FieldRenderer()],
-        ]);
-    }
+    ) {}
 
     public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -140,9 +135,16 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
         const renderer = this.rendererRegistry.get(itemType);
         let contentHtml: string;
 
-        if (renderer) {
+        if (renderer && this._view) {
             // If we found a specialist, delegate the rendering task
-            contentHtml = renderer.render(metadata);
+            const context: IRendererContext = {
+                webview: this._view.webview,
+                extensionUri: this._extensionUri,
+                findModel: (name: string) => this.cache.findMetadata(
+                    item => 'properties' in item && item.name === name
+                )[0] as DecoratedClass | undefined
+            };
+            contentHtml = renderer.render(metadata, context);
         } else {
             // Fallback for unknown types
             contentHtml = `<pre><code>${JSON.stringify(metadata, null, 2)}</code></pre>`;
@@ -152,6 +154,11 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
             ? `<button id="backButton" class="back-button">← Back</button>`
             : '';
 
+        return this._buildHtmlShell(contentHtml, backButtonHtml);
+
+    }
+
+    private _buildHtmlShell(contentHtml: string, backButtonHtml: string): string {
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -220,11 +227,10 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                     list-style: none;
                     padding: 0;
                     margin: 0;
-                    /* Use a subtle background for the entire list block */
                     background-color: var(--vscode-editor-widget-background);
-                    border-radius: 4px; /* Soften the corners */
-                    border: 1px solid var(--vscode-editor-widget-border); /* Add a border around the block */
-                    overflow: hidden; /* Ensures border-radius clips the content */
+                    border-radius: 4px;
+                    border: 1px solid var(--vscode-editor-widget-border); 
+                    overflow: hidden; 
                 }
                 .item-list li {
                     display: flex;
@@ -272,6 +278,11 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                 }
                 .function-signature {
                     color: coral;
+                }
+                .clickable-type {
+                    background-color: var(--vscode-symbol-class-background);
+                    color: var(--vscode-symbol-class-foreground);
+                    background-color: var(--vscode-button-background);
                 }
             </style>
         </head>
