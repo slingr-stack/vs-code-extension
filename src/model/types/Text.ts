@@ -3,9 +3,8 @@ import {
     MinLength,
     MaxLength,
     Matches,
-    IsEmail,
-    ValidationOptions,
 } from 'class-validator';
+import { validateStringType } from './utils';
 
 /**
  * Options for the Text decorator.
@@ -31,23 +30,7 @@ export interface TextOptions {
 type TextKey<T, K extends keyof T & string> = T[K] extends string
     ? K
     : `Text: requires string field`;
-type EmailKey<T, K extends keyof T & string> = T[K] extends string
-    ? K
-    : `Email: requires string field`;
-type HtmlKey<T, K extends keyof T & string> = T[K] extends string
-    ? K
-    : `HTML: requires string field`;
 
-
-/**
- * Validates that a property is of string type at runtime.
- */
-function validateStringType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
-    if (designType !== String) {
-        throw new Error(`@Text can only be applied to 'string' properties: ${propertyKey}`);
-    }
-}
 
 /**
  * Stores metadata for the text field that can be consumed by other layers.
@@ -117,40 +100,5 @@ export function Text(options?: TextOptions) {
             }
             Matches(options.regex, { message: options.regexMessage })(target as any, propName);
         }
-    };
-}
-
-/**
- * Email type decorator.
- * - Must be used on `string` fields.
- * - Uses standard class-validator email validation.
- * - No options.
- */
-export function Email() {
-    return function <T, K extends keyof T & string>(
-        target: T,
-        propertyKey: EmailKey<T, K>
-    ) {
-        const propName = propertyKey as unknown as string;
-        Reflect.defineMetadata('field:logicalType', 'email', target as unknown as Object, propName);
-        
-        // Use standard class-validator email decorator
-        IsEmail()(target as any, propName);
-    };
-}
-
-/**
- * HTML type decorator.
- * - Must be used on `string` fields.
- * - Currently identical to `Text()` without extra options.
- */
-export function HTML() {
-    return function <T, K extends keyof T & string>(
-        target: T,
-        propertyKey: HtmlKey<T, K>
-    ) {
-        const propName = propertyKey as unknown as string;
-        Reflect.defineMetadata('field:logicalType', 'html', target as unknown as Object, propName);
-        Text()(target as any, propName as any);
     };
 }
