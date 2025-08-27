@@ -1,7 +1,7 @@
 import { Task, TaskStatus, Priority } from "./model/Task";
 
-describe("Choice Type Tests", () => {
-  describe("Task Model with Choice fields", () => {
+describe("Choice Field Type", () => {
+  describe("validation-tests", () => {
     it("should pass validation for a valid task with default enum values", async () => {
       const task = new Task();
       task.title = "Test Task";
@@ -24,6 +24,51 @@ describe("Choice Type Tests", () => {
       expect(errors).toStrictEqual([]);
     });
 
+    it("should handle all enum values for TaskStatus", () => {
+      const task = new Task();
+      task.title = "Status Test";
+
+      // Test all TaskStatus values
+      const statuses = [TaskStatus.ToDo, TaskStatus.InProgress, TaskStatus.Done];
+      
+      for (const status of statuses) {
+        task.status = status;
+        const json = task.toJSON();
+        const restored = Task.fromJSON(json);
+        
+        expect(restored.status).toBe(status);
+      }
+    });
+
+    it("should handle all enum values for Priority", () => {
+      const task = new Task();
+      task.title = "Priority Test";
+
+      // Test all Priority values
+      const priorities = [Priority.Low, Priority.Medium, Priority.High];
+      
+      for (const priority of priorities) {
+        task.priority = priority;
+        const json = task.toJSON();
+        const restored = Task.fromJSON(json);
+        
+        expect(restored.priority).toBe(priority);
+      }
+    });
+  });
+
+  describe("required-tests", () => {
+    it("should pass validation when optional choice fields have defaults", async () => {
+      const task = new Task();
+      task.title = "Test Task";
+      // status and priority have defaults
+
+      const errors = await task.validate();
+      expect(errors).toStrictEqual([]);
+    });
+  });
+
+  describe("JSON-conversion-tests", () => {
     it("should serialize enum values correctly in toJSON", () => {
       const task = new Task();
       task.title = "Test Task";
@@ -72,38 +117,6 @@ describe("Choice Type Tests", () => {
       expect(restoredTask.status).toBe(originalTask.status);
       expect(restoredTask.priority).toBe(originalTask.priority);
       expect(restoredTask instanceof Task).toBe(true);
-    });
-
-    it("should handle all enum values for TaskStatus", () => {
-      const task = new Task();
-      task.title = "Status Test";
-
-      // Test all TaskStatus values
-      const statuses = [TaskStatus.ToDo, TaskStatus.InProgress, TaskStatus.Done];
-      
-      for (const status of statuses) {
-        task.status = status;
-        const json = task.toJSON();
-        const restored = Task.fromJSON(json);
-        
-        expect(restored.status).toBe(status);
-      }
-    });
-
-    it("should handle all enum values for Priority", () => {
-      const task = new Task();
-      task.title = "Priority Test";
-
-      // Test all Priority values
-      const priorities = [Priority.Low, Priority.Medium, Priority.High];
-      
-      for (const priority of priorities) {
-        task.priority = priority;
-        const json = task.toJSON();
-        const restored = Task.fromJSON(json);
-        
-        expect(restored.priority).toBe(priority);
-      }
     });
   });
 });
