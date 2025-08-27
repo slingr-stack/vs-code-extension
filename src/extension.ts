@@ -21,7 +21,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // --- 2. Feature Registration ---
     // Each function now handles the setup for a specific feature.
-    const quickInfoProvider = registerInfoPanel(context);
+    const quickInfoProvider = registerInfoPanel(context, cache);
     const treeView = registerExplorer(context, cache, quickInfoProvider);
     registerGeneralCommands(context);
     registerRefactorCommands(refactorController, context); // Pass context if needed for subscriptions

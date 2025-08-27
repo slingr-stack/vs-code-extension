@@ -21,7 +21,7 @@ export function registerExplorer(
     // The logic to link the explorer's selection to the info panel belongs here
     const selectionDisposable = treeView.onDidChangeSelection(e => {
         const selectedItem = e.selection?.[0] as AppTreeItem;
-        quickInfoProvider.update(selectedItem);
+         quickInfoProvider.update(selectedItem?.itemType, selectedItem?.metadata);
     });
 
     context.subscriptions.push(treeView, selectionDisposable);
