@@ -21,6 +21,16 @@ export function validateDateType(proto: Object, propertyKey: string): void {
 }
 
 /**
+ * Validates that a property is of boolean type at runtime.
+ */
+export function validateBooleanType(proto: Object, propertyKey: string): void {
+    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    if (designType !== Boolean) {
+        throw new Error(`@Boolean can only be applied to 'boolean' properties: ${propertyKey}`);
+    }
+}
+
+/**
  * Transforms Date objects to ISO 8601 strings for JSON serialization.
  * @param value - The Date value to transform
  * @returns ISO 8601 string or undefined if value is null/undefined

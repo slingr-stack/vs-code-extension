@@ -111,6 +111,42 @@ describe("Person Model Validation", () => {
     const errors = await invalidUser.validate();
     expect(errors.length).toBeGreaterThan(0);
   });
+
+  it("should pass validation with Boolean field set to true", async () => {
+    const validUser = new Person();
+    validUser.firstName = "John";
+    validUser.lastName = "Doe";
+    validUser.email = "john.doe@example.com";
+    validUser.age = 30;
+    validUser.isActive = true;
+
+    const errors = await validUser.validate();
+    expect(errors).toStrictEqual([]);
+  });
+
+  it("should pass validation with Boolean field set to false", async () => {
+    const validUser = new Person();
+    validUser.firstName = "John";
+    validUser.lastName = "Doe";
+    validUser.email = "john.doe@example.com";
+    validUser.age = 30;
+    validUser.isActive = false;
+
+    const errors = await validUser.validate();
+    expect(errors).toStrictEqual([]);
+  });
+
+  it("should pass validation with Boolean field undefined (optional)", async () => {
+    const validUser = new Person();
+    validUser.firstName = "John";
+    validUser.lastName = "Doe";
+    validUser.email = "john.doe@example.com";
+    validUser.age = 30;
+    // isActive is undefined (optional field)
+
+    const errors = await validUser.validate();
+    expect(errors).toStrictEqual([]);
+  });
 });
 
 describe("Product Model Validation", () => {

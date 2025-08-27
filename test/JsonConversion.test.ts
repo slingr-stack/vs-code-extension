@@ -491,3 +491,61 @@ describe("BaseModel JSON Conversion", () => {
   });
 
 });
+
+describe("Boolean Type JSON Conversion", () => {
+  it("should include Boolean field in JSON output when set to true", () => {
+    const person = new Person();
+    person.firstName = "John";
+    person.lastName = "Doe";
+    person.email = "john.doe@example.com";
+    person.age = 30;
+    person.isActive = true;
+
+    const json = person.toJSON();
+    expect(json.isActive).toBe(true);
+  });
+
+  it("should include Boolean field in JSON output when set to false", () => {
+    const person = new Person();
+    person.firstName = "John";
+    person.lastName = "Doe";
+    person.email = "john.doe@example.com";
+    person.age = 30;
+    person.isActive = false;
+
+    const json = person.toJSON();
+    expect(json.isActive).toBe(false);
+  });
+
+  it("should create model instance from JSON with Boolean field", () => {
+    const jsonData = {
+      firstName: "Jane",
+      lastName: "Smith",
+      email: "jane.smith@example.com",
+      age: 25,
+      isActive: true
+    };
+
+    const person = Person.fromJSON(jsonData);
+    expect(person.isActive).toBe(true);
+  });
+
+  it("should handle Boolean field coercion from string", () => {
+    const jsonData = {
+      firstName: "Jane",
+      lastName: "Smith",
+      email: "jane.smith@example.com",
+      age: 25,
+      isActive: "true" // String that should be coerced to boolean
+    };
+
+    const person = Person.fromJSON(jsonData);
+    expect(person.isActive).toBe(true);
+  });
+
+  it("should store correct metadata for Boolean field", () => {
+    const person = new Person();
+    const fieldType = Reflect.getMetadata('field:type', person, 'isActive');
+    expect(fieldType).toBe('boolean');
+  });
+});
