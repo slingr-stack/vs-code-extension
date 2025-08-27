@@ -1,12 +1,10 @@
 import 'reflect-metadata';
 import {
-    ValidationArguments,
-    registerDecorator,
+    MinLength,
+    MaxLength,
+    Matches,
+    IsEmail,
     ValidationOptions,
-    minLength,
-    maxLength,
-    matches,
-    isEmail,
 } from 'class-validator';
 
 /**
@@ -65,118 +63,6 @@ function storeTextMetadata(proto: Object, propName: string, options?: TextOption
 }
 
 /**
- * Custom MinLength validator that only validates non-empty values
- */
-function MinLengthIfNotEmpty(min: number, validationOptions?: ValidationOptions) {
-    return function (object: Object, propertyName: string) {
-        const decoratorOptions: any = {
-            name: 'minLength',
-            target: object.constructor,
-            propertyName: propertyName,
-            constraints: [min],
-            validator: {
-                validate(value: any, args: ValidationArguments) {
-                    if (value == null || value === '') {
-                        return true;
-                    }
-                    return minLength(value, args.constraints[0]);
-                },
-                defaultMessage(args: ValidationArguments) {
-                    return `${args.property} must be longer than or equal to ${args.constraints[0]} characters`;
-                }
-            },
-        };
-        if (validationOptions) {
-            decoratorOptions.options = validationOptions;
-        }
-        registerDecorator(decoratorOptions);
-    };
-}
-
-/**
- * Custom MaxLength validator that only validates non-empty values
- */
-function MaxLengthIfNotEmpty(max: number, validationOptions?: ValidationOptions) {
-    return function (object: Object, propertyName: string) {
-        const decoratorOptions: any = {
-            name: 'maxLength',
-            target: object.constructor,
-            propertyName: propertyName,
-            constraints: [max],
-            validator: {
-                validate(value: any, args: ValidationArguments) {
-                    if (value == null || value === '') {
-                        return true;
-                    }
-                    return maxLength(value, args.constraints[0]);
-                },
-                defaultMessage(args: ValidationArguments) {
-                    return `${args.property} must be shorter than or equal to ${args.constraints[0]} characters`;
-                }
-            },
-        };
-        if (validationOptions) {
-            decoratorOptions.options = validationOptions;
-        }
-        registerDecorator(decoratorOptions);
-    };
-}
-
-/**
- * Custom Matches validator that only validates non-empty values
- */
-function MatchesIfNotEmpty(pattern: RegExp, message: string, validationOptions?: ValidationOptions) {
-    return function (object: Object, propertyName: string) {
-        registerDecorator({
-            name: 'matches',
-            target: object.constructor,
-            propertyName: propertyName,
-            constraints: [pattern],
-            options: { ...(validationOptions || {}), message },
-            validator: {
-                validate(value: any, args: ValidationArguments) {
-                    if (value == null || value === '') {
-                        return true;
-                    }
-                    return matches(value, args.constraints[0]);
-                },
-                defaultMessage() {
-                    return message;
-                }
-            },
-        });
-    };
-}
-
-/**
- * Custom Email validator that only validates non-empty values
- */
-function IsEmailIfNotEmpty(validationOptions?: ValidationOptions) {
-    return function (object: Object, propertyName: string) {
-        const decoratorOptions: any = {
-            name: 'isEmail',
-            target: object.constructor,
-            propertyName: propertyName,
-            validator: {
-                validate(value: any) {
-                    if (value == null || value === '') {
-                        return true;
-                    }
-                    return isEmail(value);
-                },
-                defaultMessage(args: ValidationArguments) {
-                    return `${args.property} must be an email`;
-                }
-            },
-        };
-        if (validationOptions !== undefined) {
-            decoratorOptions.options = validationOptions;
-        }
-        registerDecorator(decoratorOptions);
-    };
-}
-
-/**
  * Text type decorator for string properties.
  *
  * This decorator can only be applied to properties of type `string` and provides
@@ -201,8 +87,7 @@ function IsEmailIfNotEmpty(validationOptions?: ValidationOptions) {
  * * @throws {Error} When applied to non-string properties
  * @throws {Error} When regex is provided without regexMessage
  * * @remarks
- * - All validators are optional and only execute when the value is present (not null, undefined, or empty string)
- * - This allows the decorator to work alongside other validation decorators like @Required
+ * - All validators will validate all values including empty strings if the field is required
  * - Metadata is stored under 'field:type' (always 'text') and 'field:type:options' keys
  * - The decorator uses reflection to verify the property type at runtime
  */
@@ -217,20 +102,20 @@ export function Text(options?: TextOptions) {
         validateStringType(proto, propName);
         storeTextMetadata(proto, propName, options);
 
-        // Use custom validators that skip validation for empty values
+        // Apply class-validator decorators directly
         if (options?.minLength !== undefined) {
-            MinLengthIfNotEmpty(options.minLength)(target as any, propName);
+            MinLength(options.minLength)(target as any, propName);
         }
 
         if (options?.maxLength !== undefined) {
-            MaxLengthIfNotEmpty(options.maxLength)(target as any, propName);
+            MaxLength(options.maxLength)(target as any, propName);
         }
         
         if (options?.regex) {
             if (!options.regexMessage) {
                 throw new Error(`@Text on '${propName}' requires 'regexMessage' when 'regex' is provided`);
             }
-            MatchesIfNotEmpty(options.regex, options.regexMessage)(target as any, propName);
+            Matches(options.regex, { message: options.regexMessage })(target as any, propName);
         }
     };
 }
@@ -238,7 +123,7 @@ export function Text(options?: TextOptions) {
 /**
  * Email type decorator.
  * - Must be used on `string` fields.
- * - Internally uses `Text` with a reasonable email regex.
+ * - Uses standard class-validator email validation.
  * - No options.
  */
 export function Email() {
@@ -249,8 +134,8 @@ export function Email() {
         const propName = propertyKey as unknown as string;
         Reflect.defineMetadata('field:logicalType', 'email', target as unknown as Object, propName);
         
-        // Use custom email validator that skips validation for empty strings
-        IsEmailIfNotEmpty()(target as any, propName);
+        // Use standard class-validator email decorator
+        IsEmail()(target as any, propName);
     };
 }
 
