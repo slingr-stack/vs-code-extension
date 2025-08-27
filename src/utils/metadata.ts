@@ -1,6 +1,6 @@
 
 import * as vscode from 'vscode';
-import { DecoratedClass, PropertyMetadata } from "../cache/cache";
+import { DecoratedClass, MethodMetadata, PropertyMetadata } from "../cache/cache";
 import { fieldTypeConfig } from '../utils/fieldTypes';
 
 /**
@@ -30,6 +30,11 @@ const fieldDecoratorNames = Object.keys(fieldTypeConfig);
  */
 export function isField(metadata: DecoratedClass | PropertyMetadata): metadata is PropertyMetadata {
     return 'type' in metadata && metadata.decorators.some(d => fieldDecoratorNames.includes(d.name) || d.name === 'Field');
+}
+
+export function isMethodMetadata(value: any): value is MethodMetadata {
+    // Check for properties that uniquely identify a MethodMetadata object
+    return typeof value === 'object' && value !== null && 'parameters' in value && 'declaration' in value;
 }
 
 /**

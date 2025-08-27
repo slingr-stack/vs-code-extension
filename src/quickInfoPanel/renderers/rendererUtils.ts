@@ -1,4 +1,5 @@
 import { DecoratorMetadata } from '../../cache/cache';
+import { isMethodMetadata } from '../../utils/metadata';
 
 /**
  * Renders a list of decorators into a clean HTML string.
@@ -17,6 +18,22 @@ export function renderDecorators(decorators: DecoratorMetadata[]): string {
             if (Array.isArray(dec.arguments) && dec.arguments.length > 0 && typeof dec.arguments[0] === 'object' && dec.arguments[0] !== null) {
                 const argsObject = dec.arguments[0];
                 const argList = Object.entries(argsObject).map(([key, value]) => {
+                    if (isMethodMetadata(value)) {
+                        const commandData = {
+                            command: 'goToLocation',
+                            data: value.declaration // Use 'declaration' which is the vscode.Location
+                        };
+            
+                        // Build the signature string from the parameters array
+                        const signature = `(${value.parameters.map(p => `${p.name}: ${p.type}`).join(', ')})`;
+
+                        return `
+                            <li>
+                                <a href="#" class="clickable" data-command='${JSON.stringify(commandData)}'>
+                                    <code class="function-signature">${key}: ${signature}</code>
+                                </a>
+                            </li>`;
+                    }
                     // Special, more readable formatting for @Choice labels
                     if (dec.name === 'Choice' && key === 'labels' && typeof value === 'object' && value !== null) {
                         const choiceLabels = Object.entries(value)
@@ -31,7 +48,7 @@ export function renderDecorators(decorators: DecoratorMetadata[]): string {
                     argsHtml = `<ul class="decorator-args">${argList}</ul>`;
                 }
             }
-        
+            
             return `
                 <div class="decorator-block">
                     <div class="decorator-name">@${dec.name}</div>

@@ -42,6 +42,31 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
             if (message.command === 'navigateBack') {
                 this._navigateBack();
             }
+            if (message.command === 'goToLocation') {
+                const locData = message.data;
+
+                // Check if the received data has the structure we expect
+                if (locData && locData.uri && locData.range) {
+                    try {
+                        // Reconstruct the vscode.Uri and vscode.Range from the plain object data
+                        const uri = vscode.Uri.file(locData.uri.path);
+                
+                        // Note: A serialized Range becomes an array of two Position objects
+                        const startPosition = new vscode.Position(locData.range[0].line, locData.range[0].character);
+                        const endPosition = new vscode.Position(locData.range[1].line, locData.range[1].character);
+                        const range = new vscode.Range(startPosition, endPosition);
+
+                        const location = new vscode.Location(uri, range);
+                
+                        // Now we pass a real, functional Location object to the command
+                        vscode.commands.executeCommand('slingr-vscode-extension.navigateToCode', location);
+
+                    } catch (e) {
+                        console.error('Failed to reconstruct location for navigation:', e);
+                        vscode.window.showErrorMessage('Could not navigate to the selected function.');
+                    }
+                }
+            }
         });
 
         this.update(undefined, undefined);
@@ -195,15 +220,21 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                     list-style: none;
                     padding: 0;
                     margin: 0;
+                    /* Use a subtle background for the entire list block */
+                    background-color: var(--vscode-editor-widget-background);
+                    border-radius: 4px; /* Soften the corners */
+                    border: 1px solid var(--vscode-editor-widget-border); /* Add a border around the block */
+                    overflow: hidden; /* Ensures border-radius clips the content */
                 }
                 .item-list li {
                     display: flex;
+                    align-items: center;
                     justify-content: space-between;
-                    padding: 0.3em;
-                    border-radius: 3px;
+                    padding: 0.4em 0.6em;
+                    border-bottom: 1px solid var(--vscode-tree-table-border, rgba(128, 128, 128, 0.2)); 
                 }
-                .item-list li:hover {
-                    background-color: var(--vscode-list-hoverBackground);
+                .item-list li:last-child {
+                    border-bottom: none; 
                 }
                 .back-button {
                     margin-bottom: 1em;
@@ -219,13 +250,13 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                 }
                 .decorators-container { display: flex; flex-direction: column; gap: 0.5em; }
                 .decorator-block {
-                    padding: 0.5em;
-                    border: 1px solid var(--vscode-editor-widget-border);
-                    border-radius: 4px;
+                    background-color: var(--vscode-editor-background); /* Use editor background as base */
+                    border-left: 3px solid var(--vscode-gitDecoration-addedResourceForeground); /* Light green bar on the left */
+                    padding-left: calc(0.5em - 3px); /* Adjust padding to account for border */
                 }
                 .decorator-name {
                     font-weight: 600;
-                    color: var(--vscode-textLink-foreground);
+                    color: lightgreen;
                     margin-bottom: 0.4em;
                 }
                 .decorator-args { 
@@ -238,6 +269,9 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                     list-style: none;
                     padding-left: 1em;
                     margin: 0.2em 0 0 0;
+                }
+                .function-signature {
+                    color: coral;
                 }
             </style>
         </head>

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ts, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration } from 'ts-morph';
+import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ts, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration, ArrowFunction, FunctionExpression } from 'ts-morph';
 import * as path from 'path';
 import { RefactorController } from '../refactor/RefactorController';
 import { ChangeObject } from '../refactor/refactorInterfaces';
@@ -414,6 +414,10 @@ export class MetadataCache {
     }
 
     private parseNodeValue(node: Node): any {
+        if (Node.isArrowFunction(node) || Node.isFunctionExpression(node)) {
+            return this.parseAnonymousFunction(node);
+        }
+
         if (Node.isObjectLiteralExpression(node)) {
             const obj: { [key: string]: any } = {};
             node.getProperties().forEach((prop: Node) => {
@@ -444,6 +448,33 @@ export class MetadataCache {
             return node.getElements().map((elem: Node) => this.parseNodeValue(elem));
         }
         return node.getText();
+    }
+
+    // Add this new helper method inside the MetadataCache class
+    private parseAnonymousFunction(node: ArrowFunction | FunctionExpression): MethodMetadata {
+        const sourceFile = node.getSourceFile();
+    
+        // Reuse existing logic to parse parameters and get the location
+        const parameters = node.getParameters().map((param: ParameterDeclaration) => {
+            return {
+                name: param.getName(),
+                type: this.getCleanTypeName(param.getType())
+            };
+        });
+
+        const location = new vscode.Location(
+            vscode.Uri.file(sourceFile.getFilePath()),
+            this.tsNodeToVscodeRange(node)
+        );
+    
+        // Build an object that matches the MethodMetadata interface
+        return {
+            name: '[anonymous]', // Anonymous functions don't have a name
+            parameters: parameters,
+            declaration: location,
+            decorators: [], // Anonymous functions in args don't have decorators
+            returnedFields: null
+        };
     }
 
     /**
