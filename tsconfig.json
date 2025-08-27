@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "commonjs",
     "target": "esnext",
     "types": ["node", "jest"],
     "sourceMap": true,

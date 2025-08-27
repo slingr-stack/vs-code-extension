@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsOptional, ValidateIf } from 'class-validator';
 import { Exclude, Expose, Transform } from 'class-transformer';
-import { CustomValidate } from '../validators/CustomValidationConstraint.js';
+import { CustomValidate } from '../validators/CustomValidationConstraint';
 
 /**
  * Custom validation function type for field validation.
