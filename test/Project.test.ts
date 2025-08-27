@@ -1,6 +1,6 @@
 import type { ValidationError } from "class-validator";
 import { Project } from "./model/Project";
-import { DateTimeRangeType } from "../src/model/types/DateTime";
+import { DateTimeRangeType } from "../src/model/types";
 
 /**
  * Converts an array of class-validator ValidationError objects into a stable, plain summary.

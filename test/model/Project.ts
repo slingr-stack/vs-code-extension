@@ -1,8 +1,7 @@
-import { Field } from "../../src/model/Field";
-import { Model } from "../../src/model/Model";
-import { BaseModel } from "../../src/model/BaseModel";
-import { Text } from "../../src/model/types/Text";
-import { DateTime, DateTimeRange, DateTimeRangeType } from "../../src/model/types/DateTime";
+import { Field } from "@/model/Field";
+import { Model } from "@/model/Model";
+import { BaseModel } from "@/model/BaseModel";
+import { Text, DateTime, DateTimeRange, DateTimeRangeType } from "@/model/types";
 
 @Model({
   docs: "Represents a project with date-related fields",
