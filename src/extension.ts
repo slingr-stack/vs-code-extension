@@ -5,6 +5,7 @@ import { getAllRefactorTools, registerRefactorCommands } from './refactor/refact
 import { RefactorController } from './refactor/RefactorController';
 import { NewModelTool } from './commands/newModel';
 import { DefineFieldsTool } from './commands/defineFields';
+import { AddFieldTool } from './commands/addField';
 import { AppTreeItem } from './explorer/appTreeItem';
 
 export let cache: MetadataCache;
@@ -102,6 +103,31 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	// Register the standalone Add Field Tool
+	const addFieldTool = new AddFieldTool();
+	const addFieldCommand = vscode.commands.registerCommand('slingr-vscode-extension.addField', async () => {
+		const activeEditor = vscode.window.activeTextEditor;
+		if (!activeEditor) {
+			vscode.window.showErrorMessage('Please open a model file to add a field.');
+			return;
+		}
+
+		const document = activeEditor.document;
+		const content = document.getText();
+		
+		// Check if this is a model file
+		if (!content.includes('@Model') || !content.includes('extends BaseModel')) {
+			vscode.window.showErrorMessage('The current file does not appear to be a model file.');
+			return;
+		}
+
+		try {
+			await addFieldTool.addField(document.uri, cache);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to add field: ${error}`);
+		}
+	});
+
 	// Add all disposables to context subscriptions
 	context.subscriptions.push(
 		treeView,
@@ -109,6 +135,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		cache,
 		newModelCommand,
 		defineFieldsCommand,
+		addFieldCommand,
 		...refactorDisposables
 	);
 }

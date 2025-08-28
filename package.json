@@ -59,6 +59,10 @@
       {
         "command": "slingr-vscode-extension.defineFields",
         "title": "Define Fields with AI"
+      },
+      {
+        "command": "slingr-vscode-extension.addField",
+        "title": "Add Field"
       }
     ],
     "submenus": [
@@ -127,6 +131,11 @@
         },
         {
           "command": "slingr-vscode-extension.defineFields",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.addField",
           "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
           "group": "0_creation"
         }

@@ -3,6 +3,7 @@ import * as path from "path";
 import { AppTreeItem } from "../explorer/appTreeItem";
 import { DefineFieldsTool } from "./defineFields";
 import { MetadataCache } from "../cache/cache";
+import { AIEnhancedTool } from "./interfaces";
 
 
 
@@ -22,12 +23,31 @@ import { MetadataCache } from "../cache/cache";
  * }
  * ```
  */
-export class NewModelTool {
+export class NewModelTool implements AIEnhancedTool {
     
     private defineFieldsTool: DefineFieldsTool;
     
     constructor() {
         this.defineFieldsTool = new DefineFieldsTool();
+    }
+    
+    /**
+     * Processes user input with AI enhancement for model creation.
+     * This method is used when AI assistance is requested for creating a new model.
+     * @param userInput - Description of the model to create
+     * @param targetUri - Target directory for the new model
+     * @param cache - Metadata cache instance
+     * @param additionalContext - Additional context for model creation
+     */
+    async processWithAI(
+        userInput: string,
+        targetUri: vscode.Uri,
+        cache: MetadataCache,
+        additionalContext?: any
+    ): Promise<void> {
+        // The current createNewModel method handles user interaction internally,
+        // so we just call it with the provided parameters
+        await this.createNewModel(targetUri, cache);
     }
     
     /**

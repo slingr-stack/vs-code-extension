@@ -164,8 +164,8 @@ ${modelContext.existingFields.length > 0
 ### Available Field Types and Their Usage:
 ${appContext.availableFieldTypes.map(type => {
     const config = fieldTypeConfig[type];
-    const supportedArgs = config.supportedArgs.map(arg => `${arg.name}: ${arg.type}`).join(', ');
-    return `- @${type}(): ${config.requiredTsType || 'various'} (args: ${supportedArgs})`;
+    const supportedArgs = config.supportedArgs?.map(arg => `${arg.name}: ${arg.type}`).join(', ');
+    return `- @${type}(): ${config.requiredTsType || 'various'} (args: ${supportedArgs || 'none'})`;
 }).join('\n')}
 
 ### Existing Models in Application (for relationships):
@@ -212,23 +212,27 @@ Example output format:
 @Text()
 title: string;
 
-@Field()
+@Field({})
 @Text()
 description: string;
 
-@Field()
+@Field({})
 @Relationship()
 customer: Customer;
 
-@Field()
+@Field({})
 @Date()
 date: Date;
 
-@Field()
+@Field({})
 @Relationship({
     type: 'composition'
 })
 project: Project;
+
+@Field({})
+@Choice()
+status: ProjectStatus = ProjectStatus.Planning;
 \`\`\`
 
 Generate the fields now:

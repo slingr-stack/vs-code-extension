@@ -240,7 +240,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
             const newTypeConfig = fieldTypeConfig[newType];
             const transferredArgs = new Map<string, any>();
             if (newTypeConfig) {
-                const newSupportedArgNames = new Set(newTypeConfig.supportedArgs.map(arg => arg.name));
+                const newSupportedArgNames = new Set(newTypeConfig.supportedArgs?.map(arg => arg.name));
                 for (const [key, value] of oldArgs.entries()) {
                     if (newSupportedArgNames.has(key)) { transferredArgs.set(key, value); }
                 }

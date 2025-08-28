@@ -29,7 +29,7 @@ export interface FieldTypeConfig {
 
     mapsFromTsTypes?: string[];
 
-    supportedArgs: DecoratorArgument[];
+    supportedArgs: DecoratorArgument[] | undefined;
 
     buildDecoratorString: (newTypeName: string, transferredArgs: Map<string, any>) => string;
 }
@@ -150,7 +150,7 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
     // --- Special Types ---
     'Choice': {
         requiredTsType: undefined,
-        supportedArgs: [{ name: 'labels', type: 'object' }],
+        supportedArgs: [],
         buildDecoratorString: genericBuildDecoratorString
     },
     'Relationship': {
