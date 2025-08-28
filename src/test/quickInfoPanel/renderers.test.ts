@@ -5,7 +5,6 @@ import { FieldRenderer } from '../../quickInfoPanel/renderers/fieldRenderer';
 import { BaseRenderer } from '../../quickInfoPanel/renderers/baseRenderer';
 import { rendererRegistry } from '../../quickInfoPanel/renderers/rendererRegistry';
 import { IRendererContext } from '../../quickInfoPanel/renderers/iMetadataRenderer';
-import { DecoratedClass, PropertyMetadata } from '../../cache/cache';
 import { TestMetadataFactory, TestContextFactory } from '../testHelpers';
 
 suite('Renderer Tests', () => {

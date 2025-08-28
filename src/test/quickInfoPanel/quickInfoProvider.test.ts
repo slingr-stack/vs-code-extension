@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { QuickInfoProvider } from '../../quickInfoPanel/quickInfoProvider';
-import { MetadataCache, DecoratedClass, PropertyMetadata } from '../../cache/cache';
+import { MetadataCache } from '../../cache/cache';
 import { TestMetadataFactory, TestContextFactory } from '../testHelpers';
 import * as path from 'path';
 
