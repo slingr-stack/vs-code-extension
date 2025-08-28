@@ -68,7 +68,7 @@ suite('QuickInfoProvider Tests', () => {
         test('should handle undefined metadata', () => {
             provider.update(undefined, undefined);
             
-            assert.ok(mockWebviewView.webview.html.includes('Select an item'), 'Should show default message');
+            assert.ok(mockWebviewView.webview.html.includes('Select a metadata'), 'Should show default message');
         });
 
         test('should handle model metadata', () => {
@@ -90,7 +90,7 @@ suite('QuickInfoProvider Tests', () => {
         });
 
         test('should handle unknown metadata types with fallback', () => {
-            const unknownMetadata = { someProperty: 'someValue' };
+            const unknownMetadata = { someProperty: 'someValue' } as any;
             
             provider.update('unknown', unknownMetadata);
             
@@ -143,7 +143,7 @@ suite('QuickInfoProvider Tests', () => {
         });
 
         test('should generate valid HTML structure', () => {
-            const mockMetadata = { name: 'Test' };
+            const mockMetadata = { name: 'Test' } as any;
             provider.update('generic', mockMetadata);
             
             const html = mockWebviewView.webview.html;
@@ -156,7 +156,7 @@ suite('QuickInfoProvider Tests', () => {
         });
 
         test('should include VSCode styling variables', () => {
-            const mockMetadata = { name: 'Test' };
+            const mockMetadata = { name: 'Test' } as any;
             provider.update('generic', mockMetadata);
             
             const html = mockWebviewView.webview.html;
@@ -165,7 +165,7 @@ suite('QuickInfoProvider Tests', () => {
         });
 
         test('should include message handling script', () => {
-            const mockMetadata = { name: 'Test' };
+            const mockMetadata = { name: 'Test' } as any;
             provider.update('generic', mockMetadata);
             
             const html = mockWebviewView.webview.html;

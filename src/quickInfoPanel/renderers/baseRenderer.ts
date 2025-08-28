@@ -2,12 +2,11 @@ import * as vscode from 'vscode';
 import { DecoratorMetadata } from '../../cache/cache';
 import { IMetadataRenderer, IRendererContext } from './iMetadataRenderer';
 import { isMethodMetadata } from '../../utils/metadata';
+import { MetadataItem } from '../quickInfoProvider';
 
 export abstract class BaseRenderer implements IMetadataRenderer {
     // The main render method must be implemented by subclasses. The context is optional.
-    abstract render(metadata: any, context?: IRendererContext): string;
-
-    // --- SHARED HELPER METHODS ---
+    abstract render(metadata: MetadataItem, context?: IRendererContext): string;
 
     protected _renderTableRow(label: string, value: any): string {
         if (value === undefined || value === null || value === '') { return ''; }

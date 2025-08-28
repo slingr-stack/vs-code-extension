@@ -1,5 +1,6 @@
 import vscode from 'vscode';
 import { DecoratedClass } from '../../cache/cache';
+import { MetadataItem } from '../quickInfoProvider';
 
 
 /**
@@ -16,5 +17,5 @@ export interface IRendererContext {
  * The interface that all metadata renderers must implement.
  */
 export interface IMetadataRenderer {
-    render(metadata: any, context: IRendererContext): string;
+    render(metadata: MetadataItem, context: IRendererContext): string;
 }

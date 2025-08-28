@@ -1,14 +1,19 @@
 import * as vscode from 'vscode';
-import { DecoratedClass, MetadataCache } from '../cache/cache';
+import { DecoratedClass, MetadataCache, PropertyMetadata, DecoratorMetadata } from '../cache/cache';
 import { rendererRegistry } from './renderers/rendererRegistry';
-import { IMetadataRenderer, IRendererContext } from './renderers/iMetadataRenderer';  
+import { IMetadataRenderer, IRendererContext } from './renderers/iMetadataRenderer'; 
+
+/**
+ * Union type for info provider metadata items.
+ */
+export type MetadataItem = DecoratedClass | PropertyMetadata | DecoratorMetadata;
 
 export class QuickInfoProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'slingrQuickInfo';
     private _view?: vscode.WebviewView;
     private readonly rendererRegistry: Map<string, IMetadataRenderer> = rendererRegistry;
-    private _navigationHistory: { itemType: string; metadata: any }[] = [];
-    private _currentState: { itemType: string; metadata: any } | undefined;
+    private _navigationHistory: { itemType: string; metadata: MetadataItem }[] = [];
+    private _currentState: { itemType: string; metadata: MetadataItem } | undefined;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -69,7 +74,7 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
      * Updates the content of the webview with the metadata from the selected tree item.
      * @param item The selected AppTreeItem from the explorer.
      */
-    public update(itemType: string | undefined, metadata: any, isNavigatingBack = false): void {
+    public update(itemType: string | undefined, metadata: MetadataItem | undefined, isNavigatingBack = false): void {
         if (!this._view) {
             return;
         }
@@ -101,7 +106,7 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
      */
     private _handleItemClicked(data: { itemType: string; name: string; parentClassName?: string }): void {
         const { itemType, name, parentClassName } = data;
-        let foundMetadata: any;
+        let foundMetadata: MetadataItem | undefined;
 
         if (itemType === 'field' && parentClassName) {
             // Logic to find a specific field within a parent class
@@ -135,7 +140,7 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    private _getHtmlForWebview(itemType: string, metadata: any): string {
+    private _getHtmlForWebview(itemType: string, metadata: MetadataItem | undefined): string {
         // Find the correct renderer for the given itemType
         const renderer = this.rendererRegistry.get(itemType);
         let contentHtml: string;
@@ -149,7 +154,11 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                     item => 'properties' in item && item.name === name
                 )[0] as DecoratedClass | undefined
             };
-            contentHtml = renderer.render(metadata, context);
+            if (!metadata) {
+                contentHtml = `<h1>No metadata found</h1>`;
+            } else {
+                contentHtml = renderer.render(metadata, context);
+            }
         } else {
             // Fallback for unknown types
             contentHtml = `<pre><code>${JSON.stringify(metadata, null, 2)}</code></pre>`;
@@ -345,10 +354,5 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
             </script>
         </body>
         </html>`;
-    }
-
-    private _renderTableRow(label: string, value: any): string {
-        if (value === undefined || value === null || value === '') { return ''; }
-        return `<tr><td class="label">${label}</td><td>${value}</td></tr>`;
     }
 }

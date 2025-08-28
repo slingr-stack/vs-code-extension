@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { QuickInfoProvider } from '../../quickInfoPanel/quickInfoProvider';
+import { QuickInfoProvider, MetadataItem } from '../../quickInfoPanel/quickInfoProvider';
 import { MetadataCache, DecoratedClass, PropertyMetadata } from '../../cache/cache';
 import { rendererRegistry } from '../../quickInfoPanel/renderers/rendererRegistry';
 import { TestMetadataFactory, TestContextFactory } from '../testHelpers';
@@ -269,7 +269,7 @@ suite('QuickInfoPanel Integration Tests', () => {
                 name: 'UnknownItem',
                 type: 'unknown',
                 customProperty: 'custom value'
-            };
+            } as any;
 
             freshProvider.update('unknown', unknownMetadata);
 
