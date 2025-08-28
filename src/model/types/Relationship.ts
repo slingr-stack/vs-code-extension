@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { Transform, TransformationType, Type } from 'class-transformer';
+import { ValidateNested } from 'class-validator';
 import { BaseModel } from '../BaseModel';
 
 /**
@@ -110,6 +111,9 @@ export function Relationship(options: RelationshipOptions) {
         Reflect.defineMetadata('field:relationship:type', options.type, proto, propName);
 
         const designType = Reflect.getMetadata('design:type', proto, propName);
+        
+        // Apply ValidateNested for nested validation of BaseModel instances
+        ValidateNested()(target as any, propName);
         
         // Apply Type decorator for proper class-transformer handling
         if (designType === Array) {
