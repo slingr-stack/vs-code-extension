@@ -1,9 +1,7 @@
 import * as vscode from 'vscode';
-import { DecoratedClass, PropertyMetadata, MethodMetadata, DecoratorMetadata, MetadataCache } from '../cache/cache';
+import { DecoratedClass, MetadataCache } from '../cache/cache';
 import { rendererRegistry } from './renderers/rendererRegistry';
 import { IMetadataRenderer, IRendererContext } from './renderers/iMetadataRenderer';  
-import { ModelRenderer } from './renderers/modelRenderer';
-import { FieldRenderer } from './renderers/fieldRenderer';
 
 export class QuickInfoProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'slingrQuickInfo';
@@ -81,9 +79,16 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
         }
 
         if (!itemType || !metadata) {
-            this._view.webview.html = this._getHtmlForWebview(
-                'generic', { info: "Select an item in the explorer to see details." }
-            );
+            const contentHtml = `
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;padding:1.5em;">
+                <div style="width:100%;max-width:560px;text-align:center;border:1px solid var(--vscode-editor-widget-border);background:var(--vscode-editor-widget-background);padding:1.25em;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <div style="font-size:48px;line-height:1;margin-bottom:0.25em;color:var(--vscode-icon-foreground)">📘</div>
+                <h1 style="margin:0.25em 0;color:var(--vscode-editor-foreground);font-size:1.25em;justify-content:center;">No item selected</h1>
+                <p style="margin:0.5em 0;color:var(--vscode-description-foreground);">Select a metadata in the Explorer to view its metadata and quick navigation options.</p>
+                </div>
+            </div>
+            `;
+            this._view.webview.html = this._buildHtmlShell(contentHtml, '');
             return;
         }
         
@@ -166,82 +171,67 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Quick Info</title>
             <style>
+                /* Base styles */
                 body {
                     padding: 0.5em 1em;
                     font-family: var(--vscode-font-family);
-                    color: var(--vscode-editor-foreground);
                     font-size: var(--vscode-font-size);
+                    color: var(--vscode-editor-foreground);
                 }
+
+                /* Typography */
                 h1 {
                     font-size: 1.2em;
-                    border-bottom: 1px solid var(--vscode-editor-widget-border);
-                    padding-bottom: 0.3em;
                     margin: 0 0 0.8em 0;
+                    padding-bottom: 0.3em;
+                    border-bottom: 1px solid var(--vscode-editor-widget-border);
                     display: flex;
                     align-items: center;
                     gap: 0.5em;
                 }
+
                 h2 {
                     font-size: 1.1em;
+                    font-weight: 600;
                     margin: 1.2em 0 0.5em 0;
-                    font-weight: 600;
                 }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                }
-                td {
-                    padding: 0.4em 0;
-                    vertical-align: top;
-                }
-                td.label {
-                    font-weight: 600;
-                    width: 25%;
-                    min-width: 70px;
-                    color: var(--vscode-description-foreground);
-                }
+
                 code {
                     font-family: var(--vscode-editor-font-family);
                     background-color: var(--vscode-text-code-block-background);
                     padding: 0.1em 0.3em;
                     border-radius: 3px;
                 }
-                .tag {
-                    display: inline-block;
-                    padding: 0.2em 0.7em;
-                    border-radius: 1em;
-                    font-size: 0.9em;
-                    font-weight: 600;
-                    background-color: var(--vscode-button-background);
-                    color: var(--vscode-button-foreground);
+
+                /* Table styles */
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
                 }
+
+                td {
+                    padding: 0.4em 0;
+                    vertical-align: top;
+                }
+
+                td.label {
+                    font-weight: 600;
+                    width: 25%;
+                    min-width: 70px;
+                    color: var(--vscode-description-foreground);
+                }
+
+                /* Interactive elements */
                 .clickable {
                     color: var(--vscode-textLink-foreground);
-                    cursor: pointer;
                     text-decoration: none;
+                    cursor: pointer;
                 }
+
                 .clickable:hover {
                     text-decoration: underline;
                 }
-                .item-list {
-                    list-style: none;
-                    padding: 0;
-                    margin: 0;
-                    background-color: var(--vscode-editor-widget-background);
-                    border-radius: 4px;
-                    border: 1px solid var(--vscode-editor-widget-border); 
-                    overflow: hidden; 
-                }
-                .item-list li {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 0.4em 0.6em;
-                    border-bottom: 1px solid var(--vscode-tree-table-border, rgba(128, 128, 128, 0.2)); 
-                }
-                .item-list li:last-child {
-                    border-bottom: none; 
-                }
+
                 .back-button {
                     margin-bottom: 1em;
                     padding: 0.2em 0.8em;
@@ -251,38 +241,83 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                     border-radius: 4px;
                     cursor: pointer;
                 }
+
                 .back-button:hover {
                     background-color: var(--vscode-button-secondary-hover-background);
                 }
-                .decorators-container { display: flex; flex-direction: column; gap: 0.5em; }
-                .decorator-block {
-                    background-color: var(--vscode-editor-background); /* Use editor background as base */
-                    border-left: 3px solid var(--vscode-gitDecoration-addedResourceForeground); /* Light green bar on the left */
-                    padding-left: calc(0.5em - 3px); /* Adjust padding to account for border */
+
+                /* Tags and labels */
+                .tag {
+                    display: inline-block;
+                    padding: 0.2em 0.7em;
+                    border-radius: 1em;
+                    font-size: 0.9em;
+                    font-weight: 600;
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
                 }
+
+                .clickable-type {
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-symbol-class-foreground);
+                }
+
+                /* Lists */
+                .item-list {
+                    list-style: none;
+                    padding: 0;
+                    margin: 0;
+                    background-color: var(--vscode-editor-widget-background);
+                    border: 1px solid var(--vscode-editor-widget-border);
+                    border-radius: 4px;
+                    overflow: hidden;
+                }
+
+                .item-list li {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 0.4em 0.6em;
+                    border-bottom: 1px solid var(--vscode-tree-table-border, rgba(128, 128, 128, 0.2));
+                }
+
+                .item-list li:last-child {
+                    border-bottom: none;
+                }
+
+                /* Decorator styles */
+                .decorators-container {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5em;
+                }
+
+                .decorator-block {
+                    background-color: var(--vscode-editor-background);
+                    border-left: 3px solid var(--vscode-gitDecoration-addedResourceForeground);
+                    padding-left: calc(0.5em - 3px);
+                }
+
                 .decorator-name {
                     font-weight: 600;
                     color: lightgreen;
                     margin-bottom: 0.4em;
                 }
-                .decorator-args { 
-                    list-style: none;
-                    padding-left: 1em;
-                    margin: 0.2em 0 0 0;
-                    color: var(--vscode-description-foreground); 
-                }
+
+                .decorator-args,
                 .decorator-args-nested {
                     list-style: none;
                     padding-left: 1em;
                     margin: 0.2em 0 0 0;
                 }
+
+                .decorator-args {
+                    color: var(--vscode-description-foreground);
+                }
+
+                /* Special content styles */
                 .function-signature {
                     color: coral;
-                }
-                .clickable-type {
-                    background-color: var(--vscode-symbol-class-background);
-                    color: var(--vscode-symbol-class-foreground);
-                    background-color: var(--vscode-button-background);
                 }
             </style>
         </head>
