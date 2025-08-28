@@ -153,15 +153,16 @@ describe('Relationship Type', () => {
             const task = Task.fromJSON(taskData);
 
             const errors = await task.validate();
-            // Log errors if any
-            if (errors) {
-                console.log('Validation errors:', errors);
-            }
+            expect(errors).toHaveLength(0); // Should have no validation errors
 
             expect(task.title).toBe('Deserialized Task');
             expect(task.project).toBeDefined();
             expect(task.project.name).toBe('Deserialized Project');
             expect(task.project instanceof Project).toBe(true);
+            
+            // Verify that default values were applied
+            expect(task.status).toBe('toDo');
+            expect(task.priority).toBe(2); // Priority.Medium
         });
     });
 
