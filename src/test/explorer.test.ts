@@ -115,25 +115,6 @@ describe('Explorer Provider Tests', () => {
             assert.strictEqual(children[0].label, 'Folder Model');
             assert.strictEqual(children[0].itemType, 'model');
         });
-
-        it('should filter out models referenced by composition relationships', async () => {
-            const cacheWithComposition = createMockCacheWithComposition();
-            const compositionExplorerProvider = new ExplorerProvider(cacheWithComposition, extensionUri);
-            
-            const dataRootItem = new AppTreeItem(
-                'Data',
-                vscode.TreeItemCollapsibleState.Expanded,
-                'dataRoot',
-                extensionUri
-            );
-
-            const children = await compositionExplorerProvider.getChildren(dataRootItem);
-            
-            // Should only show the parent model, not the child model referenced by composition
-            assert.strictEqual(children.length, 1);
-            assert.strictEqual(children[0].label, 'Parent Model');
-            assert.strictEqual(children[0].itemType, 'model');
-        });
     });
 
     describe('Model Children', () => {

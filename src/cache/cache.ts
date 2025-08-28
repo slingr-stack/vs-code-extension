@@ -382,11 +382,20 @@ export class MetadataCache {
 
     /**
      * Gets a clean, human-readable name for a ts-morph Type object.
-     * This method correctly handles imported types, removing the "import(...)" part.
+     * This method correctly handles imported types, removing the "import(...)" part,
+     * and properly extracts element types from arrays.
      * @param type The ts-morph Type object.
      * @returns The clean type name as a string.
      */
     private getCleanTypeName(type: Type): string {
+        // Handle array types by extracting the element type
+        if (type.isArray()) {
+            const elementType = type.getArrayElementType();
+            if (elementType) {
+                return this.getCleanTypeName(elementType);
+            }
+        }
+
         const aliasSymbol = type.getAliasSymbol();
         if (aliasSymbol) {
             return aliasSymbol.getName();
@@ -675,9 +684,9 @@ export class MetadataCache {
     }
 
     /**
-     * Returns all Model decorated classes that are stored in the src/data folder.
+     * Returns all @Model decorated classes that are stored in the src/data folder.
      * This is a more specific version of getDataModels() that only returns
-     * classes with the Model decorator.
+     * classes with the @Model decorator.
      * @returns An array of DecoratedClass objects that represent Model classes in the data folder.
      */
     public getDataModelClasses(): DecoratedClass[] {
