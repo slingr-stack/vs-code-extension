@@ -2,8 +2,20 @@ import { DecoratorMetadata } from '../../cache/cache';
 import { isMethodMetadata } from '../../utils/metadata';
 
 /**
- * Renders a list of decorators into a clean HTML string.
- * This function is designed to be the single source of truth for decorator display.
+ * Utility functions for rendering metadata components in the Quick Info Panel.
+ * 
+ * This module provides reusable rendering functions that can be shared across
+ * different renderer implementations. It serves as a centralized location for
+ * common rendering logic, ensuring consistency and reducing code duplication.
+ * 
+ * Key Features:
+ * - **Decorator Rendering**: Comprehensive decorator display with interactive elements
+ * - **Method Signature Formatting**: Special handling for method metadata
+ * - **Choice Label Processing**: Enhanced formatting for @Choice decorator arguments
+ * - **Click Handler Generation**: Automatic creation of navigation commands
+ * 
+ * @param decorators - Array of decorator metadata to render
+ * @returns HTML table row containing formatted decorator information
  */
 export function renderDecorators(decorators: DecoratorMetadata[]): string {
     if (!decorators || decorators.length === 0) {
@@ -14,14 +26,13 @@ export function renderDecorators(decorators: DecoratorMetadata[]): string {
         .filter(dec => dec && dec.name) // Ensure decorator is valid
         .map(dec => {
             let argsHtml = '';
-            // Check if the first argument is an object, which is the common case (e.g., @Field({ label: '...' }))
             if (Array.isArray(dec.arguments) && dec.arguments.length > 0 && typeof dec.arguments[0] === 'object' && dec.arguments[0] !== null) {
                 const argsObject = dec.arguments[0];
                 const argList = Object.entries(argsObject).map(([key, value]) => {
                     if (isMethodMetadata(value)) {
                         const commandData = {
                             command: 'goToLocation',
-                            data: value.declaration // Use 'declaration' which is the vscode.Location
+                            data: value.declaration 
                         };
             
                         // Build the signature string from the parameters array

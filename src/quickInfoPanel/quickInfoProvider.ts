@@ -5,21 +5,66 @@ import { IMetadataRenderer, IRendererContext } from './renderers/iMetadataRender
 
 /**
  * Union type for info provider metadata items.
+ * Represents all the different types of metadata that can be displayed in the Quick Info Panel.
  */
 export type MetadataItem = DecoratedClass | PropertyMetadata | DecoratorMetadata;
 
+/**
+ * The QuickInfoProvider class implements VS Code's WebviewViewProvider interface to create
+ * a custom panel that displays detailed metadata information about Slingr components.
+ * 
+ * This provider creates a webview-based panel that shows:
+ * - Model metadata with fields, decorators, and navigation
+ * - Field metadata with types, decorators, and source locations
+ * - Interactive navigation between related metadata items
+ * - Code navigation to source definitions
+ * 
+ * Key Features:
+ * - **Dynamic Content Rendering**: Uses specialized renderers for different metadata types
+ * - **Navigation History**: Supports back/forward navigation through viewed items
+ * - **Interactive Elements**: Clickable links for code navigation and related item exploration
+ * - **Responsive Design**: Adapts to VS Code themes and provides a clean, readable interface
+ */
 export class QuickInfoProvider implements vscode.WebviewViewProvider {
+    /** The unique identifier for this webview view type, used by VS Code for registration */
     public static readonly viewType = 'slingrQuickInfo';
+    
+    /** The webview view instance, set when the view is resolved */
     private _view?: vscode.WebviewView;
+    
+    /** Registry of specialized renderers for different metadata types */
     private readonly rendererRegistry: Map<string, IMetadataRenderer> = rendererRegistry;
+    
+    /** Navigation history stack for back/forward functionality */
     private _navigationHistory: { itemType: string; metadata: MetadataItem }[] = [];
+    
+    /** Current state representing the currently displayed metadata item */
     private _currentState: { itemType: string; metadata: MetadataItem } | undefined;
 
+    /**
+     * Creates a new QuickInfoProvider instance.
+     * 
+     * @param _extensionUri - The URI of the extension, used for resolving local resources
+     * @param cache - The metadata cache containing parsed Slingr metadata
+     */
     constructor(
         private readonly _extensionUri: vscode.Uri,
         private readonly cache: MetadataCache
     ) {}
 
+    /**
+     * Resolves the webview view when VS Code creates it.
+     * This method is called by VS Code when the webview view needs to be displayed.
+     * 
+     * Sets up:
+     * - Webview options (script execution, local resource access)
+     * - Message handlers for user interactions
+     * - Initial content display
+     * 
+     * @param webviewView - The webview view instance created by VS Code
+     * @param context - Context information about the webview view
+     * @param _token - Cancellation token (unused)
+     */
     public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,
@@ -32,7 +77,8 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
             localResourceRoots: [this._extensionUri]
         };
 
-        // This listener now correctly handles clicks from the webview
+        // Set up message handling for webview interactions
+        // This listener handles clicks from the webview and processes various commands
         webviewView.webview.onDidReceiveMessage(async (message) => {
             if (message.command === 'itemClicked') {
                 this._handleItemClicked(message.data);
@@ -42,21 +88,14 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
             }
             if (message.command === 'goToLocation') {
                 const locData = message.data;
-
-                // Check if the received data has the structure we expect
                 if (locData && locData.uri && locData.range) {
                     try {
-                        // Reconstruct the vscode.Uri and vscode.Range from the plain object data
                         const uri = vscode.Uri.file(locData.uri.path);
-                
-                        // Note: A serialized Range becomes an array of two Position objects
                         const startPosition = new vscode.Position(locData.range[0].line, locData.range[0].character);
                         const endPosition = new vscode.Position(locData.range[1].line, locData.range[1].character);
                         const range = new vscode.Range(startPosition, endPosition);
-
                         const location = new vscode.Location(uri, range);
-                
-                        // Now we pass a real, functional Location object to the command
+            
                         vscode.commands.executeCommand('slingr-vscode-extension.navigateToCode', location);
 
                     } catch (e) {
@@ -72,7 +111,15 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
 
     /**
      * Updates the content of the webview with the metadata from the selected tree item.
-     * @param item The selected AppTreeItem from the explorer.
+     * 
+     * This method handles:
+     * - Navigation history management (unless navigating back)
+     * - Content rendering using appropriate renderers
+     * - Fallback display when no item is selected
+     * 
+     * @param itemType - The type of metadata item ('model', 'field', etc.)
+     * @param metadata - The metadata object to display
+     * @param isNavigatingBack - Whether this update is part of a back navigation (default: false)
      */
     public update(itemType: string | undefined, metadata: MetadataItem | undefined, isNavigatingBack = false): void {
         if (!this._view) {
@@ -103,13 +150,19 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
 
     /**
      * Handles the logic for an 'itemClicked' event from the webview.
+     * 
+     * Processes clicks on interactive elements within the webview and navigates
+     * to the corresponding metadata items. Supports:
+     * - Field navigation within model contexts
+     * - Model navigation by class name
+     * 
+     * @param data - Click event data containing item type, name, and optional parent context
      */
     private _handleItemClicked(data: { itemType: string; name: string; parentClassName?: string }): void {
         const { itemType, name, parentClassName } = data;
         let foundMetadata: MetadataItem | undefined;
 
         if (itemType === 'field' && parentClassName) {
-            // Logic to find a specific field within a parent class
             const [parentClass] = this.cache.findMetadata(
                 item => 'properties' in item && item.name === parentClassName
             ) as DecoratedClass[];
@@ -118,7 +171,6 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                 foundMetadata = parentClass.properties[name];
             }
         } else if (itemType === 'model') {
-            // Logic to find a model by its class name
             const [modelClass] = this.cache.findMetadata(
                 item => 'properties' in item && item.name === name
             ) as DecoratedClass[];
@@ -133,6 +185,10 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    /**
+     * Navigates back to the previous item in the navigation history.
+     * Removes the last item from the history stack and displays it.
+     */
     private _navigateBack(): void {
         const lastState = this._navigationHistory.pop();
         if (lastState) {
@@ -140,6 +196,16 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    /**
+     * Generates the HTML content for the webview based on the provided metadata.
+     * 
+     * Uses the renderer registry to find appropriate specialized renderers for
+     * different metadata types. Falls back to JSON display for unknown types.
+     * 
+     * @param itemType - The type of metadata item to render
+     * @param metadata - The metadata object to render
+     * @returns Complete HTML string for the webview content
+     */
     private _getHtmlForWebview(itemType: string, metadata: MetadataItem | undefined): string {
         // Find the correct renderer for the given itemType
         const renderer = this.rendererRegistry.get(itemType);
@@ -172,6 +238,19 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
 
     }
 
+    /**
+     * Builds the complete HTML shell for the webview.
+     * 
+     * Creates a full HTML document with:
+     * - VS Code theme-aware CSS styling
+     * - Interactive JavaScript for handling user interactions
+     * - Navigation controls (back button when appropriate)
+     * - Content area for rendered metadata
+     * 
+     * @param contentHtml - The main content HTML to display
+     * @param backButtonHtml - HTML for the back navigation button
+     * @returns Complete HTML document string
+     */
     private _buildHtmlShell(contentHtml: string, backButtonHtml: string): string {
         return `<!DOCTYPE html>
         <html lang="en">

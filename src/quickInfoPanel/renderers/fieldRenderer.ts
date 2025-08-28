@@ -2,7 +2,21 @@ import { PropertyMetadata } from '../../cache/cache';
 import { BaseRenderer } from './baseRenderer';
 import { IRendererContext } from './iMetadataRenderer';
 
+/**
+ * Specialized renderer for Slingr field metadata display.
+ * 
+ * The FieldRenderer creates a detailed view of field properties including:
+ * - Field name with source code navigation
+ * - Type information with appropriate styling
+ * - Complete decorator information with interactive elements
+ */
 export class FieldRenderer extends BaseRenderer {
+    /**
+     * Renders field metadata into a structured HTML display.
+     * @param metadata - The field property metadata to render
+     * @param context - Rendering context (currently unused but available for future enhancements)
+     * @returns HTML string with complete field information display
+     */
     public render(metadata: PropertyMetadata, context: IRendererContext): string {
         const prop = metadata;
 

@@ -3,24 +3,31 @@ import * as vscode from 'vscode';
 import { BaseRenderer } from './baseRenderer';
 import { IRendererContext } from './iMetadataRenderer';
 
+/**
+ * Specialized renderer for Slingr model metadata display.
+ * 
+ * The ModelRenderer creates a comprehensive view of model classes including:
+ * - Model identification with name and label information
+ * - Source file navigation capabilities
+ * - Complete decorator information with interactive elements
+ * - Field listing with type information and navigation
+ * - Cross-references to related models
+ */
 export class ModelRenderer extends BaseRenderer {
+    /**
+     * Renders model metadata into a structured HTML display.
+     * @param metadata - The model class metadata to render
+     * @param context - Rendering context providing model lookup and webview access
+     * @returns HTML string with complete model information display
+     */
     public render(metadata: DecoratedClass, context: IRendererContext): string {
         const cls = metadata;
         const mainDecorator = cls.decorators.find(d => d.name === 'Model');
-        const label = mainDecorator?.arguments[0]?.label || cls.name;
-
-        const titleCommand = {
-            command: 'goToLocation',
-            data: cls.declaration
-        };
-
         const sourceFileLocation = new vscode.Location(cls.declaration.uri, new vscode.Position(0, 0));
         const sourceCommand = {
             command: 'goToLocation',
             data: sourceFileLocation
         };
-
-        // Generate the list of fields
         const fieldsListHtml = Object.values(cls.properties)
             .filter(prop => prop.decorators.some(d => d.name === 'Field'))
             .map(prop => {
