@@ -343,11 +343,20 @@ export class MetadataCache {
 
     /**
      * Gets a clean, human-readable name for a ts-morph Type object.
-     * This method correctly handles imported types, removing the "import(...)" part.
+     * This method correctly handles imported types, removing the "import(...)" part,
+     * and properly extracts element types from arrays.
      * @param type The ts-morph Type object.
      * @returns The clean type name as a string.
      */
     private getCleanTypeName(type: Type): string {
+        // Handle array types by extracting the element type
+        if (type.isArray()) {
+            const elementType = type.getArrayElementType();
+            if (elementType) {
+                return this.getCleanTypeName(elementType);
+            }
+        }
+
         const aliasSymbol = type.getAliasSymbol();
         if (aliasSymbol) {
             return aliasSymbol.getName();
