@@ -1,9 +1,7 @@
 import { Field } from "@/model/Field";
 import { Model } from "@/model/Model";
 import { BaseModel } from "@/model/BaseModel";
-import { Decimal } from "@/model/types/Decimal";
-import { Money } from "@/model/types/Money";
-import { Integer } from "@/model/types/Integer";
+import { Decimal, Money } from "@/model/types";
 
 @Model({
     docs: "Represents a product",
