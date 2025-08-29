@@ -5,9 +5,13 @@ import * as path from "path";
 import { Project, IndentationText } from "ts-morph";
 import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
+import * as fs from "fs";
 
-// Define a custom MIME type for our drag-and-drop operation
+
+// Define custom MIME types for our drag-and-drop operations
 const FIELD_MIME_TYPE = "application/vnd.slingr-vscode-extension.field";
+const MODEL_MIME_TYPE = "application/vnd.slingr-vscode-extension.model";
+const FOLDER_MIME_TYPE = "application/vnd.slingr-vscode-extension.folder";
 
 // Interface for folder structure
 interface FolderNode {
@@ -23,8 +27,8 @@ export class ExplorerProvider
   >();
   readonly onDidChangeTreeData: vscode.Event<AppTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
-  public dragMimeTypes: readonly string[] = [FIELD_MIME_TYPE];
-  public dropMimeTypes: readonly string[] = [FIELD_MIME_TYPE];
+  public dragMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
+  public dropMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
 
   constructor(private cache: MetadataCache, private extensionUri: vscode.Uri) {
     // --- Listen for the cache's update event ---
@@ -52,7 +56,7 @@ export class ExplorerProvider
     }
     const draggedItem = source[0];
 
-    // We can drag fields or composition models
+    // We can drag fields, models, or folders
     if (draggedItem.itemType === "field" && draggedItem.metadata && "name" in draggedItem.metadata) {
       // The parent of a field item is the 'modelFieldsFolder', which holds the model's metadata
       const modelFilePath = draggedItem.parent?.metadata?.declaration.uri.fsPath;
@@ -67,50 +71,71 @@ export class ExplorerProvider
           })
         );
       }
-    } else if (draggedItem.itemType === "model" && draggedItem.parent && draggedItem.parent.itemType === "model") {
-      // This is a composition model (nested model within another model)
-      // The parent contains the host model's metadata
-      const modelFilePath = draggedItem.parent.metadata?.declaration.uri.fsPath;
-      const modelClassName = draggedItem.parent.metadata?.name;
+    } else if (draggedItem.itemType === "model" && draggedItem.metadata && this.isDecoratedClass(draggedItem.metadata)) {
+      // Check if this is a composition model (nested model within another model)
+      if (draggedItem.parent && draggedItem.parent.itemType === "model") {
+        // This is a composition model
+        const modelFilePath = draggedItem.parent.metadata?.declaration.uri.fsPath;
+        const modelClassName = draggedItem.parent.metadata?.name;
 
-      // We need to find the property name that represents this composition relationship
-      // Look through the parent model's properties to find the one that matches this composition
-      if (
-        modelFilePath &&
-        modelClassName &&
-        draggedItem.parent.metadata &&
-        "properties" in draggedItem.parent.metadata
-      ) {
-        const parentModel = draggedItem.parent.metadata;
-        let compositionFieldName = null;
+        // We need to find the property name that represents this composition relationship
+        // Look through the parent model's properties to find the one that matches this composition
+        if (
+          modelFilePath &&
+          modelClassName &&
+          draggedItem.parent.metadata &&
+          "properties" in draggedItem.parent.metadata
+        ) {
+          const parentModel = draggedItem.parent.metadata;
+          let compositionFieldName = null;
 
-        // Find the field that represents this composition relationship
-        for (const [propName, prop] of Object.entries(parentModel.properties)) {
-          if (
-            prop.decorators.some((d) => d.name === "Field") &&
-            prop.decorators.some(
-              (d) =>
-                d.name === "Relationship" &&
-                d.arguments.some((arg) => arg.type === "composition" || arg.type === "Composition")
-            ) &&
-            this.extractBaseTypeFromArrayType(prop.type) === draggedItem.metadata?.name
-          ) {
-            compositionFieldName = propName;
-            break;
+          // Find the field that represents this composition relationship
+          for (const [propName, prop] of Object.entries(parentModel.properties)) {
+            if (
+              prop.decorators.some((d) => d.name === "Field") &&
+              prop.decorators.some(
+                (d) =>
+                  d.name === "Relationship" &&
+                  d.arguments.some((arg) => arg.type === "composition" || arg.type === "Composition")
+              ) &&
+              this.extractBaseTypeFromArrayType(prop.type) === draggedItem.metadata?.name
+            ) {
+              compositionFieldName = propName;
+              break;
+            }
+          }
+
+          if (compositionFieldName) {
+            dataTransfer.set(
+              FIELD_MIME_TYPE,
+              new vscode.DataTransferItem({
+                field: compositionFieldName,
+                modelPath: modelFilePath,
+                modelClassName: modelClassName,
+              })
+            );
           }
         }
-
-        if (compositionFieldName) {
-          dataTransfer.set(
-            FIELD_MIME_TYPE,
-            new vscode.DataTransferItem({
-              field: compositionFieldName,
-              modelPath: modelFilePath,
-              modelClassName: modelClassName,
-            })
-          );
-        }
+      } else {
+        // This is a standalone model that can be moved to folders
+        const modelFilePath = draggedItem.metadata.declaration.uri.fsPath;
+        dataTransfer.set(
+          MODEL_MIME_TYPE,
+          new vscode.DataTransferItem({
+            modelPath: modelFilePath,
+            modelClassName: draggedItem.metadata.name,
+          })
+        );
       }
+    } else if (draggedItem.itemType === "folder" && draggedItem.folderPath) {
+      // This is a folder that can be moved to other folders
+      dataTransfer.set(
+        FOLDER_MIME_TYPE,
+        new vscode.DataTransferItem({
+          folderPath: draggedItem.folderPath,
+          folderName: draggedItem.label,
+        })
+      );
     }
   }
 
@@ -119,11 +144,32 @@ export class ExplorerProvider
     dataTransfer: vscode.DataTransfer,
     token: vscode.CancellationToken
   ): Promise<void> {
-    const transferItem = dataTransfer.get(FIELD_MIME_TYPE);
-    if (!transferItem) {
-      return; // Not a valid drop
+    // Handle field reordering (existing functionality)
+    const fieldTransferItem = dataTransfer.get(FIELD_MIME_TYPE);
+    if (fieldTransferItem?.value !== '' && fieldTransferItem) {
+      await this.handleFieldDrop(target, fieldTransferItem);
+      return;
     }
 
+    // Handle model moving to folders
+    const modelTransferItem = dataTransfer.get(MODEL_MIME_TYPE);
+    if (modelTransferItem?.value !== '' && modelTransferItem) {
+      await this.handleModelDrop(target, modelTransferItem);
+      return;
+    }
+
+    // Handle folder moving to other folders
+    const folderTransferItem = dataTransfer.get(FOLDER_MIME_TYPE);
+    if (folderTransferItem?.value !== '' && folderTransferItem) {
+      await this.handleFolderDrop(target, folderTransferItem);
+      return;
+    }
+
+    // If no valid transfer item is found, show an appropriate message
+    vscode.window.showWarningMessage("Invalid drop operation.");
+  }
+
+  private async handleFieldDrop(target: AppTreeItem | undefined, transferItem: vscode.DataTransferItem): Promise<void> {
     const draggedData = transferItem.value;
 
     // Ensure we have a valid target to drop onto (field or composition model)
@@ -212,6 +258,133 @@ export class ExplorerProvider
     } catch (error: any) {
       console.error("Error reordering fields:", error);
       vscode.window.showErrorMessage(`An error occurred: ${error.message}`);
+    }
+  }
+
+  private async handleModelDrop(target: AppTreeItem | undefined, transferItem: vscode.DataTransferItem): Promise<void> {
+    const draggedData = transferItem.value;
+
+    // Models can only be dropped into folders or the data root
+    if (!target || (target.itemType !== "folder" && target.itemType !== "dataRoot")) {
+      vscode.window.showWarningMessage("Models can only be dropped into folders.");
+      return;
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      vscode.window.showErrorMessage("No workspace folder found.");
+      return;
+    }
+
+    const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
+    const targetPath = target.itemType === "dataRoot" ? srcDataPath : path.join(srcDataPath, target.folderPath || "");
+
+    try {
+      // Move the model file to the new location using VS Code's workspace edit API
+      const sourcePath = draggedData.modelPath;
+      const fileName = path.basename(sourcePath);
+      const newPath = path.join(targetPath, fileName);
+
+      // Check if target file already exists
+      if (fs.existsSync(newPath)) {
+        vscode.window.showErrorMessage(`A file named "${fileName}" already exists in the target folder.`);
+        return;
+      }
+
+      // Create target directory if it doesn't exist
+      if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath, { recursive: true });
+      }
+
+      // Use VS Code's workspace edit API to move the file
+      // This will automatically trigger import updates
+      const workspaceEdit = new vscode.WorkspaceEdit();
+      const sourceUri = vscode.Uri.file(sourcePath);
+      const targetUri = vscode.Uri.file(newPath);
+      
+      workspaceEdit.renameFile(sourceUri, targetUri);
+      
+      const success = await vscode.workspace.applyEdit(workspaceEdit);
+      
+      if (success) {
+        // Refresh the tree
+        setTimeout(() => {
+          this.refresh();
+        }, 200);
+
+        vscode.window.showInformationMessage(`Model "${draggedData.modelClassName}" moved successfully.`);
+      } else {
+        vscode.window.showErrorMessage(`Failed to move model "${draggedData.modelClassName}".`);
+      }
+    } catch (error: any) {
+      console.error("Error moving model:", error);
+      vscode.window.showErrorMessage(`Failed to move model: ${error.message}`);
+    }
+  }
+
+  private async handleFolderDrop(target: AppTreeItem | undefined, transferItem: vscode.DataTransferItem): Promise<void> {
+    const draggedData = transferItem.value;
+
+    // Folders can only be dropped into other folders or the data root
+    if (!target || (target.itemType !== "folder" && target.itemType !== "dataRoot")) {
+      vscode.window.showWarningMessage("Folders can only be dropped into other folders.");
+      return;
+    }
+
+    // Prevent dropping a folder into itself or its children
+    if (target.itemType === "folder" && target.folderPath) {
+      if (target.folderPath.startsWith(draggedData.folderPath)) {
+        vscode.window.showWarningMessage("Cannot move a folder into itself or its subfolder.");
+        return;
+      }
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      vscode.window.showErrorMessage("No workspace folder found.");
+      return;
+    }
+
+    const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
+    const sourcePath = path.join(srcDataPath, draggedData.folderPath);
+    const targetBasePath = target.itemType === "dataRoot" ? srcDataPath : path.join(srcDataPath, target.folderPath || "");
+    const newPath = path.join(targetBasePath, draggedData.folderName);
+
+    try {
+      // Check if target folder already exists
+      if (fs.existsSync(newPath)) {
+        vscode.window.showErrorMessage(`A folder named "${draggedData.folderName}" already exists in the target location.`);
+        return;
+      }
+
+      // Create target directory if it doesn't exist
+      if (!fs.existsSync(targetBasePath)) {
+        fs.mkdirSync(targetBasePath, { recursive: true });
+      }
+
+      // Use VS Code's workspace edit API to move the folder
+      // This will automatically trigger import updates for all files in the folder
+      const workspaceEdit = new vscode.WorkspaceEdit();
+      const sourceUri = vscode.Uri.file(sourcePath);
+      const targetUri = vscode.Uri.file(newPath);
+      
+      workspaceEdit.renameFile(sourceUri, targetUri);
+      
+      const success = await vscode.workspace.applyEdit(workspaceEdit);
+      
+      if (success) {
+        // Refresh the tree
+        setTimeout(() => {
+          this.refresh();
+        }, 200);
+
+        vscode.window.showInformationMessage(`Folder "${draggedData.folderName}" moved successfully.`);
+      } else {
+        vscode.window.showErrorMessage(`Failed to move folder "${draggedData.folderName}".`);
+      }
+    } catch (error: any) {
+      console.error("Error moving folder:", error);
+      vscode.window.showErrorMessage(`Failed to move folder: ${error.message}`);
     }
   }
 
@@ -396,8 +569,56 @@ export class ExplorerProvider
         currentNode.models.push(model);
       }
     }
+    // Also add empty directories from the filesystem
+    this.addEmptyDirectoriesToStructure(root);
 
     return root;
+  }
+
+  /**
+   * Recursively scans the src/data directory and adds empty directories to the folder structure
+   */
+  private addEmptyDirectoriesToStructure(root: FolderNode): void {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      return;
+    }
+
+    const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
+    if (!fs.existsSync(srcDataPath)) {
+      return;
+    }
+
+    this.scanDirectoryRecursively(srcDataPath, root, '');
+  }
+
+  /**
+   * Recursively scans a directory and adds empty folders to the structure
+   */
+  private scanDirectoryRecursively(dirPath: string, currentNode: FolderNode, relativePath: string): void {
+    try {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const folderName = entry.name;
+          const fullPath = path.join(dirPath, folderName);
+          const newRelativePath = relativePath ? `${relativePath}/${folderName}` : folderName;
+
+          // Add folder to structure if it doesn't exist
+          if (!currentNode.folders.has(folderName)) {
+            currentNode.folders.set(folderName, { folders: new Map(), models: [] });
+          }
+
+          // Recursively scan subdirectories
+          const folderNode = currentNode.folders.get(folderName)!;
+          this.scanDirectoryRecursively(fullPath, folderNode, newRelativePath);
+        }
+      }
+    } catch (error) {
+      // Silently ignore permission errors or other issues
+      console.warn(`Could not scan directory ${dirPath}:`, error);
+    }
   }
 
   /**
