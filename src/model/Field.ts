@@ -255,8 +255,8 @@ export function Field<TObject extends object = object, TValue = unknown>(options
           }
         })(target, propertyKey);
         IsNotEmpty()(target, propertyKey);
-      } else {
-        // Always require the field
+      } else if (options.required) {
+        // Simple boolean required  
         IsNotEmpty()(target, propertyKey);
       }
     } else {
