@@ -1,7 +1,12 @@
 import { IsNotEmpty, IsOptional, ValidateIf } from 'class-validator';
 import { Exclude, Expose, Transform } from 'class-transformer';
 import { CustomValidate } from '../validators/CustomValidationConstraint';
-import type { CustomRequiredFunction, CustomValidationFunction } from './types/SharedTypes';
+import type { 
+  CustomRequiredFunction, 
+  CustomValidationFunction, 
+  CustomAvailableFunction,
+  ValidationIssue
+} from "@/model/types/SharedTypes";
 
 /**
  * Custom validation function type for field validation.
@@ -27,14 +32,6 @@ import type { CustomRequiredFunction, CustomValidationFunction } from './types/S
  * @param object - The entire object containing the field.
  * @returns An array of validation issues, or an empty array if valid.
  */
-
-/**
- * Type for a function that dynamically determines if a field is required.
- * @param object - The entire object containing the field.
- * @returns `true` if the field is required, otherwise `false`.
- */
-
-type CustomAvailableFunction<TObject> = (object: TObject) => boolean;
 
 /**
  * Configuration options for the Field decorator.
