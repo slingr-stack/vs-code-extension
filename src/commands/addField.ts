@@ -792,7 +792,7 @@ export class AddFieldTool implements AIEnhancedTool {
             const kebabValue = value
                 .replace(/([a-z])([A-Z])/g, '$1-$2')
                 .toLowerCase();
-            const enumEntry = `    ${value} = '${kebabValue}'${isLast ? '' : ','}`;
+            const enumEntry = `  ${value} = '${kebabValue}'${isLast ? '' : ','}`;
             lines.push(enumEntry);
         });
         

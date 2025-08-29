@@ -1,6 +1,7 @@
 // Add vscode.TreeDragAndDropController to the import
 import * as vscode from "vscode";
 import * as path from "path";
+import * as fs from "fs";
 // Add Project from ts-morph for the reordering logic
 import { Project, IndentationText } from "ts-morph";
 import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } from "../cache/cache";
@@ -356,11 +357,12 @@ export class ExplorerProvider
   }
 
   /**
-   * Builds a hierarchical folder structure from model file paths
+   * Builds a hierarchical folder structure from model file paths and actual file system folders
    */
   private buildFolderStructure(models: DecoratedClass[]): FolderNode {
     const root: FolderNode = { folders: new Map(), models: [] };
 
+    // First, build structure from models
     for (const model of models) {
       const filePath = model.declaration.uri.fsPath;
 
@@ -399,7 +401,56 @@ export class ExplorerProvider
       }
     }
 
+    // Now add empty directories from the file system
+    this.addEmptyDirectoriesToStructure(root);
+
     return root;
+  }
+
+  /**
+   * Recursively scans the src/data directory and adds empty directories to the folder structure
+   */
+  private addEmptyDirectoriesToStructure(root: FolderNode): void {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      return;
+    }
+
+    const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
+    if (!fs.existsSync(srcDataPath)) {
+      return;
+    }
+
+    this.scanDirectoryRecursively(srcDataPath, root, '');
+  }
+
+  /**
+   * Recursively scans a directory and adds empty folders to the structure
+   */
+  private scanDirectoryRecursively(dirPath: string, currentNode: FolderNode, relativePath: string): void {
+    try {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const folderName = entry.name;
+          const fullPath = path.join(dirPath, folderName);
+          const newRelativePath = relativePath ? `${relativePath}/${folderName}` : folderName;
+
+          // Add folder to structure if it doesn't exist
+          if (!currentNode.folders.has(folderName)) {
+            currentNode.folders.set(folderName, { folders: new Map(), models: [] });
+          }
+
+          // Recursively scan subdirectories
+          const folderNode = currentNode.folders.get(folderName)!;
+          this.scanDirectoryRecursively(fullPath, folderNode, newRelativePath);
+        }
+      }
+    } catch (error) {
+      // Silently ignore permission errors or other issues
+      console.warn(`Could not scan directory ${dirPath}:`, error);
+    }
   }
 
   /**

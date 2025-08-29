@@ -6,6 +6,7 @@ import { RefactorController } from './refactor/RefactorController';
 import { NewModelTool } from './commands/newModel';
 import { DefineFieldsTool } from './commands/defineFields';
 import { AddFieldTool } from './commands/addField';
+import { NewFolderTool } from './commands/newFolder';
 import { AppTreeItem } from './explorer/appTreeItem';
 
 export let cache: MetadataCache;
@@ -128,6 +129,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	// Register the standalone New Folder Tool
+	const newFolderTool = new NewFolderTool();
+	const newFolderCommand = vscode.commands.registerCommand('slingr-vscode-extension.newFolder', (uri?: vscode.Uri | AppTreeItem) => {
+		return newFolderTool.createFolder(explorerProvider, uri);
+	});
+
 	// Add all disposables to context subscriptions
 	context.subscriptions.push(
 		treeView,
@@ -136,6 +143,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		newModelCommand,
 		defineFieldsCommand,
 		addFieldCommand,
+		newFolderCommand,
 		...refactorDisposables
 	);
 }

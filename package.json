@@ -63,6 +63,10 @@
       {
         "command": "slingr-vscode-extension.addField",
         "title": "Add Field"
+      },
+      {
+        "command": "slingr-vscode-extension.newFolder",
+        "title": "New Folder"
       }
     ],
     "submenus": [
@@ -89,6 +93,11 @@
           "command": "slingr-vscode-extension.newModel",
           "when": "resourcePath =~ /src[\\\\/]data[\\\\/]/",
           "group": "1_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.newFolder",
+          "when": "resourcePath =~ /src[\\\\/]data[\\\\/]/",
+          "group": "1_creation"
         }
       ],
       "view/item/context": [
@@ -99,6 +108,11 @@
         },
         {
           "command": "slingr-vscode-extension.newModel",
+          "when": "view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot')",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.newFolder",
           "when": "view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot')",
           "group": "0_creation"
         }
