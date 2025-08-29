@@ -253,13 +253,40 @@ describe('Relationship Type', () => {
     });
 
     describe('Edge Cases', () => {
-        it('should handle null/undefined relationships', () => {
+        it('should handle undefined relationships (not loaded)', () => {
             const task = new Task();
             task.title = 'Task without project';
-            // project is undefined
+            // project is undefined - relationship was never loaded/set
 
             const json = task.toJSON();
             expect(json.project).toBeUndefined();
+        });
+
+        it('should handle null relationships (loaded but empty)', () => {
+            const task = new Task();
+            task.title = 'Task with no project';
+            (task as any).project = null; // explicitly set to null - relationship was loaded but is empty
+
+            const json = task.toJSON();
+            expect(json.project).toBeNull();
+        });
+
+        it('should preserve null/undefined distinction during deserialization', () => {
+            // Test undefined case
+            const taskDataUndefined = {
+                title: 'Task without project'
+                // project property is not included (undefined)
+            };
+            const taskUndefined = Task.fromJSON(taskDataUndefined);
+            expect(taskUndefined.project).toBeUndefined();
+
+            // Test null case  
+            const taskDataNull = {
+                title: 'Task with null project',
+                project: null // explicitly null
+            };
+            const taskNull = Task.fromJSON(taskDataNull);
+            expect(taskNull.project).toBeNull();
         });
 
         it('should handle empty arrays in composition relationships', () => {
