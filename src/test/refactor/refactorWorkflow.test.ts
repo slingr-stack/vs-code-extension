@@ -8,6 +8,7 @@ import { DeleteModelTool } from '../../refactor/tools/deleteModel';
 import { RenameFieldTool } from '../../refactor/tools/renameField';
 import { DeleteFieldTool } from '../../refactor/tools/deleteField';
 import { ChangeFieldTypeTool } from '../../refactor/tools/changeFieldType';
+import { TestMetadataFactory, TestContextFactory } from '../testHelpers';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

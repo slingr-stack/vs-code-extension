@@ -1,8 +1,9 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { DeleteModelTool } from '../../refactor/tools/deleteModel';
-import { MetadataCache, FileMetadata, DecoratedClass } from '../../cache/cache';
+import { MetadataCache, FileMetadata, DecoratedClass, PropertyMetadata } from '../../cache/cache';
 import { ChangeObject, ManualRefactorContext, DeleteModelPayload } from '../../refactor/refactorInterfaces';
+import { TestMetadataFactory, TestContextFactory } from '../testHelpers';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {

@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { AddDecoratorTool } from '../../refactor/tools/addDecorator';
 import { MetadataCache, FileMetadata, DecoratedClass, PropertyMetadata } from '../../cache/cache';
 import { ChangeObject, ManualRefactorContext, AddDecoratorPayload } from '../../refactor/refactorInterfaces';
+import { TestMetadataFactory, TestContextFactory } from '../testHelpers';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -13,7 +14,7 @@ if (typeof suite !== 'undefined') {
 
         setup(() => {
             tool = new AddDecoratorTool();
-            mockCache = createMockCache();
+            mockCache = TestMetadataFactory.createMockCache();
 
             // Mock workspace operations
             (vscode.workspace as any).openTextDocument = async (uri: vscode.Uri) => {
@@ -55,7 +56,7 @@ if (typeof suite !== 'undefined') {
             test('should handle valid property in model file', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockPropertyWithoutDecorator('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createNonField('name', 'string', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -71,7 +72,11 @@ if (typeof suite !== 'undefined') {
             test('should handle property with existing decorators in model file', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createField({
+                    name: 'name',
+                    type: 'string',
+                    declaration: { uri: modelUri, range: fieldRange }
+                });
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -87,7 +92,7 @@ if (typeof suite !== 'undefined') {
             test('should reject property in non-model files', async () => {
                 const nonModelUri = vscode.Uri.file('/test/src/utils/helper.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockPropertyWithoutDecorator('name', 'string', nonModelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createNonField('name', 'string', nonModelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -103,7 +108,10 @@ if (typeof suite !== 'undefined') {
             test('should reject non-field metadata', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const range = new vscode.Range(5, 0, 5, 4);
-                const model = createMockModel('User', modelUri, range);
+                const model = TestMetadataFactory.createModel({
+                    name: 'User',
+                    declaration: { uri: modelUri, range }
+                });
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -136,7 +144,7 @@ if (typeof suite !== 'undefined') {
             test('should create change object with Field decorator', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockPropertyWithoutDecorator('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createNonField('name', 'string', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -162,7 +170,11 @@ if (typeof suite !== 'undefined') {
             test('should create change object with Text decorator', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('description', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createField({
+                    name: 'description',
+                    type: 'string',
+                    declaration: { uri: modelUri, range: fieldRange }
+                });
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -183,7 +195,7 @@ if (typeof suite !== 'undefined') {
             test('should create change object with Date decorator', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockPropertyWithoutDecorator('createdAt', 'Date', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createNonField('createdAt', 'Date', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -222,7 +234,7 @@ if (typeof suite !== 'undefined') {
             test('should prepare edit for adding Field decorator', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockPropertyWithoutDecorator('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createNonField('name', 'string', modelUri, fieldRange);
 
                 const change: ChangeObject = {
                     type: 'ADD_DECORATOR',
@@ -255,7 +267,7 @@ if (typeof suite !== 'undefined') {
             test('should prepare edit for adding Integer decorator', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 7);
-                const fieldMeta = createMockPropertyWithoutDecorator('age', 'number', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createNonField('age', 'number', modelUri, fieldRange);
 
                 const change: ChangeObject = {
                     type: 'ADD_DECORATOR',
@@ -285,7 +297,7 @@ if (typeof suite !== 'undefined') {
             test('should handle field at first line of file', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(0, 0, 0, 4); // First line
-                const fieldMeta = createMockPropertyWithoutDecorator('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createNonField('name', 'string', modelUri, fieldRange);
 
                 const change: ChangeObject = {
                     type: 'ADD_DECORATOR',
@@ -319,7 +331,11 @@ if (typeof suite !== 'undefined') {
             test('should handle field with existing decorators', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createField({
+                    name: 'name',
+                    type: 'string',
+                    declaration: { uri: modelUri, range: fieldRange }
+                });
                 
                 // Field already has @Field decorator, adding another one
                 const change: ChangeObject = {
@@ -350,7 +366,7 @@ if (typeof suite !== 'undefined') {
             test('should preserve position information correctly', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(15, 12, 15, 18); // Random line and column
-                const fieldMeta = createMockPropertyWithoutDecorator('status', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createNonField('status', 'string', modelUri, fieldRange);
 
                 const change: ChangeObject = {
                     type: 'ADD_DECORATOR',
@@ -382,53 +398,4 @@ if (typeof suite !== 'undefined') {
     });
 }
 
-// Helper functions
-function createMockCache(): MetadataCache {
-    return {
-        getMetadataForFile: () => undefined,
-        findMetadata: () => [],
-        notifyFileDeleted: () => {},
-        notifyFileChanged: () => {},
-        refresh: () => Promise.resolve(),
-    } as any;
-}
 
-function createMockModel(name: string, uri: vscode.Uri, range: vscode.Range): DecoratedClass {
-    return {
-        name,
-        decorators: [{ 
-            name: 'Model', 
-            arguments: [], 
-            position: range 
-        }],
-        properties: {},
-        methods: {},
-        declaration: { uri, range },
-        references: [{ uri, range }],
-        isDataModel: true
-    };
-}
-
-function createMockField(name: string, type: string, uri: vscode.Uri, range: vscode.Range): PropertyMetadata {
-    return {
-        name,
-        type,
-        decorators: [{ 
-            name: 'Field', 
-            arguments: [], 
-            position: new vscode.Range(range.start.line - 1, range.start.character, range.start.line - 1, range.start.character + 7) 
-        }],
-        declaration: { uri, range },
-        references: [{ uri, range }]
-    };
-}
-
-function createMockPropertyWithoutDecorator(name: string, type: string, uri: vscode.Uri, range: vscode.Range): PropertyMetadata {
-    return {
-        name,
-        type,
-        decorators: [], // No decorators
-        declaration: { uri, range },
-        references: [{ uri, range }]
-    };
-}

@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { RenameModelTool } from '../../refactor/tools/renameModel';
 import { MetadataCache, FileMetadata, DecoratedClass } from '../../cache/cache';
 import { ChangeObject, DeleteModelPayload, ManualRefactorContext, RenameModelPayload } from '../../refactor/refactorInterfaces';
+import { TestMetadataFactory, TestContextFactory } from '../testHelpers';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
