@@ -8,3 +8,7 @@ export { DateTime } from './DateTime';
 export type { DateTimeOptions } from './DateTime';
 export { DateTimeRange, DateTimeRangeType } from './DateTimeRange';
 export type { DateTimeRangeOptions } from './DateTimeRange';
+export { Integer } from './Integer';
+export { Money } from './Money';
+export { Number } from './Number';
+export { Decimal } from './Decimal';
