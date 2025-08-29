@@ -99,6 +99,18 @@ export interface ChangeFieldTypePayload {
 
 
 /**
+ * Payload interface for adding a decorator to a field.
+ * @property {PropertyMetadata} fieldMetadata - Metadata information about the property/field
+ * @property {string} decoratorName - The name of the decorator to be added
+ */
+export interface AddDecoratorPayload {
+    fieldMetadata: PropertyMetadata;
+    decoratorName: string;
+    isManual: boolean;
+}
+
+
+/**
  * Represents the specific type of refactoring change being applied.
  * This is used to identify the nature of a modification to an model or its fields.
  *
@@ -107,8 +119,9 @@ export interface ChangeFieldTypePayload {
  * - `RENAME_FIELD`: A change that renames a field within an model.
  * - `DELETE_FIELD`: A change that deletes a field from an model.
  * - `CHANGE_FIELD_TYPE`: A change that modifies the data type of a field.
+ * - `ADD_DECORATOR`: A change that adds a decorator to a field.
  */
-export type ChangeType = 'RENAME_ENTITY' | 'DELETE_ENTITY' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE';
+export type ChangeType = 'RENAME_ENTITY' | 'DELETE_ENTITY' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR';
 
 /**
  * Represents a single, atomic change to be applied as part of a refactoring operation.
@@ -129,7 +142,8 @@ export interface ChangeObject {
         | DeleteModelPayload
         | RenameFieldPayload
         | DeleteFieldPayload
-        | ChangeFieldTypePayload;
+        | ChangeFieldTypePayload
+        | AddDecoratorPayload;
 }
 
 

@@ -74,7 +74,7 @@ export class RefactorController {
    * - Presents changes for user approval before applying them
    * - Shows information message if no changes are needed
    */
-  public async handleManualRefactorCommand(commandId: string, context?: vscode.Uri | AppTreeItem) {
+  public async handleManualRefactorCommand(commandId: string, context?: vscode.Uri | AppTreeItem | ManualRefactorContext, decoratorName?: string) {
     const tool = this.tools.find((t) => t.getCommandId() === commandId);
     if (!tool) {
       vscode.window.showErrorMessage(`Unknown refactoring command: ${commandId}`);
@@ -108,6 +108,8 @@ export class RefactorController {
         range: targetClass.declaration.range,
         metadata: targetClass,
       };
+    } else if (context && 'cache' in context && 'uri' in context) {
+      refactorContext = context as ManualRefactorContext;
     } else {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
@@ -127,8 +129,7 @@ export class RefactorController {
       vscode.window.showErrorMessage("Could not determine the context for refactoring.");
       return;
     }
-
-    const changeObject = await tool.initiateManualRefactor(refactorContext);
+    const changeObject = await (tool as any).initiateManualRefactor(refactorContext, decoratorName);
     if (changeObject) {
       const workspaceEdit = await this.prepareWorkspaceEdit([changeObject]);
       if (!workspaceEdit) {
