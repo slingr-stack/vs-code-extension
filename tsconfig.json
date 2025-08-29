@@ -23,5 +23,5 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": ["src/**/*", "test/**/*", "jest.config.js"]
 }

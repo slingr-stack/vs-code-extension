@@ -48,6 +48,7 @@ export class Person extends BaseModel {
   })
   age!: number;
 
+
   @Field({
     required: (person: Person) => {
       return (person.age < 18);
@@ -55,6 +56,7 @@ export class Person extends BaseModel {
   })
   @Email()
   parentEmail!: string;
+
 
   @Field({
     available: false, // This field should be excluded from JSON operations
