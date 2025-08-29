@@ -1,8 +1,7 @@
 import { Field } from "@/model/Field";
 import { Model } from "@/model/Model";
 import { BaseModel } from "@/model/BaseModel";
-import { IsEmail } from "class-validator";
-import { Number } from "@/model/types/Number";
+import { Text, Email, HTML, Boolean } from "@/model/types";
 
 @Model({
   docs: "Represents a person",
@@ -11,15 +10,27 @@ export class Person extends BaseModel {
   @Field({
     required: true,
   })
+  @Text({
+    minLength: 2,
+    maxLength: 30,
+    regex: /^[a-zA-Z]+$/,
+    regexMessage: "firstName must contain only letters",
+  })
   firstName!: string;
 
   @Field({
     required: true,
   })
+  @Text({
+    minLength: 2,
+    maxLength: 30,
+    regex: /^[a-zA-Z]+$/,
+    regexMessage: "lastName must contain only letters",
+  })
   lastName!: string;
 
   @Field({})
-  @IsEmail()
+  @Email()
   email!: string;
 
   @Field({
@@ -43,6 +54,7 @@ export class Person extends BaseModel {
       return (person.age < 18);
     },
   })
+  @Email()
   parentEmail!: string;
 
 
@@ -59,4 +71,15 @@ export class Person extends BaseModel {
     },
   })
   phoneNumber!: string;
+
+  @Field({})
+  @HTML()
+  additionalInfo!: string;
+
+  @Field({
+    required: false,
+  })
+  @Boolean()
+  isActive!: boolean;
+
 }
