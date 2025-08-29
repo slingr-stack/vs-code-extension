@@ -1,7 +1,7 @@
 import { Field } from "@/model/Field";
 import { Model } from "@/model/Model";
 import { BaseModel } from "@/model/BaseModel";
-import { Text, Email, HTML } from "@/model/types";
+import { Text, Email, HTML, Boolean } from "@/model/types";
 
 @Model({
   docs: "Represents a person",
@@ -73,5 +73,11 @@ export class Person extends BaseModel {
   @Field({})
   @HTML()
   additionalInfo!: string;
+
+  @Field({
+    required: false,
+  })
+  @Boolean()
+  isActive!: boolean;
 
 }

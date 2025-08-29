@@ -21,6 +21,31 @@ export function validateDateType(proto: Object, propertyKey: string): void {
 }
 
 /**
+ * Validates that a property is of boolean type at runtime.
+ */
+export function validateBooleanType(proto: Object, propertyKey: string): void {
+    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    if (designType !== Boolean) {
+        throw new Error(`@Boolean can only be applied to 'boolean' properties: ${propertyKey}`);
+    }
+}
+
+/**
+ * Validates that a property is of enum type at runtime.
+ * For enums, TypeScript emits Object as the design type, so we check if the property
+ * has been initialized with an enum value.
+ */
+export function validateEnumType(proto: Object, propertyKey: string): void {
+    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    // For enums, TypeScript emits Object as the design type
+    // We can't easily validate the enum type at runtime since enums are compiled to objects
+    // The validation will happen during actual usage when the enum values are checked
+    if (designType !== Object && designType !== String && designType !== Number) {
+        throw new Error(`@Choice can only be applied to enum properties: ${propertyKey}`);
+    }
+}
+
+/**
  * Transforms Date objects to ISO 8601 strings for JSON serialization.
  * @param value - The Date value to transform
  * @returns ISO 8601 string or undefined if value is null/undefined

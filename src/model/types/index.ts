@@ -2,6 +2,8 @@ export { Text } from './Text';
 export type { TextOptions } from './Text';
 export { Email } from './Email';
 export { HTML } from './HTML';
+export { Boolean } from './Boolean';
+export { Choice } from './Choice';
 export { DateTime } from './DateTime';
 export type { DateTimeOptions } from './DateTime';
 export { DateTimeRange, DateTimeRangeType } from './DateTimeRange';
