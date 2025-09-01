@@ -7,6 +7,8 @@ import { AddFieldTool } from './addField';
 import { NewFolderTool } from './newFolder';
 import { CreateTestTool } from './createTest';
 import { AppTreeItem } from '../explorer/appTreeItem';
+import { CreateModelFromDescriptionTool } from './createModelFromDesc';
+import { ModifyModelTool } from './modifyModel';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -157,6 +159,20 @@ export function registerGeneralCommands(
         vscode.window.showInformationMessage('Refactor command executed - specific refactor tools are available in the context menu.');
     });
     disposables.push(refactorCommand);
+
+    // Create Model from Description Tool
+    const createModelFromDescriptionTool = new CreateModelFromDescriptionTool();
+    const createModelFromDescriptionCommand = vscode.commands.registerCommand('slingr-vscode-extension.createModelFromDescription', () => {
+        return createModelFromDescriptionTool.createModel(cache);
+    });
+    disposables.push(createModelFromDescriptionCommand);
+
+    // Modify Model Tool
+    const modifyModelTool = new ModifyModelTool();
+    const modifyModelCommand = vscode.commands.registerCommand('slingr-vscode-extension.modifyModel', () => {
+        return modifyModelTool.modifyModel(cache);
+    });
+    disposables.push(modifyModelCommand);
 
     return disposables;
 }

@@ -146,97 +146,98 @@ export class DefineFieldsTool {
         appContext: ApplicationContext, 
         modelContext: ModelContext
     ): string {
-        const prompt = `
-You are an expert TypeScript developer working on a model-driven application. 
-I need you to generate TypeScript field definitions based on a description.
+        const rawPrompt = `
+        You are an expert TypeScript developer working on a model-driven application. 
+        I need you to generate TypeScript field definitions based on a description.
 
-## CONTEXT
+        ## CONTEXT
 
-### Target Model: ${modelContext.modelName}
-File: ${modelContext.filePath}
+        ### Target Model: ${modelContext.modelName}
+        File: ${modelContext.filePath}
 
-### Existing Fields in This Model:
-${modelContext.existingFields.length > 0 
-    ? modelContext.existingFields.map(f => `- ${f.name}: ${f.type} (decorators: ${f.decorators.join(', ')})`).join('\n')
-    : '- No existing fields'
-}
+        ### Existing Fields in This Model:
+        ${modelContext.existingFields.length > 0 
+            ? modelContext.existingFields.map(f => `- ${f.name}: ${f.type} (decorators: ${f.decorators.join(', ')})`).join('\n')
+            : '- No existing fields'
+        }
 
-### Available Field Types and Their Usage:
-${appContext.availableFieldTypes.map(type => {
-    const config = fieldTypeConfig[type];
-    const supportedArgs = config.supportedArgs?.map(arg => `${arg.name}: ${arg.type}`).join(', ');
-    return `- @${type}(): ${config.requiredTsType || 'various'} (args: ${supportedArgs || 'none'})`;
-}).join('\n')}
+        ### Available Field Types and Their Usage:
+        ${appContext.availableFieldTypes.map(type => {
+            const config = fieldTypeConfig[type];
+            const supportedArgs = config.supportedArgs?.map(arg => `${arg.name}: ${arg.type}`).join(', ');
+            return `- @${type}(): ${config.requiredTsType || 'various'} (args: ${supportedArgs || 'none'})`;
+        }).join('\n')}
 
-### Existing Models in Application (for relationships):
-${appContext.existingModels.map(m => `- ${m.name} (${m.fields.length} fields)`).join('\n')}
+        ### Existing Models in Application (for relationships):
+        ${appContext.existingModels.map(m => `- ${m.name} (${m.fields.length} fields)`).join('\n')}
 
-### Common Field Patterns in This Project:
-${Array.from(appContext.commonFieldPatterns.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([pattern, count]) => `- ${pattern} (used ${count} times)`)
-    .join('\n')
-}
+        ### Common Field Patterns in This Project:
+        ${Array.from(appContext.commonFieldPatterns.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([pattern, count]) => `- ${pattern} (used ${count} times)`)
+            .join('\n')
+        }
 
-## TASK
+        ## TASK
 
-Generate TypeScript field definitions for the following description:
-"${fieldsDescription}"
+        Generate TypeScript field definitions for the following description:
+        "${fieldsDescription}"
 
-## REQUIREMENTS
+        ## REQUIREMENTS
 
-1. Generate proper TypeScript property declarations with appropriate decorators
-2. Use the most suitable decorator type based on the field description
-3. Include proper TypeScript types that match the decorator requirements
-4. For relationships, reference existing models when possible
-5. For enums/choices, create enum definitions and use @Choice decorator
-6. Include reasonable default parameters for decorators when appropriate
-7. Add brief documentation comments for complex fields
-8. Follow the existing code style and patterns from the project
-9. Ensure no duplicate field names with existing fields in the model
-10. Add any necessary relative import statements for used decorators and types. Imports for types should be from the folder: 'src/framework/shared/types'
-11. Before adding a property in a decorator, check if the property is supported by that decorator type'.
+        1. Generate proper TypeScript property declarations with appropriate decorators
+        2. Use the most suitable decorator type based on the field description
+        3. Include proper TypeScript types that match the decorator requirements
+        4. For relationships, reference existing models when possible
+        5. For enums/choices, create enum definitions and use @Choice decorator
+        6. Include reasonable default parameters for decorators when appropriate
+        7. Add brief documentation comments for complex fields
+        8. Follow the existing code style and patterns from the project
+        9. Ensure no duplicate field names with existing fields in the model
+        10. Add any necessary relative import statements for used decorators and types. Imports for types should be from the folder: 'src/framework/shared/types'
+        11. Before adding a property in a decorator, check if the property is supported by that decorator type'.
 
-## OUTPUT FORMAT
+        ## OUTPUT FORMAT
 
-Return ONLY valid TypeScript code that can be inserted into the class body. Do not include:
-- Class declaration
-- Explanatory text
+        Return ONLY valid TypeScript code that can be inserted into the class body. Do not include:
+        - Class declaration
+        - Explanatory text
 
-Example output format:
-\`\`\`typescript
-@Field({
-  required: true
-})
-@Text()
-title: string;
+        Example output format:
+        \`\`\`typescript
+        @Field({
+            required: true
+        })
+        @Text()
+        title!: string;
 
-@Field({})
-@Text()
-description: string;
+        @Field({})
+        @Text()
+        description!: string;
 
-@Field({})
-@Relationship()
-customer: Customer;
+        @Field({})
+        @Relationship()
+        customer!: Customer;
 
-@Field({})
-@Date()
-date: Date;
+        @Field({})
+        @Date()
+        date!: Date;
 
-@Field({})
-@Relationship({
-    type: 'composition'
-})
-project: Project;
+        @Field({})
+        @Relationship({
+            type: 'composition'
+        })
+        project!: Project;
 
-@Field({})
-@Choice()
-status: ProjectStatus = ProjectStatus.Planning;
-\`\`\`
+        @Field({})
+        @Choice()
+        status: ProjectStatus = ProjectStatus.Planning;
+        \`\`\`
 
-Generate the fields now:
+        Generate the fields now, write in the file: ${modelContext.filePath}.
         `;
+        const prompt = rawPrompt.replace(/^\s+/gm, '');
 
         return prompt;
     }
@@ -246,7 +247,6 @@ Generate the fields now:
      * Shows a notification asking the user if they want to execute the AI prompt in chat.
      */
     private async requestAIFieldGeneration(prompt: string): Promise<string> {
-        // TODO: Integrate with actual AI service (GitHub Copilot, OpenAI, etc.)
         const action = await vscode.window.showInformationMessage(
             "AI Field Generation: An AI prompt has been prepared. Do you want to execute it in the chat view?",
             "Execute Prompt"

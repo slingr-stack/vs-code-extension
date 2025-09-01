@@ -158,7 +158,6 @@ export class NewModelTool implements AIEnhancedTool {
                 await vscode.workspace.fs.stat(targetFileUri);
                 const overwrite = await vscode.window.showWarningMessage(
                     `File ${fileName} already exists. Do you want to overwrite it?`,
-                    { modal: true },
                     'Overwrite',
                     'Cancel'
                 );
