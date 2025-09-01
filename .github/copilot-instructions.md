@@ -50,8 +50,8 @@ The Slingr Framework is a TypeScript framework for building smart business appli
 **Always import types from the main module:**
 ```typescript
 import { BaseModel, Field, Model, Text, Email, DateTime, Money } from './index';
-// OR for individual types:
-import { Text, Email } from './src/model/types';
+// OR, for individual types, import from the main entry point:
+import { Text, Email } from './index';
 ```
 
 **Common field patterns (reference existing test models):**
