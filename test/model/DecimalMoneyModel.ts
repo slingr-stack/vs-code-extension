@@ -1,7 +1,7 @@
-import { Field } from "@/model/Field";
-import { Model } from "@/model/Model";
-import { BaseModel } from "@/model/BaseModel";
-import { Decimal, Money } from "@/model/types";
+import { Field } from "../../src";
+import { Model } from "../../src";
+import { BaseModel } from "../../src";
+import { Decimal, Money } from "../../src";
 
 @Model({
     docs: "Represents a product",
