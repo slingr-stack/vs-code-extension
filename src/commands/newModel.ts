@@ -2,8 +2,9 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { AppTreeItem } from "../explorer/appTreeItem";
 import { DefineFieldsTool } from "./defineFields";
+import { AddFieldTool } from "./addField";
 import { MetadataCache } from "../cache/cache";
-import { AIEnhancedTool } from "./interfaces";
+import { AIEnhancedTool, FieldInfo, FIELD_TYPE_OPTIONS } from "./interfaces";
 
 
 
@@ -13,6 +14,10 @@ import { AIEnhancedTool } from "./interfaces";
  * This is a standalone creation tool that doesn't participate in the refactoring system.
  * It provides a simple interface for generating new model files with proper structure.
  * 
+ * When executed from a model context (e.g., from a model tree item), it automatically
+ * creates a composition relationship field in the parent model pointing to the new model
+ * using the AddFieldTool for consistent field generation.
+ * 
  * @example
  * ```typescript
  * // Generated model example:
@@ -21,14 +26,23 @@ import { AIEnhancedTool } from "./interfaces";
  *     @Field()
  *     name: string;
  * }
+ * 
+ * // If created from a Project model context, automatically adds to Project:
+ * @Field({})
+ * @Relationship({
+ *   type: 'composition'
+ * })
+ * tasks!: Task[];
  * ```
  */
 export class NewModelTool implements AIEnhancedTool {
     
     private defineFieldsTool: DefineFieldsTool;
+    private addFieldTool: AddFieldTool;
     
     constructor() {
         this.defineFieldsTool = new DefineFieldsTool();
+        this.addFieldTool = new AddFieldTool();
     }
     
     /**
@@ -59,9 +73,13 @@ export class NewModelTool implements AIEnhancedTool {
      */
     public async createNewModel(targetUri: vscode.Uri | AppTreeItem, cache?: MetadataCache): Promise<void> {
         let finalTargetUri: vscode.Uri;
+        let parentModelInfo: { name: string; filePath: string } | null = null;
         
         // Handle different types of input
         if (targetUri instanceof AppTreeItem) {
+            // Detect if we're coming from a model context
+            parentModelInfo = this.detectParentModel(targetUri, cache);
+            
             // Handle AppTreeItem case
             if (targetUri.folderPath) {
                 // Use the folderPath directly (this now includes dataRoot path)
@@ -131,7 +149,7 @@ export class NewModelTool implements AIEnhancedTool {
             }
 
             // Convert PascalCase to camelCase for filename
-            const fileName = this.toCamelCase(modelName) + '.ts';
+            const fileName = modelName + '.ts';
             const targetFilePath = path.join(targetDirectory, fileName);
             const targetFileUri = vscode.Uri.file(targetFilePath);
 
@@ -182,10 +200,31 @@ export class NewModelTool implements AIEnhancedTool {
                 }
             }
 
-            // Step 10: Show success message
-            const successMessage = fieldsInfo?.trim() && cache 
+            // Step 10: Handle parent model relationship if applicable
+            if (parentModelInfo && cache) {
+                try {
+                    await this.addCompositionRelationshipToParent(
+                        parentModelInfo,
+                        modelName,
+                        cache
+                    );
+                } catch (relationshipError) {
+                    console.warn('Failed to add composition relationship to parent model:', relationshipError);
+                    vscode.window.showWarningMessage(
+                        `Model created successfully, but failed to add composition relationship to parent model: ${relationshipError}`
+                    );
+                }
+            }
+
+            // Step 11: Show success message
+            let successMessage = fieldsInfo?.trim() && cache 
                 ? `Model ${modelName} created and fields processed successfully!`
                 : `Model ${modelName} created successfully!`;
+            
+            if (parentModelInfo) {
+                successMessage += ` Composition relationship added to ${parentModelInfo.name}.`;
+            }
+            
             vscode.window.showInformationMessage(successMessage);
 
         } catch (error) {
@@ -243,5 +282,139 @@ export class NewModelTool implements AIEnhancedTool {
      */
     private toCamelCase(str: string): string {
         return str.charAt(0).toLowerCase() + str.slice(1);
+    }
+
+    /**
+     * Detects if the command is being executed from a model context.
+     * @param targetUri - The AppTreeItem where the command was triggered
+     * @param cache - The metadata cache for model lookup
+     * @returns Information about the parent model or null if not in a model context
+     */
+    private detectParentModel(targetUri: AppTreeItem, cache?: MetadataCache): { name: string; filePath: string } | null {
+        if (!cache) {
+            return null;
+        }
+
+        // Check if the current item is a model or if we need to traverse up the tree
+        let currentItem: AppTreeItem | undefined = targetUri;
+        
+        while (currentItem) {
+            // Check if this item represents a model
+            if (currentItem.itemType === 'model' && currentItem.metadata) {
+                // This is a model item, get its information
+                const modelMetadata = currentItem.metadata as any;
+                const modelName = modelMetadata.name || currentItem.label;
+                
+                // Try to find the file path for this model
+                const modelFilePath = this.findModelFilePath(modelName, cache);
+                
+                if (modelFilePath) {
+                    return {
+                        name: modelName,
+                        filePath: modelFilePath
+                    };
+                }
+            }
+            
+            // Move to parent item
+            currentItem = currentItem.parent;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Finds the file path for a given model name in the cache.
+     * @param modelName - The name of the model to find
+     * @param cache - The metadata cache
+     * @returns The file path of the model or null if not found
+     */
+    private findModelFilePath(modelName: string, cache: MetadataCache): string | null {
+        // Get all data models and find the one we're looking for
+        const modelClasses = cache.getDataModelClasses();
+        const targetModel = modelClasses.find(model => model.name === modelName);
+        
+        if (!targetModel) {
+            return null;
+        }
+        
+        // Get the model's declaration location to determine the file path
+        if (targetModel.declaration && targetModel.declaration.uri) {
+            return targetModel.declaration.uri.fsPath;
+        }
+        
+        // Fallback: check if we can find it in the cache's file metadata
+        // Iterate through all cached files to find the model
+        const dataModels = cache.getDataModelClasses();
+        for (const model of dataModels) {
+            if (model.name === modelName && model.declaration) {
+                return model.declaration.uri.fsPath;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Automatically adds a composition relationship field to the parent model.
+     * @param parentModelInfo - Information about the parent model
+     * @param newModelName - Name of the newly created model
+     * @param cache - The metadata cache
+     */
+    private async addCompositionRelationshipToParent(
+        parentModelInfo: { name: string; filePath: string },
+        newModelName: string,
+        cache: MetadataCache
+    ): Promise<void> {
+        // Generate field name from the new model name (convert to camelCase and make it plural)
+        const fieldName = this.generateCompositionFieldName(newModelName);
+        
+        // Create the parent model URI
+        const parentModelUri = vscode.Uri.file(parentModelInfo.filePath);
+        
+        // Find the Relationship field type option
+        const relationshipFieldType = FIELD_TYPE_OPTIONS.find(option => option.decorator === 'Relationship');
+        if (!relationshipFieldType) {
+            throw new Error('Relationship field type not found in FIELD_TYPE_OPTIONS');
+        }
+        
+        // Create the field info for the composition relationship
+        const fieldInfo: FieldInfo = {
+            name: fieldName,
+            type: relationshipFieldType,
+            required: false, // Composition relationships are typically optional
+            additionalConfig: {
+                targetModel: newModelName,
+                relationshipType: 'composition'
+            }
+        };
+        
+        // Use AddFieldTool to add the field programmatically
+        await this.addFieldTool.addFieldProgrammatically(
+            parentModelUri,
+            fieldInfo,
+            cache,
+            true // silent mode - suppress success/error messages
+        );
+    }
+
+    /**
+     * Generates a field name for the composition relationship.
+     * Converts the model name to camelCase and makes it plural.
+     * @param modelName - The name of the target model
+     * @returns The generated field name
+     */
+    private generateCompositionFieldName(modelName: string): string {
+        // Convert to camelCase
+        const camelCase = this.toCamelCase(modelName);
+        
+        // Make it plural (simple pluralization)
+        if (camelCase.endsWith('y')) {
+            return camelCase.slice(0, -1) + 'ies';
+        } else if (camelCase.endsWith('s') || camelCase.endsWith('x') || camelCase.endsWith('ch') || camelCase.endsWith('sh')) {
+            return camelCase + 'es';
+        } else {
+            return camelCase + 's';
+        }
     }
 }

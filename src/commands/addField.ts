@@ -126,6 +126,62 @@ export class AddFieldTool implements AIEnhancedTool {
     }
     
     /**
+     * Adds a field with predefined information (programmatic field addition).
+     * This method bypasses user input and directly adds the field with the provided configuration.
+     * 
+     * @param targetUri - The URI of the model file where the field should be added
+     * @param fieldInfo - Predefined field information
+     * @param cache - The metadata cache for context about existing models
+     * @param silent - If true, suppresses success/error messages (defaults to false)
+     * @returns Promise that resolves when the field is added
+     */
+    public async addFieldProgrammatically(
+        targetUri: vscode.Uri, 
+        fieldInfo: FieldInfo, 
+        cache: MetadataCache,
+        silent: boolean = false
+    ): Promise<void> {
+        try {
+            // Step 1: Validate target file
+            const { modelClass, document } = await this.validateAndPrepareTarget(targetUri, cache);
+            
+            // Step 2: Check if field already exists
+            const existingFields = Object.keys(modelClass.properties || {});
+            if (existingFields.includes(fieldInfo.name)) {
+                const message = `Field '${fieldInfo.name}' already exists in model ${modelClass.name}`;
+                if (!silent) {
+                    vscode.window.showWarningMessage(message);
+                }
+                return;
+            }
+            
+            // Step 3: Generate basic field structure
+            const fieldCode = this.generateFieldCode(fieldInfo);
+            
+            // Step 4: Insert field into model class
+            await this.insertFieldIntoModel(document, modelClass.name, fieldCode, fieldInfo, cache);
+            
+            // Step 5: If it's a Choice field, also create the enum
+            if (fieldInfo.type.decorator === 'Choice') {
+                await this.insertEnumForChoiceField(document, fieldInfo);
+            }
+            
+            // Step 6: Show success message (if not silent)
+            if (!silent) {
+                vscode.window.showInformationMessage(`Field ${fieldInfo.name} added successfully!`);
+            }
+            
+        } catch (error) {
+            const message = `Failed to add field: ${error}`;
+            if (!silent) {
+                vscode.window.showErrorMessage(message);
+            }
+            console.error('Error adding field programmatically:', error);
+            throw error; // Re-throw for caller to handle
+        }
+    }
+    
+    /**
      * Validates the target file and prepares it for field addition.
      */
     private async validateAndPrepareTarget(
@@ -508,7 +564,10 @@ export class AddFieldTool implements AIEnhancedTool {
         } else if (fieldInfo.type.decorator === 'Relationship') {
             // For Relationship fields, use the target model type
             const targetModel = fieldInfo.additionalConfig?.targetModel || 'any';
-            lines.push(`${fieldInfo.name}!: ${targetModel};`);
+            // Check if it's a composition relationship to determine if it should be an array
+            const isComposition = fieldInfo.additionalConfig?.relationshipType === 'composition';
+            const typeDeclaration = isComposition ? `${targetModel}[]` : targetModel;
+            lines.push(`${fieldInfo.name}!: ${typeDeclaration};`);
         } else {
             lines.push(`${fieldInfo.name}!: ${fieldInfo.type.tsType};`);
         }
