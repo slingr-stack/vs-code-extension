@@ -17,11 +17,9 @@
     "skipLibCheck": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "outDir": "./dist",
-    "baseUrl": "./",
-    "paths": {
-      "@/*": ["src/*"]
-    }
+    "esModuleInterop": true,
+    "outDir": "./dist"
   },
-  "include": ["src/**/*", "test/**/*", "jest.config.js"]
+  "include": ["src/**/*", "test/**/*", "jest.config.js"],
+  "exclude": ["node_modules", "dist"]
 }
