@@ -12,12 +12,6 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "slingr-vscode-extension.helloWorld",
-        "title": "Hello World"
-      }
-    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -33,11 +27,6 @@
           "id": "slingrExplorer",
           "name": "Slingr Explorer",
           "icon": "resources/slingr-icon.jpg" 
-        },
-        {
-          "id": "slingrExtensionView",
-          "name": "Slingr Extension",
-          "icon": "resources/slingr-icon.svg"
         }
       ]
     }

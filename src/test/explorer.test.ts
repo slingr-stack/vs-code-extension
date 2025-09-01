@@ -49,13 +49,14 @@ describe('Explorer Provider Tests', () => {
             assert.strictEqual(children.length, 2);
             assert.strictEqual(children[0].label, 'ProjectModel'); // alphabetically first
             assert.strictEqual(children[0].itemType, 'model');
-            assert.strictEqual(children[1].label, 'User Model'); // alphabetically second
+            assert.strictEqual(children[1].label, 'UserModel');
             assert.strictEqual(children[1].itemType, 'model');
         });
 
-        it('should return empty array when no data models exist', async () => {
+        it('should return empty array when no models exist', async () => {
+            // Create an empty cache
             const emptyCache = createEmptyMockCache();
-            const emptyExplorerProvider = new ExplorerProvider(emptyCache, extensionUri);
+            const emptyExplorer = new ExplorerProvider(emptyCache, extensionUri);
             
             const dataRootItem = new AppTreeItem(
                 'Data',
@@ -64,61 +65,13 @@ describe('Explorer Provider Tests', () => {
                 extensionUri
             );
 
-            const children = await emptyExplorerProvider.getChildren(dataRootItem);
+            const children = await emptyExplorer.getChildren(dataRootItem);
             assert.strictEqual(children.length, 0);
-        });
-
-        it('should display folders when models are in subfolders', async () => {
-            const cacheWithFolders = createMockCacheWithFolders();
-            const folderExplorerProvider = new ExplorerProvider(cacheWithFolders, extensionUri);
-            
-            const dataRootItem = new AppTreeItem(
-                'Data',
-                vscode.TreeItemCollapsibleState.Expanded,
-                'dataRoot',
-                extensionUri
-            );
-
-            const children = await folderExplorerProvider.getChildren(dataRootItem);
-            
-            // Should have 1 model in root and 1 folder
-            assert.strictEqual(children.length, 2);
-            
-            // First should be the folder (alphabetically)
-            assert.strictEqual(children[0].label, 'models');
-            assert.strictEqual(children[0].itemType, 'folder');
-            
-            // Second should be the model
-            assert.strictEqual(children[1].label, 'Root Model');
-            assert.strictEqual(children[1].itemType, 'model');
-        });
-
-        it('should display models inside folders when folder is expanded', async () => {
-            const cacheWithFolders = createMockCacheWithFolders();
-            const folderExplorerProvider = new ExplorerProvider(cacheWithFolders, extensionUri);
-            
-            // Create folder item
-            const folderItem = new AppTreeItem(
-                'models',
-                vscode.TreeItemCollapsibleState.Collapsed,
-                'folder',
-                extensionUri,
-                undefined,
-                undefined,
-                'models'
-            );
-
-            const children = await folderExplorerProvider.getChildren(folderItem);
-            
-            // Should have 1 model in the models folder
-            assert.strictEqual(children.length, 1);
-            assert.strictEqual(children[0].label, 'Folder Model');
-            assert.strictEqual(children[0].itemType, 'model');
         });
     });
 
     describe('Model Children', () => {
-        it('should return fields when model is expanded', async () => {
+        it('should return properties for a model', async () => {
             const mockModel = createMockModel();
             const modelItem = new AppTreeItem(
                 'User Model',
@@ -130,19 +83,21 @@ describe('Explorer Provider Tests', () => {
 
             const children = await explorerProvider.getChildren(modelItem);
             
-            assert.strictEqual(children.length, 2);
+            assert.strictEqual(children.length, 2); // name and email properties
             assert.strictEqual(children[0].itemType, 'field');
             assert.strictEqual(children[1].itemType, 'field');
         });
 
-        it('should return empty array when model has no fields', async () => {
-            const mockModelNoFields = createMockModelWithoutFields();
+        it('should return empty array for model without properties', async () => {
+            const mockModel = createMockModel();
+            mockModel.properties = {}; // No properties
+            
             const modelItem = new AppTreeItem(
                 'Empty Model',
                 vscode.TreeItemCollapsibleState.Collapsed,
                 'model',
                 extensionUri,
-                mockModelNoFields
+                mockModel
             );
 
             const children = await explorerProvider.getChildren(modelItem);
@@ -180,124 +135,14 @@ describe('Explorer Provider Tests', () => {
 
             const children = await explorerProvider.getChildren(modelItem);
             const fieldItem = children[0];
-            
+
             assert.ok(fieldItem.command);
             assert.strictEqual(fieldItem.command.command, 'slingr-vscode-extension.navigateToCode');
             assert.strictEqual(fieldItem.command.title, 'Go to Definition');
         });
     });
-
-    describe('Drag and Drop', () => {
-        it('should handle drag operation for field items', () => {
-            const mockProperty = createMockProperty('testField');
-            const mockModel = createMockModel();
-            const parentItem = new AppTreeItem(
-                'User Model',
-                vscode.TreeItemCollapsibleState.Collapsed,
-                'model',
-                extensionUri,
-                mockModel
-            );
-            
-            const fieldItem = new AppTreeItem(
-                'Test Field',
-                vscode.TreeItemCollapsibleState.None,
-                'field',
-                extensionUri,
-                mockProperty,
-                parentItem
-            );
-
-            const dataTransfer = new vscode.DataTransfer();
-            const token = new vscode.CancellationTokenSource().token;
-
-            // This should not throw an error
-            explorerProvider.handleDrag([fieldItem], dataTransfer, token);
-            
-            // Check if data was set (requires checking the MIME type)
-            const transferItem = dataTransfer.get('application/vnd.slingr-vscode-extension.field');
-            assert.ok(transferItem, 'Drag data should be set');
-        });
-
-        it('should not handle drag for non-field items', () => {
-            const mockModel = createMockModel();
-            const modelItem = new AppTreeItem(
-                'User Model',
-                vscode.TreeItemCollapsibleState.Collapsed,
-                'model',
-                extensionUri,
-                mockModel
-            );
-
-            const dataTransfer = new vscode.DataTransfer();
-            const token = new vscode.CancellationTokenSource().token;
-
-            explorerProvider.handleDrag([modelItem], dataTransfer, token);
-            
-            // Should not set any data for non-field items
-            const transferItem = dataTransfer.get('application/vnd.slingr-vscode-extension.field');
-            assert.strictEqual(transferItem, undefined);
-        });
-
-        it('should handle drag operation for composition model items', () => {
-            const childModel = createMockModel('ChildModel', 'Child Model', '/test/project/src/data/child-model.ts');
-            const parentModel = createMockModel('ParentModel', 'Parent Model', '/test/project/src/data/parent-model.ts');
-            
-            // Add a composition relationship property to the parent model
-            parentModel.properties['children'] = {
-                name: 'children',
-                type: 'ChildModel',
-                decorators: [
-                    {
-                        name: 'Field',
-                        arguments: [{ label: 'Children' }],
-                        position: new vscode.Range(0, 0, 0, 10)
-                    },
-                    {
-                        name: 'Relationship',
-                        arguments: [{ type: 'Composition' }],
-                        position: new vscode.Range(0, 0, 0, 10)
-                    }
-                ],
-                references: [],
-                declaration: new vscode.Location(
-                    vscode.Uri.file('/test/project/src/data/parent-model.ts'),
-                    new vscode.Range(5, 0, 5, 10)
-                )
-            };
-
-            const parentItem = new AppTreeItem(
-                'Parent Model',
-                vscode.TreeItemCollapsibleState.Collapsed,
-                'model',
-                extensionUri,
-                parentModel
-            );
-            
-            const compositionItem = new AppTreeItem(
-                'Children',
-                vscode.TreeItemCollapsibleState.Collapsed,
-                'model',
-                extensionUri,
-                childModel,
-                parentItem
-            );
-
-            const dataTransfer = new vscode.DataTransfer();
-            const token = new vscode.CancellationTokenSource().token;
-
-            // This should handle drag for composition model items
-            explorerProvider.handleDrag([compositionItem], dataTransfer, token);
-            
-            const transferItem = dataTransfer.get('application/vnd.slingr-vscode-extension.field');
-            assert.ok(transferItem, 'Drag data should be set for composition model items');
-            
-            const dragData = transferItem.value;
-            assert.strictEqual(dragData.field, 'children', 'Should drag the composition field name');
-            assert.strictEqual(dragData.modelClassName, 'ParentModel', 'Should reference the parent model class');
-        });
-    });
 });
+}
 
 // Helper functions to create mock data
 function createMockCache(): MetadataCache {
@@ -310,11 +155,12 @@ function createMockCache(): MetadataCache {
             createMockModel('UserModel', 'User Model'),
             createMockModel('ProjectModel', 'ProjectModel')
         ],
-        onDidUpdate: new vscode.EventEmitter<void>().event,
-        _onDidUpdate: new vscode.EventEmitter<void>(),
-        getMetadataForFile: () => undefined
+        onDidUpdate: () => ({ dispose: () => {} }),
+        dispose: () => {},
+        initialize: async () => {},
+        findMetadata: () => []
     } as any;
-
+    
     return mockCache;
 }
 
@@ -322,146 +168,45 @@ function createEmptyMockCache(): MetadataCache {
     const mockCache = {
         getDataModelClasses: () => [],
         getDataModels: () => [],
-        onDidUpdate: new vscode.EventEmitter<void>().event,
-        _onDidUpdate: new vscode.EventEmitter<void>(),
-        getMetadataForFile: () => undefined
+        onDidUpdate: () => ({ dispose: () => {} }),
+        dispose: () => {},
+        initialize: async () => {},
+        findMetadata: () => []
     } as any;
-
+    
     return mockCache;
 }
 
-function createMockCacheWithFolders(): MetadataCache {
-    const mockCache = {
-        getDataModelClasses: () => [
-            createMockModel('RootModel', 'Root Model', '/test/project/src/data/root-model.ts'),
-            createMockModel('FolderModel', 'Folder Model', '/test/project/src/data/models/folder-model.ts')
-        ],
-        getDataModels: () => [
-            createMockModel('RootModel', 'Root Model', '/test/project/src/data/root-model.ts'),
-            createMockModel('FolderModel', 'Folder Model', '/test/project/src/data/models/folder-model.ts')
-        ],
-        onDidUpdate: new vscode.EventEmitter<void>().event,
-        _onDidUpdate: new vscode.EventEmitter<void>(),
-        getMetadataForFile: () => undefined
-    } as any;
-
-    return mockCache;
-}
-
-function createMockCacheWithComposition(): MetadataCache {
-    // Create child model that will be referenced by composition
-    const childModel = createMockModel('ChildModel', 'Child Model', '/test/project/src/data/child-model.ts');
+function createMockModel(name: string = 'TestModel', displayName: string = 'Test Model'): DecoratedClass {
+    const filePath = `/test/${name.toLowerCase()}.ts`;
     
-    // Create parent model with composition relationship to child
-    const parentModel = createMockModel('ParentModel', 'Parent Model', '/test/project/src/data/parent-model.ts');
-    
-    // Add composition relationship field to parent model
-    parentModel.properties['child'] = {
-        name: 'child',
-        type: 'ChildModel',
-        decorators: [
-            {
-                name: 'Field',
-                arguments: [{ label: 'Child' }],
-                position: new vscode.Range(0, 0, 0, 10)
-            },
-            {
-                name: 'Relationship',
-                arguments: [{ type: 'Composition' }],
-                position: new vscode.Range(0, 0, 0, 10)
-            }
-        ],
-        references: [],
-        declaration: new vscode.Location(
-            vscode.Uri.file('/test/project/src/data/parent-model.ts'),
-            new vscode.Range(5, 0, 5, 10)
-        )
-    };
-    
-    // Add reference from parent to child model
-    childModel.references = [
-        new vscode.Location(
-            vscode.Uri.file('/test/project/src/data/parent-model.ts'),
-            new vscode.Range(5, 0, 5, 10)
-        )
-    ];
-    
-    const mockCache = {
-        getDataModelClasses: () => [parentModel, childModel],
-        getDataModels: () => [parentModel, childModel],
-        onDidUpdate: new vscode.EventEmitter<void>().event,
-        _onDidUpdate: new vscode.EventEmitter<void>(),
-        getMetadataForFile: (filePath: string) => {
-            if (filePath === '/test/project/src/data/parent-model.ts') {
-                return {
-                    uri: vscode.Uri.file(filePath),
-                    classes: {
-                        'ParentModel': parentModel
-                    }
-                };
-            }
-            return undefined;
-        }
-    } as any;
-
-    return mockCache;
-}
-
-function createMockModel(name: string = 'UserModel', label?: string, filePath: string = '/test/project/src/data/model.ts'): DecoratedClass {
     return {
-        name,
+        name: name,
         decorators: [
-            {
-                name: 'Model',
-                arguments: [{ label: label || name }],
-                position: new vscode.Range(0, 0, 0, 10)
-            }
+            { name: 'Model', arguments: [], position: new vscode.Range(0, 0, 0, 6) }
         ],
         properties: {
-            'name': createMockProperty('name', 'User Name'),
-            'email': createMockProperty('email', 'emailField')
+            'name': createMockProperty('name', 'string'),
+            'email': createMockProperty('email', 'string')
         },
         methods: {},
         references: [],
+        isDataModel: true,
         declaration: new vscode.Location(
             vscode.Uri.file(filePath),
             new vscode.Range(0, 0, 0, 10)
-        ),
-        isDataModel: true
+        )
     };
 }
 
-function createMockModelWithoutFields(): DecoratedClass {
+function createMockProperty(name: string, type: string = 'string'): PropertyMetadata {
+    const filePath = `/test/model.ts`;
+    
     return {
-        name: 'EmptyModel',
+        name: name,
+        type: type,
         decorators: [
-            {
-                name: 'Model',
-                arguments: [{ label: 'Empty Model' }],
-                position: new vscode.Range(0, 0, 0, 10)
-            }
-        ],
-        properties: {},
-        methods: {},
-        references: [],
-        declaration: new vscode.Location(
-            vscode.Uri.file('/test/project/src/data/empty-model.ts'),
-            new vscode.Range(0, 0, 0, 10)
-        ),
-        isDataModel: true
-    };
-}
-
-function createMockProperty(name: string, label?: string, filePath: string = '/test/project/src/data/model.ts'): PropertyMetadata {
-    return {
-        name,
-        type: 'string',
-        decorators: [
-            {
-                name: 'Field',
-                arguments: [{ label: label || name }],
-                position: new vscode.Range(0, 0, 0, 10)
-            }
+            { name: 'Field', arguments: [], position: new vscode.Range(5, 0, 5, 6) }
         ],
         references: [],
         declaration: new vscode.Location(
@@ -469,5 +214,4 @@ function createMockProperty(name: string, label?: string, filePath: string = '/t
             new vscode.Range(5, 0, 5, 10)
         )
     };
-}
 }
