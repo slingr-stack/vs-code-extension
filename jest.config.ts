@@ -4,20 +4,25 @@ const config: Config = {
   preset: "ts-jest",
   testEnvironment: "node",
   transform: {
-    "^.+\\.(ts|tsx)$": [
-      "ts-jest",
+    '^.+\\.(ts|tsx|js|jsx)$': [
+      'ts-jest',
       {
         tsconfig: {
-          module: "commonjs",
+          module: 'commonjs',
+          allowJs: true,
+
         },
       },
     ],
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!bigint-money|class-transformer)',
+  ],
   testMatch: ["<rootDir>/test/**/*.test.ts"],
-  coverageProvider: "v8",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
+  coverageProvider: "v8",
 };
 
 module.exports = config;
