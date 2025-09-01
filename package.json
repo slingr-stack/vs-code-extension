@@ -71,6 +71,14 @@
       {
         "command": "slingr-vscode-extension.createTest",
         "title": "Create Test"
+      },
+      {
+        "command": "slingr-vscode-extension.createModelFromDescription",
+        "title": "Create Model from Description"
+      },
+      {
+        "command": "slingr-vscode-extension.modifyModel",
+        "title": "Modify Model"
       }
     ],
     "submenus": [
@@ -159,6 +167,16 @@
         },
         {
           "command": "slingr-vscode-extension.createTest",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.createModelFromDescription",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.modifyModel",
           "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
           "group": "0_creation"
         }
