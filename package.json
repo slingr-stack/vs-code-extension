@@ -2,11 +2,9 @@
   "name": "slingr-framework",
   "version": "1.0.0",
   "description": "Slingr Framework - Smart Business Apps",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "exports": {
+    ".": "./index.js" 
+  },
   "scripts": {
     "test": "jest --verbose",
     "watch": "tsc --project tsconfig.build.json --watch",
