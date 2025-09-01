@@ -6,7 +6,7 @@ import type {
   CustomValidationFunction, 
   CustomAvailableFunction,
   ValidationIssue
-} from "@/model/types/SharedTypes";
+} from "./types/SharedTypes";
 
 /**
  * Custom validation function type for field validation.
