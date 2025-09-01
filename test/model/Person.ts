@@ -1,7 +1,7 @@
-import { Field } from "../../src/model/Field";
-import { Model } from "../../src/model/Model";
-import { BaseModel } from "../../src/model/BaseModel";
-import { IsEmail } from "class-validator";
+import { Field } from "@/model/Field";
+import { Model } from "@/model/Model";
+import { BaseModel } from "@/model/BaseModel";
+import { Text, Email, HTML, Boolean } from "@/model/types";
 
 @Model({
   docs: "Represents a person",
@@ -10,15 +10,27 @@ export class Person extends BaseModel {
   @Field({
     required: true,
   })
+  @Text({
+    minLength: 2,
+    maxLength: 30,
+    regex: /^[a-zA-Z]+$/,
+    regexMessage: "firstName must contain only letters",
+  })
   firstName!: string;
 
   @Field({
     required: true,
   })
+  @Text({
+    minLength: 2,
+    maxLength: 30,
+    regex: /^[a-zA-Z]+$/,
+    regexMessage: "lastName must contain only letters",
+  })
   lastName!: string;
 
   @Field({})
-  @IsEmail()
+  @Email()
   email!: string;
 
   @Field({
@@ -36,12 +48,15 @@ export class Person extends BaseModel {
   })
   age!: number;
 
+
   @Field({
     required: (person: Person) => {
       return (person.age < 18);
     },
   })
+  @Email()
   parentEmail!: string;
+
 
   @Field({
     available: false, // This field should be excluded from JSON operations
@@ -56,4 +71,15 @@ export class Person extends BaseModel {
     },
   })
   phoneNumber!: string;
+
+  @Field({})
+  @HTML()
+  additionalInfo!: string;
+
+  @Field({
+    required: false,
+  })
+  @Boolean()
+  isActive!: boolean;
+
 }
