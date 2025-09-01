@@ -2,6 +2,10 @@
 
 The Slingr Framework is a TypeScript framework for building smart business applications with robust model validation, serialization, and field type decorators. It uses class-validator for validation and class-transformer for JSON serialization.
 
+The goal of the Slingr Framework is to provide developers with the tools to create smart enterprise applications without having to think about infrastructure, and just working on solving the problem. We achieve this by providing the main features enterprise applications need, using the best frameworks and libraries, and filling the gaps to ensure that everything works well out of the box. This is a full-stack framework that covers all the layers, removing the need to cherrypick frameworks and libraries while ensuring that everything works smoothly in harmony.
+
+Additionally, we know that frameworks alone are not enough to provide a great developer experience. Tooling is key to making sure that developing with the Slingr Framework is a joy, and that’s why a big part of our focus will be on creating an application builder and CLI tools.
+
 **ALWAYS reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
 
 ## Working Effectively
