@@ -11,5 +11,6 @@ export type { DateTimeRangeOptions } from './DateTimeRange';
 export { Integer } from './Integer';
 export { Money } from './Money';
 export { Number } from './Number';
-export { Decimal } from './Decimal';export { Relationship } from './Relationship';
+export { Decimal } from './Decimal';
+export { Relationship } from './Relationship';
 export type { RelationshipOptions } from './Relationship';
