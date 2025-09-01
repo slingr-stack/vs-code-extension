@@ -67,6 +67,10 @@
       {
         "command": "slingr-vscode-extension.newFolder",
         "title": "New Folder"
+      },
+      {
+        "command": "slingr-vscode-extension.createTest",
+        "title": "Create Test"
       }
     ],
     "submenus": [
@@ -150,6 +154,11 @@
         },
         {
           "command": "slingr-vscode-extension.addField",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.createTest",
           "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
           "group": "0_creation"
         }
