@@ -13,11 +13,10 @@ Tests the `ExplorerProvider` class in isolation using mock data:
 - **Data Root Children**: Tests that models are properly loaded from the cache
 - **Model Children**: Tests that model fields are displayed correctly
 - **Tree Item Properties**: Tests tree item creation and properties
-- **Drag and Drop**: Tests field reordering functionality
 - **Cache Integration**: Tests cache update event handling
 
 ### 2. Cache Tests (`cache.test.ts`)
-Tests the `MetadataCache` class functionality:
+Tests the simplified `MetadataCache` class functionality:
 
 - **Cache Initialization**: Tests that the cache initializes without errors
 - **Data Model Methods**: Tests `getDataModels()` and `getDataModelClasses()` methods
@@ -71,7 +70,6 @@ Unit tests use mock data and don't require real files. They test:
 2. **Model Loading**: Ensures only data models (from `src/data/`) are shown
 3. **Field Display**: Confirms model fields are properly displayed
 4. **Navigation**: Tests that clicking items navigates to the correct code location
-5. **Drag & Drop**: Verifies field reordering works correctly
 
 ### Cache Tests
 1. **File Discovery**: Ensures cache finds TypeScript files in `src/data/`
