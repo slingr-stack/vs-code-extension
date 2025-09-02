@@ -162,8 +162,8 @@ export function registerGeneralCommands(
 
     // Create Model from Description Tool
     const createModelFromDescriptionTool = new CreateModelFromDescriptionTool();
-    const createModelFromDescriptionCommand = vscode.commands.registerCommand('slingr-vscode-extension.createModelFromDescription', () => {
-        return createModelFromDescriptionTool.createModel(cache);
+    const createModelFromDescriptionCommand = vscode.commands.registerCommand('slingr-vscode-extension.createModelFromDescription', (context?: vscode.Uri | AppTreeItem) => {
+        return createModelFromDescriptionTool.createModel(cache, context);
     });
     disposables.push(createModelFromDescriptionCommand);
 
