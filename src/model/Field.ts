@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsOptional, ValidateIf } from 'class-validator';
 import { Exclude, Expose, Transform } from 'class-transformer';
 import { CustomValidate } from '../validators/CustomValidationConstraint';
-import type { CustomRequiredFunction, CustomValidationFunction } from './types/SharedTypes';
+import type { CustomRequiredFunction, CustomValidationFunction} from './types/SharedTypes';
 
 /**
  * Custom validation function type for field validation.

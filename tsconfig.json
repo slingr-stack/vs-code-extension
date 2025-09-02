@@ -20,6 +20,6 @@
     "esModuleInterop": true,
     "outDir": "./dist"
   },
-  "include": ["src/**/*", "test/**/*", "jest.config.js"],
+  "include": ["src/**/*", "test/**/*", "jest.config.js", "index.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,4 +1,4 @@
-import { Field, Model, BaseModel, Number, Integer } from "../../src";
+import { Field, Model, BaseModel, Number, Integer } from "../../index";
 
 @Model({
     docs: "A model for testing number and integer validations",

@@ -32,6 +32,14 @@ class Book extends BaseModel {
         type: 'reference'
     })
     author!: Author;
+
+    @Field({
+        required: false,
+    })
+    @Relationship({
+        type: 'reference'
+    })
+    coauthor?: Author;
 }
 
 @Model()
@@ -102,7 +110,7 @@ describe('Relationship Type', () => {
         });
     });
 
-    describe('Reference Relationships', () => {
+        describe('Reference Relationships', () => {
         it('should create models with reference relationships', () => {
             const customer = new Customer();
             customer.name = 'John Doe';
@@ -167,6 +175,32 @@ describe('Relationship Type', () => {
             // Verify that default values were applied
             expect(task.status).toBe('toDo');
             expect(task.priority).toBe(2); // Priority.Medium
+        });
+    });
+
+    describe('Test null vs undefined', () => {
+        it('a field not set should be undefined after serialization', () => {
+            const order = new Order();
+            order.date = new Date('2023-01-15');
+            order.lineItems = [];
+
+            expect(order.customer).toBeUndefined();
+            const json = order.toJSON();
+            expect(json.customer).toBeUndefined();
+            const restored = Order.fromJSON(json);
+            expect(restored.customer).toBeUndefined();
+        });
+
+        it('a field set to null must remain null after serialization', () => {
+            const book = new Book();
+            book.title = 'Some Book';
+            book.coauthor = null as any; // explicitly set to null
+
+            expect(book.coauthor).toBeNull();
+            const json = book.toJSON();
+            expect(json.coauthor).toBeNull();
+            const restored = Book.fromJSON(json);
+            expect(restored.coauthor).toBeNull();
         });
     });
 
@@ -257,13 +291,40 @@ describe('Relationship Type', () => {
     });
 
     describe('Edge Cases', () => {
-        it('should handle null/undefined relationships', () => {
+        it('should handle undefined relationships (not loaded)', () => {
             const task = new Task();
             task.title = 'Task without project';
-            // project is undefined
+            // project is undefined - relationship was never loaded/set
 
             const json = task.toJSON();
             expect(json.project).toBeUndefined();
+        });
+
+        it('should handle null relationships (loaded but empty)', () => {
+            const task = new Task();
+            task.title = 'Task with no project';
+            (task as any).project = null; // explicitly set to null - relationship was loaded but is empty
+
+            const json = task.toJSON();
+            expect(json.project).toBeNull();
+        });
+
+        it('should preserve null/undefined distinction during deserialization', () => {
+            // Test undefined case
+            const taskDataUndefined = {
+                title: 'Task without project'
+                // project property is not included (undefined)
+            };
+            const taskUndefined = Task.fromJSON(taskDataUndefined);
+            expect(taskUndefined.project).toBeUndefined();
+
+            // Test null case  
+            const taskDataNull = {
+                title: 'Task with null project',
+                project: null // explicitly null
+            };
+            const taskNull = Task.fromJSON(taskDataNull);
+            expect(taskNull.project).toBeNull();
         });
 
         it('should handle empty arrays in composition relationships', () => {

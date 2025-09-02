@@ -185,86 +185,13 @@ export abstract class BaseModel {
     const instance = plainToInstance(this, json, {
       excludeExtraneousValues: true,
       enableImplicitConversion: true, // Enable coercion when possible
+      exposeDefaultValues: true,
     });
-
-    // Apply default values for fields that are undefined/null but have defaults
-    BaseModel.applyDefaultValues(instance);
 
     // Calculate manual calculation fields
     instance.calculate();
 
     return instance;
-  }
-
-  /**
-   * Applies default values to fields that are undefined/null in the instance
-   * but have default values defined in the class.
-   * 
-   * @param instance - The model instance to apply default values to
-   */
-  private static applyDefaultValues<T extends BaseModel>(instance: T): void {
-    // Create a temporary instance to get the default values
-    const defaultInstance = new (instance.constructor as new () => T)();
-    
-    // Get all property names from the prototype chain
-    const propertyNames = this.getAllPropertyNames(instance);
-    
-    for (const propertyName of propertyNames) {
-      // Check if this property has a Field decorator
-      if (Reflect.hasMetadata('field:docs', instance, propertyName) || 
-          Reflect.hasMetadata('field:validation', instance, propertyName) ||
-          this.hasFieldDecorator(instance, propertyName)) {
-        
-        // Skip calculated fields as they will be handled by calculate()
-        if (Reflect.hasMetadata('field:calculation', instance, propertyName)) {
-          continue;
-        }
-        
-        // If the property is undefined/null in the instance but has a default value
-        if ((instance as any)[propertyName] === undefined || (instance as any)[propertyName] === null) {
-          const defaultValue = (defaultInstance as any)[propertyName];
-          if (defaultValue !== undefined && defaultValue !== null) {
-            (instance as any)[propertyName] = defaultValue;
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Gets all property names from the instance and its prototype chain
-   */
-  private static getAllPropertyNames(instance: BaseModel): string[] {
-    const propertyNames = new Set<string>();
-    
-    // Get properties from the instance itself
-    Object.getOwnPropertyNames(instance).forEach(name => propertyNames.add(name));
-    
-    // Get properties from the prototype chain
-    let prototype = Object.getPrototypeOf(instance);
-    while (prototype && prototype !== BaseModel.prototype && prototype !== Object.prototype) {
-      Object.getOwnPropertyNames(prototype).forEach(name => {
-        if (name !== 'constructor') {
-          propertyNames.add(name);
-        }
-      });
-      prototype = Object.getPrototypeOf(prototype);
-    }
-    
-    return Array.from(propertyNames);
-  }
-
-  /**
-   * Checks if a property has any Field-related metadata
-   */
-  private static hasFieldDecorator(instance: BaseModel, propertyName: string): boolean {
-    // Check for any metadata that would indicate a Field decorator was applied
-    const metadataKeys = Reflect.getMetadataKeys(instance, propertyName) || [];
-    return metadataKeys.some(key => 
-      typeof key === 'string' && key.startsWith('field:')
-    ) || metadataKeys.includes('custom:field') || 
-       metadataKeys.includes('field') ||
-       metadataKeys.includes('design:type');
   }
 
   /**
