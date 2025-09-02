@@ -34,29 +34,29 @@
       },
       {
         "command": "slingr-vscode-extension.renameModel",
-        "title": "Slingr: Rename Model"
+        "title": "Rename Model"
       },
       {
         "command": "slingr-vscode-extension.deleteModel",
-        "title": "Slingr: Delete Model"
+        "title": "Delete Model"
       },
       {
         "command": "slingr-vscode-extension.renameField",
-        "title": "Slingr: Rename Field"
+        "title": "Rename Field"
       },
       {
         "command": "slingr-vscode-extension.deleteField",
-        "title": "Slingr: Delete Field"
+        "title": "Delete Field"
       },
       {
         "command": "slingr-vscode-extension.changeFieldType",
-        "title": "Slingr: Change Field Type"
+        "title": "Change Field Type"
       }
     ],
     "submenus": [
       {
         "id": "slingr-vscode-extension.refactorings",
-        "label": "Slingr: Refactor"
+        "label": "Refactorings"
       }
     ],
     "menus": {
@@ -76,9 +76,29 @@
       ],
       "view/item/context": [
         {
-          "when": "view == slingrExplorer && (viewItem == 'model' || viewItem == 'field')",
-          "submenu": "slingr-vscode-extension.refactorings",
+          "when": "view == slingrExplorer && viewItem == 'model'",
+          "command": "slingr-vscode-extension.renameModel",
           "group": "1_modification"
+        },
+        {
+          "when": "view == slingrExplorer && viewItem == 'model'",
+          "command": "slingr-vscode-extension.deleteModel",
+          "group": "2_modification"
+        },
+        {
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "command": "slingr-vscode-extension.renameField",
+          "group": "1_modification"
+        },
+        {
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "command": "slingr-vscode-extension.deleteField",
+          "group": "2_modification"
+        },
+        {
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "command": "slingr-vscode-extension.changeFieldType",
+          "group": "3_modification"
         }
       ],
       "slingr-vscode-extension.refactorings": [
