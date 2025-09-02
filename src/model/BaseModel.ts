@@ -155,6 +155,10 @@ export abstract class BaseModel {
    * include or exclude fields during deserialization. The method also enables
    * transformation and coercion when possible to convert string values to appropriate types.
    * 
+   * Additionally, this method automatically fills empty values with:
+   * - Default values defined in the class declaration
+   * - Calculated values for fields marked with `calculation: 'manual'`
+   * 
    * @param this - The constructor of the target model class
    * @param json - The JSON object to convert into a model instance
    * @returns A new instance of the model class populated with data from the JSON
@@ -177,10 +181,17 @@ export abstract class BaseModel {
     this: new () => T,
     json: Record<string, any>
   ): T {
-    return plainToInstance(this, json, {
+    // First, create the instance using class-transformer
+    const instance = plainToInstance(this, json, {
       excludeExtraneousValues: true,
       enableImplicitConversion: true, // Enable coercion when possible
+      exposeDefaultValues: true,
     });
+
+    // Calculate manual calculation fields
+    instance.calculate();
+
+    return instance;
   }
 
   /**
