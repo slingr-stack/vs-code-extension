@@ -97,7 +97,7 @@ export class TypeORMSqlDataSource extends DataSource {
       type: typeormOptions.type,
       logging: typeormOptions.logging ?? false,
       synchronize: typeormOptions.synchronize ?? typeormOptions.managed,
-      entities: [], // Will be populated as models are registered
+      entities: Array.from(this.registeredModels), // Include registered entities
     };
 
     // SQLite-specific configuration
@@ -196,16 +196,24 @@ export class TypeORMSqlDataSource extends DataSource {
    * @param options - Additional configuration options (e.g., table name)
    */
   configureModel(modelClass: Function, options?: any): void {
-    // For now, we'll use reflection to mark the class as needing TypeORM configuration
-    // In a real implementation, this would apply the @Entity() decorator
-    Reflect.defineMetadata('typeorm:entity', true, modelClass);
+    // Register this model for inclusion in TypeORM entities
+    this.registeredModels.add(modelClass);
+    
+    // Apply the TypeORM @Entity decorator
+    const tableName = options?.tableName || modelClass.name.toLowerCase();
+    Entity(tableName)(modelClass as any);
 
+    // Store metadata for testing purposes
+    Reflect.defineMetadata('typeorm:entity', true, modelClass);
     if (options?.tableName) {
       Reflect.defineMetadata('typeorm:table', options.tableName, modelClass);
     }
 
     // Store that this model is configured for TypeORM
     Reflect.defineMetadata('datasource:type', 'typeorm-sql', modelClass);
+    
+    // Store the dataSource instance in the model metadata for later access
+    Reflect.defineMetadata('model:dataSource', this, modelClass);
   }
 
   /**
@@ -222,10 +230,18 @@ export class TypeORMSqlDataSource extends DataSource {
     fieldType: string,
     fieldOptions?: any
   ): void {
+    // Skip the id field if it's already configured with @PrimaryGeneratedColumn
+    if (propertyKey === 'id') {
+      return; // PersistentModel already handles this with @PrimaryGeneratedColumn
+    }
+
     // Map framework field types to TypeORM column types
     const typeMapping = this.getTypeOrmColumnType(fieldType, fieldOptions);
 
-    // Store TypeORM column metadata
+    // Apply the TypeORM @Column decorator
+    Column(typeMapping)(target, propertyKey);
+
+    // Store TypeORM column metadata for testing purposes
     Reflect.defineMetadata('typeorm:column', typeMapping, target, propertyKey);
 
     // Store that this field is configured for TypeORM
@@ -273,7 +289,7 @@ export class TypeORMSqlDataSource extends DataSource {
 
       case 'datetime':
         return {
-          type: 'timestamp',
+          type: 'datetime',
           nullable: true
         };
 
@@ -299,5 +315,90 @@ export class TypeORMSqlDataSource extends DataSource {
           nullable: true
         };
     }
+  }
+
+  /**
+   * Save an entity to the database.
+   * 
+   * @param entity - The entity instance to save
+   * @returns Promise resolving to the saved entity with generated id
+   */
+  async save<T extends object>(entity: T): Promise<T> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entity.constructor as any);
+    return await repository.save(entity as any) as T;
+  }
+
+  /**
+   * Find entities by criteria.
+   * 
+   * @param entityClass - The entity class to search for
+   * @param criteria - Search criteria (optional)
+   * @returns Promise resolving to array of found entities
+   */
+  async find<T extends object>(entityClass: new() => T, criteria?: any): Promise<T[]> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    if (criteria) {
+      return await repository.find({ where: criteria }) as T[];
+    }
+    return await repository.find() as T[];
+  }
+
+  /**
+   * Find a single entity by id.
+   * 
+   * @param entityClass - The entity class to search for
+   * @param id - The id of the entity to find
+   * @returns Promise resolving to the found entity or null
+   */
+  async findById<T extends object>(entityClass: new() => T, id: string): Promise<T | null> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    return await repository.findOne({ where: { id } as any }) as T | null;
+  }
+
+  /**
+   * Delete an entity by id.
+   * 
+   * @param entityClass - The entity class
+   * @param id - The id of the entity to delete
+   * @returns Promise resolving to delete result
+   */
+  async deleteById<T extends object>(entityClass: new() => T, id: string): Promise<void> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    await repository.delete(id);
+  }
+
+  /**
+   * Count entities matching criteria.
+   * 
+   * @param entityClass - The entity class to count
+   * @param criteria - Search criteria (optional)
+   * @returns Promise resolving to count of entities
+   */
+  async count<T extends object>(entityClass: new() => T, criteria?: any): Promise<number> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    if (criteria) {
+      return await repository.count({ where: criteria });
+    }
+    return await repository.count();
   }
 }

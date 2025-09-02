@@ -152,7 +152,7 @@ describe('Data Source Integration', () => {
       });
 
       expect(createdAtColumn).toEqual({
-        type: 'timestamp',
+        type: 'datetime',
         nullable: true
       });
     });
@@ -217,7 +217,7 @@ describe('Data Source Integration', () => {
       expect(longTextColumn.length).toBeUndefined();
 
       expect(countColumn.type).toBe('int');
-      expect(timestampColumn.type).toBe('timestamp');
+      expect(timestampColumn.type).toBe('datetime');
     });
 
     it('should handle fields without type metadata gracefully', () => {
@@ -315,6 +315,311 @@ describe('Data Source Integration', () => {
         name: 'John'
       });
       expect(json.internalField).toBeUndefined();
+    });
+  });
+
+  describe('SQLite Database Operations', () => {
+    let dataSource: TypeORMSqlDataSource;
+
+    beforeEach(async () => {
+      dataSource = new TypeORMSqlDataSource({
+        type: 'sqlite',
+        managed: true,
+        filename: ':memory:',
+        logging: false,
+        synchronize: true,
+      });
+    });
+
+    afterEach(async () => {
+      if (dataSource && dataSource.isConnected()) {
+        await dataSource.disconnect();
+      }
+    });
+
+    it('should save and retrieve a simple entity', async () => {
+      @Model({
+        dataSource: dataSource
+      })
+      class TestUser extends PersistentModel {
+        @Field({ required: true })
+        @Text({ maxLength: 50 })
+        name!: string;
+
+        @Field({ required: false })
+        @Email()
+        email!: string;
+      }
+
+      // Initialize the data source after model is configured
+      await dataSource.initialize(dataSource.getOptions());
+
+      // Create and save a user
+      const user = new TestUser();
+      user.name = 'John Doe';
+      user.email = 'john@example.com';
+
+      // Validate before saving
+      const errors = await user.validate();
+      expect(errors).toHaveLength(0);
+
+      // Save the user
+      const savedUser = await dataSource.save(user);
+      expect(savedUser).toBeDefined();
+      expect(savedUser.id).toBeDefined();
+      expect(savedUser.name).toBe('John Doe');
+      expect(savedUser.email).toBe('john@example.com');
+
+      // Find the user by id
+      const foundUser = await dataSource.findById(TestUser, savedUser.id);
+      expect(foundUser).toBeDefined();
+      expect(foundUser!.name).toBe('John Doe');
+      expect(foundUser!.email).toBe('john@example.com');
+    });
+
+    it('should find all entities', async () => {
+      @Model({
+        dataSource: dataSource
+      })
+      class TestUser extends PersistentModel {
+        @Field({ required: true })
+        @Text({ maxLength: 50 })
+        name!: string;
+
+        @Field({ required: false })
+        @Integer()
+        age!: number;
+      }
+
+      await dataSource.initialize(dataSource.getOptions());
+
+      // Create and save multiple users
+      const user1 = new TestUser();
+      user1.name = 'Alice';
+      user1.age = 25;
+
+      const user2 = new TestUser();
+      user2.name = 'Bob';
+      user2.age = 30;
+
+      const savedUser1 = await dataSource.save(user1);
+      const savedUser2 = await dataSource.save(user2);
+
+      // Find all users
+      const allUsers = await dataSource.find(TestUser);
+      expect(allUsers).toHaveLength(2);
+      
+      const names = allUsers.map(u => u.name).sort();
+      expect(names).toEqual(['Alice', 'Bob']);
+    });
+
+    it('should find entities by criteria', async () => {
+      @Model({
+        dataSource: dataSource
+      })
+      class TestUser extends PersistentModel {
+        @Field({ required: true })
+        @Text({ maxLength: 50 })
+        name!: string;
+
+        @Field({ required: false })
+        @Integer()
+        age!: number;
+      }
+
+      await dataSource.initialize(dataSource.getOptions());
+
+      // Create and save users with different ages
+      const youngUser = new TestUser();
+      youngUser.name = 'Alice';
+      youngUser.age = 20;
+
+      const oldUser = new TestUser();
+      oldUser.name = 'Bob';
+      oldUser.age = 50;
+
+      await dataSource.save(youngUser);
+      await dataSource.save(oldUser);
+
+      // Find users by age criteria
+      const youngUsers = await dataSource.find(TestUser, { age: 20 });
+      expect(youngUsers).toHaveLength(1);
+      expect(youngUsers[0]).toBeDefined();
+      expect(youngUsers[0]!.name).toBe('Alice');
+
+      const oldUsers = await dataSource.find(TestUser, { age: 50 });
+      expect(oldUsers).toHaveLength(1);
+      expect(oldUsers[0]).toBeDefined();
+      expect(oldUsers[0]!.name).toBe('Bob');
+    });
+
+    it('should delete entities', async () => {
+      @Model({
+        dataSource: dataSource
+      })
+      class TestUser extends PersistentModel {
+        @Field({ required: true })
+        @Text({ maxLength: 50 })
+        name!: string;
+      }
+
+      await dataSource.initialize(dataSource.getOptions());
+
+      // Create and save a user
+      const user = new TestUser();
+      user.name = 'John Doe';
+      const savedUser = await dataSource.save(user);
+
+      // Verify user exists
+      let foundUser = await dataSource.findById(TestUser, savedUser.id);
+      expect(foundUser).toBeDefined();
+
+      // Delete the user
+      await dataSource.deleteById(TestUser, savedUser.id);
+
+      // Verify user is deleted
+      foundUser = await dataSource.findById(TestUser, savedUser.id);
+      expect(foundUser).toBeNull();
+    });
+
+    it('should count entities', async () => {
+      @Model({
+        dataSource: dataSource
+      })
+      class TestUser extends PersistentModel {
+        @Field({ required: true })
+        @Text({ maxLength: 50 })
+        name!: string;
+
+        @Field({ required: false })
+        @Text()
+        category!: string;
+      }
+
+      await dataSource.initialize(dataSource.getOptions());
+
+      // Create and save users with different categories
+      const user1 = new TestUser();
+      user1.name = 'Alice';
+      user1.category = 'admin';
+
+      const user2 = new TestUser();
+      user2.name = 'Bob';
+      user2.category = 'user';
+
+      const user3 = new TestUser();
+      user3.name = 'Charlie';
+      user3.category = 'admin';
+
+      await dataSource.save(user1);
+      await dataSource.save(user2);
+      await dataSource.save(user3);
+
+      // Count all users
+      const totalCount = await dataSource.count(TestUser);
+      expect(totalCount).toBe(3);
+
+      // Count admin users
+      const adminCount = await dataSource.count(TestUser, { category: 'admin' });
+      expect(adminCount).toBe(2);
+
+      // Count regular users
+      const userCount = await dataSource.count(TestUser, { category: 'user' });
+      expect(userCount).toBe(1);
+    });
+
+    it('should handle complex models with different field types', async () => {
+      @Model({
+        dataSource: dataSource
+      })
+      class ComplexModel extends PersistentModel {
+        @Field({ required: true })
+        @Text({ maxLength: 100 })
+        title!: string;
+
+        @Field({ required: false })
+        @Integer()
+        count!: number;
+
+        @Field({ required: false })
+        @DateTime()
+        createdAt!: Date;
+
+        @Field({ required: false })
+        @Email()
+        contact!: string;
+      }
+
+      await dataSource.initialize(dataSource.getOptions());
+
+      // Create and save a complex model
+      const model = new ComplexModel();
+      model.title = 'Test Record';
+      model.count = 42;
+      model.createdAt = new Date('2023-01-15T10:30:00Z');
+      model.contact = 'test@example.com';
+
+      // Validate and save
+      const errors = await model.validate();
+      expect(errors).toHaveLength(0);
+
+      const savedModel = await dataSource.save(model);
+      expect(savedModel.id).toBeDefined();
+
+      // Retrieve and verify
+      const foundModel = await dataSource.findById(ComplexModel, savedModel.id);
+      expect(foundModel).toBeDefined();
+      expect(foundModel!.title).toBe('Test Record');
+      expect(foundModel!.count).toBe(42);
+      expect(foundModel!.contact).toBe('test@example.com');
+      
+      // Note: Date comparison might need special handling depending on how TypeORM handles dates
+      expect(foundModel!.createdAt).toBeInstanceOf(Date);
+    });
+
+    it('should maintain validation when working with the database', async () => {
+      @Model({
+        dataSource: dataSource
+      })
+      class ValidatedUser extends PersistentModel {
+        @Field({ required: true })
+        @Text({ minLength: 2, maxLength: 50 })
+        name!: string;
+
+        @Field({ required: true })
+        @Email()
+        email!: string;
+
+        @Field({ required: false })
+        @Integer()
+        age!: number;
+      }
+
+      await dataSource.initialize(dataSource.getOptions());
+
+      // Try to save an invalid user
+      const invalidUser = new ValidatedUser();
+      invalidUser.name = 'A'; // Too short
+      invalidUser.email = 'invalid-email'; // Invalid email format
+
+      const errors = await invalidUser.validate();
+      expect(errors.length).toBeGreaterThan(0);
+
+      // Should not save invalid data - but this depends on framework validation
+      // For now, we'll test that valid data works correctly
+
+      // Create a valid user
+      const validUser = new ValidatedUser();
+      validUser.name = 'John Doe';
+      validUser.email = 'john@example.com';
+      validUser.age = 30;
+
+      const validationErrors = await validUser.validate();
+      expect(validationErrors).toHaveLength(0);
+
+      const savedUser = await dataSource.save(validUser);
+      expect(savedUser.id).toBeDefined();
+      expect(savedUser.name).toBe('John Doe');
     });
   });
 });
