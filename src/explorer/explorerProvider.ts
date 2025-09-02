@@ -749,47 +749,51 @@ export class ExplorerProvider
   }
 
   private isModelReferencedByComposition(item: DecoratedClass): boolean {
-    // Get all references to this model
-    const modelReferences = item.references;
-    const checkedFiles = new Set<string>();
+      // Get all references to this model
+      const modelReferences = item.references;
+      const checkedFiles = new Set<string>();
 
-    // For each external reference, check if it's part of a composition relationship
-    for (const reference of modelReferences) {
-      // Get the file metadata for the reference
-      const referencingFile = this.cache.getMetadataForFile(reference.uri.fsPath);
-      if (!referencingFile) {
-        continue;
-      }
+      // For each external reference, check if it's part of a composition relationship
+      for (const reference of modelReferences) {
+          // Normalize paths for cross-platform consistency
+          const normalizedRefPath = reference.uri.fsPath.replace(/\\/g, "/");
+          const normalizedItemPath = item.declaration.uri.fsPath.replace(/\\/g, "/");
 
-      if (reference.uri.fsPath !== item.declaration.uri.fsPath && !checkedFiles.has(reference.uri.fsPath)) {
-        for (const referencingClass of Object.values(referencingFile.classes)) {
-          // Search through all properties in the class
-          for (const property of Object.values(referencingClass.properties)) {
-            // Check if this property references our model type
-            const lowerItemName = item.name.toLowerCase();
-            if (property.type === item.name || property.type === `${item.name}[]` || property.type.toLowerCase() === lowerItemName) {
-              // Check if this property has a @Relationship decorator with type: "Composition"
-              const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
-              if (relationshipDecorator) {
-                // Check if the relationship decorator has type: "Composition"
-                const hasCompositionType = relationshipDecorator.arguments.some(
-                  (arg) =>
-                    (typeof arg === "object" && arg !== null && "type" in arg && arg.type === "Composition") ||
-                    arg.type === "composition"
-                );
-
-                if (hasCompositionType) {
-                  return true;
-                }
-              }
-            }
+          // Get the file metadata for the reference
+          const referencingFile = this.cache.getMetadataForFile(reference.uri.fsPath);
+          if (!referencingFile) {
+              continue;
           }
-        }
-        checkedFiles.add(reference.uri.fsPath);
-      }
-    }
 
-    return false;
+          if (normalizedRefPath !== normalizedItemPath && !checkedFiles.has(normalizedRefPath)) {
+              for (const referencingClass of Object.values(referencingFile.classes)) {
+                  // Search through all properties in the class
+                  for (const property of Object.values(referencingClass.properties)) {
+                      // Check if this property references our model type
+                      const lowerItemName = item.name.toLowerCase();
+                      if (property.type === item.name || property.type === `${item.name}[]` || property.type.toLowerCase() === lowerItemName) {
+                          // Check if this property has a @Relationship decorator with type: "Composition"
+                          const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
+                          if (relationshipDecorator) {
+                              // Check if the relationship decorator has type: "Composition"
+                              const hasCompositionType = relationshipDecorator.arguments.some(
+                                  (arg) =>
+                                  (typeof arg === "object" && arg !== null && "type" in arg && arg.type === "Composition") ||
+                                  arg.type === "composition"
+                              );
+
+                              if (hasCompositionType) {
+                                  return true;
+                              }
+                          }
+                      }
+                  }
+              }
+              checkedFiles.add(normalizedRefPath);
+          }
+      }
+
+      return false;
   }
 
   /**
