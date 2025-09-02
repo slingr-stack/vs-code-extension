@@ -2,11 +2,9 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-// Add Project from ts-morph for the reordering logic
 import { Project, IndentationText } from "ts-morph";
 import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
-import * as fs from "fs";
 
 
 // Define custom MIME types for our drag-and-drop operations
