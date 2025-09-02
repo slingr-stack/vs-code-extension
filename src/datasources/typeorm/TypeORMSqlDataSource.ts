@@ -10,37 +10,37 @@ import { DataSource, DataSourceOptions } from '../DataSource';
 export interface TypeORMSqlDataSourceOptions extends DataSourceOptions {
   /** Database type (postgres, mysql, sqlite, etc.) */
   type: 'postgres' | 'mysql' | 'mariadb' | 'sqlite' | 'mssql' | 'oracle';
-  
+
   /** Database host */
   host?: string;
-  
+
   /** Database port */
   port?: number;
-  
+
   /** Database username */
   username?: string;
-  
+
   /** Database password */
   password?: string;
-  
+
   /** Database name */
   database?: string;
-  
+
   /** SQLite database file path (for SQLite only) */
   filename?: string;
-  
+
   /** Enable logging of SQL queries */
   logging?: boolean;
-  
+
   /** Synchronize schema automatically (for development) */
   synchronize?: boolean;
-  
+
   /** Connection timeout in milliseconds */
   connectTimeout?: number;
-  
+
   /** Maximum number of connections in pool */
   maxConnections?: number;
-  
+
   /** Minimum number of connections in pool */
   minConnections?: number;
 }
@@ -91,7 +91,7 @@ export class TypeORMSqlDataSource extends DataSource {
    */
   async initialize(options: DataSourceOptions): Promise<TypeORMDataSource> {
     const typeormOptions = options as TypeORMSqlDataSourceOptions;
-    
+
     // Build TypeORM DataSource configuration dynamically based on database type
     let config: any = {
       type: typeormOptions.type,
@@ -127,7 +127,7 @@ export class TypeORMSqlDataSource extends DataSource {
 
     // Create and initialize TypeORM DataSource
     this.typeormDataSource = new TypeORMDataSource(config as TypeORMDataSourceOptions);
-    
+
     try {
       await this.typeormDataSource.initialize();
       this.isInitialized = true;
@@ -187,5 +187,117 @@ export class TypeORMSqlDataSource extends DataSource {
       isConnected: this.isConnected(),
       hasActiveConnections: this.typeormDataSource?.isInitialized ?? false,
     };
+  }
+
+  /**
+   * Configures a model class as a TypeORM Entity.
+   * 
+   * @param modelClass - The model class to configure
+   * @param options - Additional configuration options (e.g., table name)
+   */
+  configureModel(modelClass: Function, options?: any): void {
+    // For now, we'll use reflection to mark the class as needing TypeORM configuration
+    // In a real implementation, this would apply the @Entity() decorator
+    Reflect.defineMetadata('typeorm:entity', true, modelClass);
+
+    if (options?.tableName) {
+      Reflect.defineMetadata('typeorm:table', options.tableName, modelClass);
+    }
+
+    // Store that this model is configured for TypeORM
+    Reflect.defineMetadata('datasource:type', 'typeorm-sql', modelClass);
+  }
+
+  /**
+   * Configures a field with appropriate TypeORM column decorators.
+   * 
+   * @param target - The prototype of the class containing the field
+   * @param propertyKey - The name of the property/field
+   * @param fieldType - The framework field type
+   * @param fieldOptions - Field-specific options
+   */
+  configureField(
+    target: any,
+    propertyKey: string,
+    fieldType: string,
+    fieldOptions?: any
+  ): void {
+    // Map framework field types to TypeORM column types
+    const typeMapping = this.getTypeOrmColumnType(fieldType, fieldOptions);
+
+    // Store TypeORM column metadata
+    Reflect.defineMetadata('typeorm:column', typeMapping, target, propertyKey);
+
+    // Store that this field is configured for TypeORM
+    Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
+  }
+
+  /**
+   * Maps framework field types to TypeORM column configurations.
+   * 
+   * @param fieldType - The framework field type
+   * @param fieldOptions - Field-specific options
+   * @returns TypeORM column configuration
+   */
+  private getTypeOrmColumnType(fieldType: string, fieldOptions?: any): any {
+    switch (fieldType) {
+      case 'text':
+      case 'email':
+      case 'html':
+        return {
+          type: fieldOptions?.maxLength && fieldOptions.maxLength <= 255 ? 'varchar' : 'text',
+          length: fieldOptions?.maxLength <= 255 ? fieldOptions.maxLength : undefined,
+          nullable: true // Will be overridden based on @Field required option
+        };
+
+      case 'integer':
+        return {
+          type: 'int',
+          nullable: true
+        };
+
+      case 'number':
+      case 'decimal':
+        return {
+          type: 'decimal',
+          precision: fieldOptions?.precision || 10,
+          scale: fieldOptions?.decimals || 2,
+          nullable: true
+        };
+
+      case 'boolean':
+        return {
+          type: 'boolean',
+          nullable: true
+        };
+
+      case 'datetime':
+        return {
+          type: 'timestamp',
+          nullable: true
+        };
+
+      case 'money':
+        return {
+          type: 'decimal',
+          precision: 19,
+          scale: fieldOptions?.decimals || 2,
+          nullable: true
+        };
+
+      case 'choice':
+        return {
+          type: 'varchar',
+          length: 50,
+          nullable: true
+        };
+
+      default:
+        // Default to text for unknown types
+        return {
+          type: 'text',
+          nullable: true
+        };
+    }
   }
 }

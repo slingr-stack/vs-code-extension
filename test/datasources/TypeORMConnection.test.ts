@@ -1,4 +1,4 @@
-import { TypeORMSqlDataSource } from '@/datasources/typeorm/TypeORMSqlDataSource';
+import { TypeORMSqlDataSource } from '../../index';
 
 describe('TypeORM SQL DataSource - Basic Connection Tests', () => {
   describe('SQLite Connection', () => {

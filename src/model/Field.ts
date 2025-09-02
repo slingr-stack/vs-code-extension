@@ -1,37 +1,12 @@
 import { IsNotEmpty, IsOptional, ValidateIf } from 'class-validator';
 import { Exclude, Expose, Transform } from 'class-transformer';
 import { CustomValidate } from '../validators/CustomValidationConstraint';
-import type { 
-  CustomRequiredFunction, 
-  CustomValidationFunction, 
+import type {
+  CustomRequiredFunction,
+  CustomValidationFunction,
   CustomAvailableFunction,
   ValidationIssue
 } from "./types/SharedTypes";
-
-/**
- * Custom validation function type for field validation.
- * 
- * @param value - The value of the field being validated
- * @param object - The entire object containing the field being validated
- * @returns Array of validation error objects, each containing a code and message. Return empty array if validation passes.
- * 
- * @example
- * ```typescript
- * const validateAge: CustomValidationFunction = (value, object) => {
- *   if (value < 0) {
- *     return [{ code: 'INVALID_AGE', message: 'Age cannot be negative' }];
- *   }
- *   return [];
- * };
- * ```
- */
-
-/**
- * Type for a custom validation function.
- * @param value - The value of the field being validated.
- * @param object - The entire object containing the field.
- * @returns An array of validation issues, or an empty array if valid.
- */
 
 /**
  * Configuration options for the Field decorator.
@@ -199,6 +174,14 @@ export interface FieldOptions<TObject extends object = object, TValue = unknown>
  */
 export function Field<TObject extends object = object, TValue = unknown>(options: FieldOptions<TObject, TValue>) {
   return function (target: Object, propertyKey: string, descriptor?: PropertyDescriptor) {
+
+    // Mark this property as a field
+    const existingFields = Reflect.getMetadata('model:fields', target.constructor) || [];
+    if (!existingFields.includes(propertyKey)) {
+      existingFields.push(propertyKey);
+      Reflect.defineMetadata('model:fields', existingFields, target.constructor);
+    }
+
     // Add documentation metadata if provided
     if (options.docs) {
       Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
@@ -210,10 +193,10 @@ export function Field<TObject extends object = object, TValue = unknown>(options
     } else if (typeof options?.available === 'function') {
       // For function-based availability, we need to use Transform to conditionally include/exclude
       const availableFn = options.available as CustomAvailableFunction<TObject>;
-      
+
       // Store the availability function in metadata for potential future use
       Reflect.defineMetadata('field:available', availableFn, target, propertyKey);
-      
+
       // Use Transform to control the field's presence in JSON
       Transform(({ obj, key }) => {
         try {
@@ -226,7 +209,7 @@ export function Field<TObject extends object = object, TValue = unknown>(options
           return undefined;
         }
       }, { toPlainOnly: true })(target, propertyKey);
-      
+
       // Also expose the field by default for cases where the function returns true
       Expose()(target, propertyKey);
     } else {
