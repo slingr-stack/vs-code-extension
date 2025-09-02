@@ -32,6 +32,14 @@ class Book extends BaseModel {
         type: 'reference'
     })
     author!: Author;
+
+    @Field({
+        required: false,
+    })
+    @Relationship({
+        type: 'reference'
+    })
+    coauthor?: Author;
 }
 
 @Model()
@@ -102,7 +110,7 @@ describe('Relationship Type', () => {
         });
     });
 
-    describe('Reference Relationships', () => {
+        describe('Reference Relationships', () => {
         it('should create models with reference relationships', () => {
             const customer = new Customer();
             customer.name = 'John Doe';
@@ -142,7 +150,11 @@ describe('Relationship Type', () => {
         it('should deserialize reference relationships from JSON', async () => {
             const projectData = {
                 name: 'Deserialized Project',
-                startDate: '2023-02-01T00:00:00.000Z'
+                startDate: '2023-02-01T00:00:00.000Z',
+                activeRange: {
+                    from: '2023-02-01T00:00:00.000Z',
+                    to: '2023-12-31T23:59:59.999Z'
+                }
             };
 
             const taskData = {
@@ -163,6 +175,32 @@ describe('Relationship Type', () => {
             // Verify that default values were applied
             expect(task.status).toBe('toDo');
             expect(task.priority).toBe(2); // Priority.Medium
+        });
+    });
+
+    describe('Test null vs undefined', () => {
+        it('a field not set should be undefined after serialization', () => {
+            const order = new Order();
+            order.date = new Date('2023-01-15');
+            order.lineItems = [];
+
+            expect(order.customer).toBeUndefined();
+            const json = order.toJSON();
+            expect(json.customer).toBeUndefined();
+            const restored = Order.fromJSON(json);
+            expect(restored.customer).toBeUndefined();
+        });
+
+        it('a field set to null must remain null after serialization', () => {
+            const book = new Book();
+            book.title = 'Some Book';
+            book.coauthor = null as any; // explicitly set to null
+
+            expect(book.coauthor).toBeNull();
+            const json = book.toJSON();
+            expect(json.coauthor).toBeNull();
+            const restored = Book.fromJSON(json);
+            expect(restored.coauthor).toBeNull();
         });
     });
 
