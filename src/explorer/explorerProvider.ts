@@ -343,7 +343,11 @@ export class ExplorerProvider
 
     // Prevent dropping a folder into itself or its children
     if (target.itemType === "folder" && target.folderPath) {
-      if (target.folderPath.startsWith(draggedData.folderPath)) {
+      // Normalize paths for cross-platform comparison
+      const normalizedTargetPath = target.folderPath.replace(/[\/\\]/g, path.sep);
+      const normalizedDraggedPath = draggedData.folderPath.replace(/[\/\\]/g, path.sep);
+      
+      if (normalizedTargetPath.startsWith(normalizedDraggedPath)) {
         vscode.window.showWarningMessage("Cannot move a folder into itself or its subfolder.");
         return;
       }
@@ -571,7 +575,7 @@ export class ExplorerProvider
         let currentPath = "";
 
         for (const part of pathParts) {
-          currentPath = currentPath ? `${currentPath}/${part}` : part;
+          currentPath = currentPath ? `${currentPath}${path.sep}${part}` : part;
 
           if (!currentNode.folders.has(part)) {
             currentNode.folders.set(part, { folders: new Map(), models: [] });
@@ -616,7 +620,7 @@ export class ExplorerProvider
         if (entry.isDirectory()) {
           const folderName = entry.name;
           const fullPath = path.join(dirPath, folderName);
-          const newRelativePath = relativePath ? `${relativePath}/${folderName}` : folderName;
+          const newRelativePath = relativePath ? `${relativePath}${path.sep}${folderName}` : folderName;
 
           // Add folder to structure if it doesn't exist
           if (!currentNode.folders.has(folderName)) {
@@ -643,7 +647,7 @@ export class ExplorerProvider
     // Get the current node for the given base path
     let currentNode = structure;
     if (basePath) {
-      const pathParts = basePath.split("/");
+      const pathParts = basePath.split(/[\/\\]/);
       for (const part of pathParts) {
         const nextNode = currentNode.folders.get(part);
         if (!nextNode) {
@@ -656,7 +660,7 @@ export class ExplorerProvider
     // Add folders (sorted alphabetically)
     const sortedFolders = Array.from(currentNode.folders.entries()).sort(([a], [b]) => a.localeCompare(b));
     for (const [folderName, folderNode] of sortedFolders) {
-      const folderPath = basePath ? `${basePath}/${folderName}` : folderName;
+      const folderPath = basePath ? `${basePath}${path.sep}${folderName}` : folderName;
       const hasChildren = folderNode.folders.size > 0 || folderNode.models.length > 0;
 
       items.push(
