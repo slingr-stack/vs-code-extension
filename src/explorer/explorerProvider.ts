@@ -146,20 +146,21 @@ export class ExplorerProvider
   ): Promise<void> {
     // Handle field reordering (existing functionality)
     const fieldTransferItem = dataTransfer.get(FIELD_MIME_TYPE);
+    const modelTransferItem = dataTransfer.get(MODEL_MIME_TYPE);
+    const folderTransferItem = dataTransfer.get(FOLDER_MIME_TYPE);
+
     if (fieldTransferItem?.value !== '' && fieldTransferItem) {
       await this.handleFieldDrop(target, fieldTransferItem);
       return;
     }
 
     // Handle model moving to folders
-    const modelTransferItem = dataTransfer.get(MODEL_MIME_TYPE);
     if (modelTransferItem?.value !== '' && modelTransferItem) {
       await this.handleModelDrop(target, modelTransferItem);
       return;
     }
 
     // Handle folder moving to other folders
-    const folderTransferItem = dataTransfer.get(FOLDER_MIME_TYPE);
     if (folderTransferItem?.value !== '' && folderTransferItem) {
       await this.handleFolderDrop(target, folderTransferItem);
       return;
@@ -171,6 +172,12 @@ export class ExplorerProvider
 
   private async handleFieldDrop(target: AppTreeItem | undefined, transferItem: vscode.DataTransferItem): Promise<void> {
     const draggedData = transferItem.value;
+
+    // Check if someone is trying to drop a composition model into a folder or data root
+    if (target && (target.itemType === "folder" || target.itemType === "dataRoot" || target.itemType === "model")) {
+      vscode.window.showWarningMessage("Composition models cannot be moved to folders or models. They are part of their parent model structure.");
+      return;
+    }
 
     // Ensure we have a valid target to drop onto (field or composition model)
     let targetFieldName: string | null = null;
@@ -307,10 +314,13 @@ export class ExplorerProvider
       const success = await vscode.workspace.applyEdit(workspaceEdit);
       
       if (success) {
+        // Force cache refresh after model move to ensure proper file path updates
+        await this.cache.forceRefresh();
+        
         // Refresh the tree
         setTimeout(() => {
           this.refresh();
-        }, 200);
+        }, 100);
 
         vscode.window.showInformationMessage(`Model "${draggedData.modelClassName}" moved successfully.`);
       } else {
@@ -373,10 +383,13 @@ export class ExplorerProvider
       const success = await vscode.workspace.applyEdit(workspaceEdit);
       
       if (success) {
+        // Force cache refresh after folder move to ensure proper file path updates
+        await this.cache.forceRefresh();
+        
         // Refresh the tree
         setTimeout(() => {
           this.refresh();
-        }, 200);
+        }, 100);
 
         vscode.window.showInformationMessage(`Folder "${draggedData.folderName}" moved successfully.`);
       } else {
