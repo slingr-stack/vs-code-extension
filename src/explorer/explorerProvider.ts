@@ -294,12 +294,12 @@ export class ExplorerProvider
             element
           );
           
-          // Add navigation command to go to related model definition when clicked
+          // Set command for click handling (single vs double-click detection)
           if (relatedModel) {
             compositionItem.command = {
-              command: "slingr-vscode-extension.navigateToCode",
-              title: "Go to Definition",
-              arguments: [relatedModel.declaration],
+              command: "slingr-vscode-extension.handleTreeItemClick",
+              title: "Handle Click",
+              arguments: [compositionItem],
             };
           }
           
@@ -436,11 +436,11 @@ export class ExplorerProvider
       if (!this.isModelReferencedByComposition(model)) {
         const modelItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "model", this.extensionUri, model);
         
-        // Add navigation command to go to model definition when clicked
+        // Set command for click handling (single vs double-click detection)
         modelItem.command = {
-          command: "slingr-vscode-extension.navigateToCode",
-          title: "Go to Definition",
-          arguments: [model.declaration],
+          command: "slingr-vscode-extension.handleTreeItemClick",
+          title: "Handle Click",
+          arguments: [modelItem],
         };
         
         items.push(modelItem);
@@ -462,10 +462,11 @@ export class ExplorerProvider
       propData,
       parent
     );
+    // Set command for click handling (single vs double-click detection)
     item.command = {
-      command: "slingr-vscode-extension.navigateToCode",
-      title: "Go to Definition",
-      arguments: [propData.declaration],
+      command: "slingr-vscode-extension.handleTreeItemClick",
+      title: "Handle Click",
+      arguments: [item],
     };
     return item;
   }

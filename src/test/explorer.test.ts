@@ -187,7 +187,7 @@ describe('Explorer Provider Tests', () => {
             assert.strictEqual(treeItem.contextValue, 'model');
         });
 
-        it('should set navigation command for property items', async () => {
+        it('should set click handler command for property items', async () => {
             const mockModel = createMockModel();
             const modelItem = new AppTreeItem(
                 'User Model',
@@ -200,9 +200,10 @@ describe('Explorer Provider Tests', () => {
             const children = await explorerProvider.getChildren(modelItem);
             const fieldItem = children[0];
             
+            // Command should be set for click handling (single vs double-click detection)
             assert.ok(fieldItem.command);
-            assert.strictEqual(fieldItem.command.command, 'slingr-vscode-extension.navigateToCode');
-            assert.strictEqual(fieldItem.command.title, 'Go to Definition');
+            assert.strictEqual(fieldItem.command.command, 'slingr-vscode-extension.handleTreeItemClick');
+            assert.strictEqual(fieldItem.command.title, 'Handle Click');
         });
     });
 
