@@ -146,9 +146,10 @@
           "icon": "resources/slingr-icon.jpg" 
         },
         {
-          "id": "slingrExtensionView",
-          "name": "Slingr Extension",
-          "icon": "resources/slingr-icon.svg"
+          "id": "slingrQuickInfo",
+          "name": "Quick Info",
+          "type": "webview",
+          "icon": "resources/eye.svg"
         }
       ]
     }

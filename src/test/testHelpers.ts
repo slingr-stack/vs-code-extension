@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DecoratedClass, PropertyMetadata } from '../cache/cache';
+import { IRendererContext } from '../quickInfoPanel/renderers/iMetadataRenderer';
 
 /**
  * Test helper methods for creating mock metadata objects
@@ -179,6 +180,32 @@ export class TestMetadataFactory {
  * Helper methods for creating mock contexts and other test objects
  */
 export class TestContextFactory {
+
+    /**
+     * Creates a mock IRendererContext for testing renderers
+     */
+    static createMockContext(extensionUri?: vscode.Uri): IRendererContext {
+        const mockWebview = {
+            options: {},
+            html: '',
+            onDidReceiveMessage: () => ({ dispose: () => {} }),
+            postMessage: () => Promise.resolve(true),
+            asWebviewUri: (uri: vscode.Uri) => uri,
+            cspSource: 'vscode-webview:'
+        } as any;
+
+        return {
+            webview: mockWebview,
+            extensionUri: extensionUri || vscode.Uri.file('/test/extension'),
+            findModel: (name: string) => {
+                // Return a basic model for common test model names
+                if (name === 'TestModel' || name === 'UserModel') {
+                    return TestMetadataFactory.createModel({ name });
+                }
+                return undefined;
+            }
+        };
+    }
 
     /**
      * Creates a mock webview view for testing providers

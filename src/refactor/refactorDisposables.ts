@@ -10,7 +10,7 @@ import { findNodeAtPosition } from '../utils/ast';
 import { cache } from '../extension';
 import { AppTreeItem } from '../explorer/appTreeItem';
 import { AddDecoratorTool } from './tools/addDecorator';
-import { isField, isModelFile } from '../utils/metadata';
+import { isModelFile } from '../utils/metadata';
 import { PropertyMetadata } from '../cache/cache';
 import { fieldTypeConfig } from '../utils/fieldTypes';
 
@@ -51,7 +51,7 @@ export function getAllRefactorTools(): IRefactorTool[] {
  * @param controller - The refactor controller that manages refactor tools and handles command execution
  * @returns An array of disposables that can be used to clean up the registered commands and providers
  */
-export function registerRefactorCommands(controller: RefactorController): vscode.Disposable[] {
+export function registerRefactorCommands(controller: RefactorController, context: vscode.ExtensionContext): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
 
     for (const tool of controller.getTools()) {

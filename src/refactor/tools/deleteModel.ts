@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteModelPayload, ChangeType, RenameModelPayload } from "../refactorInterfaces";
-import { DecoratedClass, FileMetadata, MetadataCache, PropertyMetadata } from "../../cache/cache";
+import { DecoratedClass, FileMetadata, MetadataCache } from "../../cache/cache";
 import { isModel, isModelFile, isField } from "../../utils/metadata";
 
 /**
