@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { DeleteFieldTool } from '../../refactor/tools/deleteField';
 import { MetadataCache, FileMetadata, DecoratedClass, PropertyMetadata } from '../../cache/cache';
 import { ChangeObject, ManualRefactorContext, DeleteFieldPayload } from '../../refactor/refactorInterfaces';
+import { TestMetadataFactory } from '../testHelpers';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -14,7 +15,7 @@ if (typeof suite !== 'undefined') {
 
         setup(() => {
             tool = new DeleteFieldTool();
-            mockCache = createMockCache();
+            mockCache = TestMetadataFactory.createMockCache();
             confirmationResponses = {};
 
             // Mock confirmation dialogs
@@ -66,7 +67,7 @@ if (typeof suite !== 'undefined') {
             test('should handle valid field in model file', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -82,7 +83,7 @@ if (typeof suite !== 'undefined') {
             test('should reject field in non-model files', async () => {
                 const nonModelUri = vscode.Uri.file('/test/src/utils/helper.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', nonModelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: nonModelUri, range: fieldRange } });
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -98,7 +99,7 @@ if (typeof suite !== 'undefined') {
             test('should reject non-field metadata', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const range = new vscode.Range(5, 0, 5, 4);
-                const model = createMockModel('User', modelUri, range);
+                const model = TestMetadataFactory.createModel({ name: 'User', declaration: { uri: modelUri, range: range } });
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -114,7 +115,7 @@ if (typeof suite !== 'undefined') {
             test('should reject field without Field decorator', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockNonField('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createNonField('name', 'string', modelUri, fieldRange);
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -132,13 +133,13 @@ if (typeof suite !== 'undefined') {
             test('should detect field deletion when property is removed', () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const field = createMockField('name', 'string', modelUri, fieldRange);
+                const field = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
                 
-                const oldModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
-                oldModel.properties = { 'name': field, 'email': createMockField('email', 'string', modelUri, new vscode.Range(9, 4, 9, 9)) };
+                const oldModel = TestMetadataFactory.createModel({ name: 'User', declaration: { uri: modelUri, range: new vscode.Range(5, 0, 5, 4) } });
+                oldModel.properties = { 'name': field, 'email': TestMetadataFactory.createField({ name: 'email', type: 'string', declaration: { uri: modelUri, range: new vscode.Range(9, 4, 9, 9) } }) };
                 
-                const newModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
-                newModel.properties = { 'email': createMockField('email', 'string', modelUri, new vscode.Range(9, 4, 9, 9)) };
+                const newModel = TestMetadataFactory.createModel({ name: 'User', declaration: { uri: modelUri, range: new vscode.Range(5, 0, 5, 4) } });
+                newModel.properties = { 'email': TestMetadataFactory.createField({ name: 'email', type: 'string', declaration: { uri: modelUri, range: new vscode.Range(9, 4, 9, 9) } }) };
                 
                 const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
                 const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
@@ -155,14 +156,14 @@ if (typeof suite !== 'undefined') {
             test('should detect multiple field deletions', () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 
-                const nameField = createMockField('name', 'string', modelUri, new vscode.Range(8, 4, 8, 8));
-                const emailField = createMockField('email', 'string', modelUri, new vscode.Range(9, 4, 9, 9));
-                const ageField = createMockField('age', 'number', modelUri, new vscode.Range(10, 4, 10, 7));
+                const nameField = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: new vscode.Range(8, 4, 8, 8) } });
+                const emailField = TestMetadataFactory.createField({ name: 'email', type: 'string', declaration: { uri: modelUri, range: new vscode.Range(9, 4, 9, 9) } });
+                const ageField = TestMetadataFactory.createField({ name: 'age', type: 'number', declaration: { uri: modelUri, range: new vscode.Range(10, 4, 10, 7) } });
                 
-                const oldModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
+                const oldModel = TestMetadataFactory.createModel({ name: 'User', declaration: { uri: modelUri, range: new vscode.Range(5, 0, 5, 4) } });
                 oldModel.properties = { 'name': nameField, 'email': emailField, 'age': ageField };
                 
-                const newModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
+                const newModel = TestMetadataFactory.createModel({ name: 'User', declaration: { uri: modelUri, range: new vscode.Range(5, 0, 5, 4) } });
                 newModel.properties = { 'email': emailField }; // Only email remains
                 
                 const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
@@ -186,12 +187,12 @@ if (typeof suite !== 'undefined') {
             test('should not detect deletions in non-model files', () => {
                 const nonModelUri = vscode.Uri.file('/test/src/utils/helper.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const field = createMockNonField('name', 'string', nonModelUri, fieldRange);
+                const field = TestMetadataFactory.createNonField('name', 'string', nonModelUri, fieldRange);
                 
-                const oldNonModel = createMockNonModel('Helper', nonModelUri, new vscode.Range(5, 0, 5, 6));
+                const oldNonModel = TestMetadataFactory.createNonModel('Helper', nonModelUri, new vscode.Range(5, 0, 5, 6));
                 oldNonModel.properties = { 'name': field };
                 
-                const newNonModel = createMockNonModel('Helper', nonModelUri, new vscode.Range(5, 0, 5, 6));
+                const newNonModel = TestMetadataFactory.createNonModel('Helper', nonModelUri, new vscode.Range(5, 0, 5, 6));
                 newNonModel.properties = {}; // Field removed
                 
                 const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': oldNonModel } };
@@ -205,13 +206,13 @@ if (typeof suite !== 'undefined') {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
                 
-                const oldField = createMockField('name', 'string', modelUri, fieldRange);
-                const newField = createMockNonField('name', 'string', modelUri, fieldRange); // Same field but no @Field decorator
+                const oldField = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
+                const newField = TestMetadataFactory.createNonField('name', 'string', modelUri, fieldRange); // Same field but no @Field decorator
                 
-                const oldModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
+                const oldModel = TestMetadataFactory.createModel({ name: 'User', declaration: { uri: modelUri, range: new vscode.Range(5, 0, 5, 4) } });
                 oldModel.properties = { 'name': oldField };
                 
-                const newModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 5, 4));
+                const newModel = TestMetadataFactory.createModel({ name: 'User', declaration: { uri: modelUri, range: new vscode.Range(5, 0, 5, 4) } });
                 newModel.properties = { 'name': newField };
                 
                 const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
@@ -242,7 +243,7 @@ if (typeof suite !== 'undefined') {
             test('should proceed with user confirmation', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -271,7 +272,7 @@ if (typeof suite !== 'undefined') {
             test('should handle user cancellation', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -290,7 +291,7 @@ if (typeof suite !== 'undefined') {
             test('should handle non-confirmation response', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const fieldMeta = createMockField('name', 'string', modelUri, fieldRange);
+                const fieldMeta = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
                 
                 const context: ManualRefactorContext = {
                     cache: mockCache,
@@ -326,7 +327,7 @@ if (typeof suite !== 'undefined') {
             test('should prepare edit for field deletion', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const field = createMockField('name', 'string', modelUri, fieldRange);
+                const field = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
                 
                 // Add some external references
                 field.references = [
@@ -354,7 +355,7 @@ if (typeof suite !== 'undefined') {
             test('should handle field with relationship decorators', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const relationshipField = createMockRelationshipField('order', 'Order', modelUri, fieldRange);
+                const relationshipField = TestMetadataFactory.createRelationshipField('order', 'Order', modelUri, fieldRange);
 
                 const change: ChangeObject = {
                     type: 'DELETE_FIELD',
@@ -374,7 +375,7 @@ if (typeof suite !== 'undefined') {
             test('should handle field with no external references', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const field = createMockField('name', 'string', modelUri, fieldRange);
+                const field = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
                 
                 // Only self-reference
                 field.references = [{ uri: modelUri, range: fieldRange }];
@@ -399,12 +400,12 @@ if (typeof suite !== 'undefined') {
             test('should clean up related fields in other models', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
-                const field = createMockField('name', 'string', modelUri, fieldRange);
+                const field = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
 
                 // Create another model with a field that might reference this one
-                const orderModel = createMockModel('Order', vscode.Uri.file('/test/src/data/models/Order.ts'), new vscode.Range(5, 0, 5, 5));
+                const orderModel = TestMetadataFactory.createModel({ name: 'Order', declaration: { uri: vscode.Uri.file('/test/src/data/models/Order.ts'), range: new vscode.Range(5, 0, 5, 5) } });
                 orderModel.properties = {
-                    'userRef': createMockRelationshipField('userRef', 'User', orderModel.declaration.uri, new vscode.Range(8, 4, 8, 11))
+                    'userRef': TestMetadataFactory.createRelationshipField('userRef', 'User', orderModel.declaration.uri, new vscode.Range(8, 4, 8, 11))
                 };
 
                 // Setup mock cache to return related models
@@ -436,7 +437,7 @@ if (typeof suite !== 'undefined') {
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
                 
                 // Create a relationship field being deleted
-                const relationshipField = createMockRelationshipField('orders', 'Order', modelUri, fieldRange);
+                const relationshipField = TestMetadataFactory.createRelationshipField('orders', 'Order', modelUri, fieldRange);
                 relationshipField.decorators.push({
                     name: 'ReverseRelationship',
                     arguments: [{ value: 'user' }],
@@ -444,9 +445,9 @@ if (typeof suite !== 'undefined') {
                 });
 
                 // Create the reverse model
-                const orderModel = createMockModel('Order', vscode.Uri.file('/test/src/data/models/Order.ts'), new vscode.Range(5, 0, 5, 5));
+                const orderModel = TestMetadataFactory.createModel({ name: 'Order', declaration: { uri: vscode.Uri.file('/test/src/data/models/Order.ts'), range: new vscode.Range(5, 0, 5, 5) } });
                 orderModel.properties = {
-                    'user': createMockRelationshipField('user', 'User', orderModel.declaration.uri, new vscode.Range(8, 4, 8, 8))
+                    'user': TestMetadataFactory.createRelationshipField('user', 'User', orderModel.declaration.uri, new vscode.Range(8, 4, 8, 8))
                 };
 
                 // Setup mock cache
@@ -474,88 +475,4 @@ if (typeof suite !== 'undefined') {
             });
         });
     });
-}
-
-// Helper functions
-function createMockCache(): MetadataCache {
-    return {
-        getMetadataForFile: () => undefined,
-        findMetadata: () => [],
-        notifyFileDeleted: () => {},
-        notifyFileChanged: () => {},
-        refresh: () => Promise.resolve(),
-    } as any;
-}
-
-function createMockModel(name: string, uri: vscode.Uri, range: vscode.Range): DecoratedClass {
-    return {
-        name,
-        decorators: [{ 
-            name: 'Model', 
-            arguments: [], 
-            position: range 
-        }],
-        properties: {},
-        methods: {},
-        declaration: { uri, range },
-        references: [{ uri, range }],
-        isDataModel: true
-    };
-}
-
-function createMockNonModel(name: string, uri: vscode.Uri, range: vscode.Range): DecoratedClass {
-    return {
-        name,
-        decorators: [], // No Model decorator
-        properties: {},
-        methods: {},
-        declaration: { uri, range },
-        references: [{ uri, range }],
-        isDataModel: false
-    };
-}
-
-function createMockField(name: string, type: string, uri: vscode.Uri, range: vscode.Range): PropertyMetadata {
-    return {
-        name,
-        type,
-        decorators: [{ 
-            name: 'Field', 
-            arguments: [], 
-            position: new vscode.Range(range.start.line - 1, range.start.character, range.start.line - 1, range.start.character + 7) 
-        }],
-        declaration: { uri, range },
-        references: [{ uri, range }]
-    };
-}
-
-function createMockNonField(name: string, type: string, uri: vscode.Uri, range: vscode.Range): PropertyMetadata {
-    return {
-        name,
-        type,
-        decorators: [], // No Field decorator
-        declaration: { uri, range },
-        references: [{ uri, range }]
-    };
-}
-
-function createMockRelationshipField(name: string, type: string, uri: vscode.Uri, range: vscode.Range): PropertyMetadata {
-    return {
-        name,
-        type,
-        decorators: [
-            { 
-                name: 'Relationship', 
-                arguments: [], 
-                position: new vscode.Range(range.start.line - 2, range.start.character, range.start.line - 2, range.start.character + 12) 
-            },
-            { 
-                name: 'Field', 
-                arguments: [], 
-                position: new vscode.Range(range.start.line - 1, range.start.character, range.start.line - 1, range.start.character + 7) 
-            }
-        ],
-        declaration: { uri, range },
-        references: [{ uri, range }]
-    };
 }

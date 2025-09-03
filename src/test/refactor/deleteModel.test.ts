@@ -58,7 +58,7 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should handle correct change types', () => {
-                assert.deepStrictEqual(tool.getHandledChangeTypes(), ['DELETE_ENTITY']);
+                assert.deepStrictEqual(tool.getHandledChangeTypes(), ['DELETE_MODEL']);
             });
         });
 
@@ -135,7 +135,7 @@ if (typeof suite !== 'undefined') {
                 const changes = tool.analyze(oldFileMeta, undefined);
                 const payload = changes[0].payload as DeleteModelPayload;
                 assert.strictEqual(changes.length, 1);
-                assert.strictEqual(changes[0].type, 'DELETE_ENTITY');
+                assert.strictEqual(changes[0].type, 'DELETE_MODEL');
                 assert.strictEqual(payload.oldModelMetadata.name, 'User');
                 assert.ok(Array.isArray(payload.urisToDelete));
                 assert.ok(payload.urisToDelete.length > 0);
@@ -152,7 +152,7 @@ if (typeof suite !== 'undefined') {
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 const payload = changes[0].payload as DeleteModelPayload;
                 assert.strictEqual(changes.length, 1);
-                assert.strictEqual(changes[0].type, 'DELETE_ENTITY');
+                assert.strictEqual(changes[0].type, 'DELETE_MODEL');
                 assert.strictEqual(payload.oldModelMetadata.name, 'User');
             });
 
@@ -232,7 +232,7 @@ if (typeof suite !== 'undefined') {
                 const change = await tool.initiateManualRefactor(context);
                 const payload = change?.payload as DeleteModelPayload;
                 assert.ok(change);
-                assert.strictEqual(change.type, 'DELETE_ENTITY');
+                assert.strictEqual(change.type, 'DELETE_MODEL');
                 assert.strictEqual(payload.oldModelMetadata.name, 'User');
                 assert.strictEqual(payload.isManual, true);
                 assert.ok(Array.isArray(payload.urisToDelete));
@@ -306,7 +306,7 @@ if (typeof suite !== 'undefined') {
                 ];
 
                 const change: ChangeObject = {
-                    type: 'DELETE_ENTITY',
+                    type: 'DELETE_MODEL',
                     uri: modelUri,
                     description: 'Delete User model',
                     payload: {
@@ -337,7 +337,7 @@ if (typeof suite !== 'undefined') {
                 };
 
                 const change: ChangeObject = {
-                    type: 'DELETE_ENTITY',
+                    type: 'DELETE_MODEL',
                     uri: modelUri,
                     description: 'Delete User model',
                     payload: {
@@ -361,7 +361,7 @@ if (typeof suite !== 'undefined') {
                 model.references = [{ uri: modelUri, range: modelRange }];
 
                 const change: ChangeObject = {
-                    type: 'DELETE_ENTITY',
+                    type: 'DELETE_MODEL',
                     uri: modelUri,
                     description: 'Delete User model',
                     payload: {
@@ -416,7 +416,7 @@ if (typeof suite !== 'undefined') {
                 };
 
                 const change: ChangeObject = {
-                    type: 'DELETE_ENTITY',
+                    type: 'DELETE_MODEL',
                     uri: modelUri,
                     description: 'Delete User model',
                     payload: {

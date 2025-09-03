@@ -110,7 +110,7 @@ export class MetadataCache {
      */
     public async initialize(): Promise<void> {
         
-        const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/ui/**/*.ts}', '**/node_modules/**');
+        const files = await vscode.workspace.findFiles('{src/data/**/*.ts}');
         for (const file of files) {
             this.addSourceFile(file);
         }
@@ -382,11 +382,20 @@ export class MetadataCache {
 
     /**
      * Gets a clean, human-readable name for a ts-morph Type object.
-     * This method correctly handles imported types, removing the "import(...)" part.
+     * This method correctly handles imported types, removing the "import(...)" part,
+     * and properly extracts element types from arrays.
      * @param type The ts-morph Type object.
      * @returns The clean type name as a string.
      */
     private getCleanTypeName(type: Type): string {
+        // Handle array types by extracting the element type
+        if (type.isArray()) {
+            const elementType = type.getArrayElementType();
+            if (elementType) {
+                return this.getCleanTypeName(elementType);
+            }
+        }
+
         const aliasSymbol = type.getAliasSymbol();
         if (aliasSymbol) {
             return aliasSymbol.getName();
@@ -514,118 +523,6 @@ export class MetadataCache {
                 }
             }
         }
-
-        this.buildImplicitViewFieldReferences();
-    }
-
-     /**
-     * After a file is changed, this function efficiently updates all affected references.
-     * It avoids a full project-wide reference rebuild by focusing only on the items
-     * within the changed file.
-     * @param changedFilePath The path of the file that was modified.
-     */
-    private updateAffectedReferences(changedFilePath: string): void {
-        const sourceFile = this.tsMorphProject.getSourceFile(changedFilePath);
-        if (!sourceFile) {
-            return;
-        }
-
-        const affectedItems: (DecoratedClass | PropertyMetadata)[] = [];
-        const fileMeta = this.cache[changedFilePath];
-        if (fileMeta) {
-            for (const classData of Object.values(fileMeta.classes)) {
-                affectedItems.push(classData);
-                affectedItems.push(...Object.values(classData.properties));
-            }
-        }
-
-        for (const item of affectedItems) {
-            item.references = [];
-        }
-
-        for (const classData of Object.values(fileMeta.classes)) {
-            const classNode = sourceFile.getClass(classData.name);
-            if (classNode) {
-                this.findAndStoreReferences(classNode, classData);
-
-                for (const propData of Object.values(classData.properties)) {
-                    const propNode = classNode.getProperty(propData.name);
-                    if (propNode) {
-                        this.findAndStoreReferences(propNode, propData);
-                    }
-                }
-            }
-        }
-
-        this.buildImplicitViewFieldReferences();
-    }
-
-    /**
-     * Finds implicit field references within `getFields` methods of `ModelView` classes.
-     * This is necessary because `ts-morph`'s `findReferences` does not detect references
-     * made via string literals (e.g., `{ field: 'fieldName' }`).
-     */
-    private buildImplicitViewFieldReferences(): void {
-        const modelMap = new Map<string, DecoratedClass>();
-        this.findMetadata(item => 'properties' in item && item.decorators.some(d => d.name === 'Model'))
-            .forEach(model => modelMap.set((model as DecoratedClass).name, model as DecoratedClass));
-
-        const viewClasses = this.findMetadata(
-            item => 'properties' in item && item.decorators.some(d => d.name === 'ModelView')
-        ) as DecoratedClass[];
-
-        for (const viewClass of viewClasses) {
-            const modelViewDecorator = viewClass.decorators.find(d => d.name === 'ModelView');
-            const modelName = modelViewDecorator?.arguments[0]?.model;
-
-            if (!modelName || !modelMap.has(modelName)) {
-                continue;
-            }
-
-            const modelClass = modelMap.get(modelName)!;
-            const normalizedViewPath = viewClass.declaration.uri.fsPath.replace(/\\/g, '/');
-            const viewSourceFile = this.tsMorphProject.getSourceFile(normalizedViewPath);
-            const viewClassNode = viewSourceFile?.getClass(viewClass.name);
-            const getFieldsMethodNode = viewClassNode?.getMethod('getFields');
-            const returnStatement = getFieldsMethodNode?.getFirstDescendantByKind(SyntaxKind.ReturnStatement);
-            const returnExpression = returnStatement?.getExpression();
-
-            if (!returnExpression || !Node.isArrayLiteralExpression(returnExpression)) {
-                continue;
-            }
-
-            returnExpression.getElements().forEach((element: Node) => {
-                if (Node.isObjectLiteralExpression(element)) {
-                    const fieldProperty = element.getProperty('field');
-                    if (fieldProperty && Node.isPropertyAssignment(fieldProperty)) {
-                        const initializer = fieldProperty.getInitializer();
-                        if (initializer && Node.isStringLiteral(initializer)) {
-                            const fieldName = initializer.getLiteralValue();
-                            const targetProperty = modelClass.properties[fieldName];
-                            if (targetProperty) {
-
-                                const contentStartPos = initializer.getStart() + 1;
-                                
-                                const contentEndPos = initializer.getEnd() - 1;
-
-                                const start = viewSourceFile!.getLineAndColumnAtPos(contentStartPos);
-                                const end = viewSourceFile!.getLineAndColumnAtPos(contentEndPos);
-
-                                const range = new vscode.Range(
-                                    start.line - 1, start.column - 1,
-                                    end.line - 1, end.column - 1
-                                );
-                                const refLocation = new vscode.Location(
-                                    vscode.Uri.file(viewSourceFile!.getFilePath().replace(/\\/g, '/')),
-                                    range
-                                );
-                                targetProperty.references.push(refLocation);
-                            }
-                        }
-                    }
-                }
-            });
-        }
     }
 
     /**
@@ -700,15 +597,18 @@ export class MetadataCache {
                 if (classData.isDataModel) {
                     dataModels.push(classData);
                 }
+                if (classData.isDataModel) {
+                    dataModels.push(classData);
+                }
             }
         }
         return dataModels;
     }
 
     /**
-     * Returns all Model decorated classes that are stored in the src/data folder.
+     * Returns all @Model decorated classes that are stored in the src/data folder.
      * This is a more specific version of getDataModels() that only returns
-     * classes with the Model decorator.
+     * classes with the @Model decorator.
      * @returns An array of DecoratedClass objects that represent Model classes in the data folder.
      */
     public getDataModelClasses(): DecoratedClass[] {

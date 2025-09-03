@@ -22,12 +22,14 @@ export interface RefactorContext {
  * @property `oldName`: The original name of the model being renamed.
  * @property `newName`: The new name to be assigned to the model.
  * @property `oldModelMetadata`: The metadata of the class representing the model before the rename.
+ * @property `newUri`: The new URI for the file if it is being renamed.
  * @property `isManual`: An optional flag indicating whether the rename operation was initiated manually by a user.
  */
 export interface RenameModelPayload {
     oldName: string;
     newName: string;
     oldModelMetadata: DecoratedClass;
+    newUri: vscode.Uri | undefined;
     isManual: boolean;
 }
 
@@ -99,16 +101,29 @@ export interface ChangeFieldTypePayload {
 
 
 /**
+ * Payload interface for adding a decorator to a field.
+ * @property {PropertyMetadata} fieldMetadata - Metadata information about the property/field
+ * @property {string} decoratorName - The name of the decorator to be added
+ */
+export interface AddDecoratorPayload {
+    fieldMetadata: PropertyMetadata;
+    decoratorName: string;
+    isManual: boolean;
+}
+
+
+/**
  * Represents the specific type of refactoring change being applied.
  * This is used to identify the nature of a modification to an model or its fields.
  *
- * - `RENAME_ENTITY`: A change that renames an entire model.
- * - `DELETE_ENTITY`: A change that deletes an entire model.
+ * - `RENAME_MODEL`: A change that renames an entire model.
+ * - `DELETE_MODEL`: A change that deletes an entire model.
  * - `RENAME_FIELD`: A change that renames a field within an model.
  * - `DELETE_FIELD`: A change that deletes a field from an model.
  * - `CHANGE_FIELD_TYPE`: A change that modifies the data type of a field.
+ * - `ADD_DECORATOR`: A change that adds a decorator to a field.
  */
-export type ChangeType = 'RENAME_ENTITY' | 'DELETE_ENTITY' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE';
+export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR';
 
 /**
  * Represents a single, atomic change to be applied as part of a refactoring operation.
@@ -129,7 +144,8 @@ export interface ChangeObject {
         | DeleteModelPayload
         | RenameFieldPayload
         | DeleteFieldPayload
-        | ChangeFieldTypePayload;
+        | ChangeFieldTypePayload
+        | AddDecoratorPayload;
 }
 
 

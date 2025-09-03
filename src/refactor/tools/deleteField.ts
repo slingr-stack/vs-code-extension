@@ -78,7 +78,7 @@ export class DeleteFieldTool implements IRefactorTool {
         const renamedFieldsByClass = new Map<string, Set<string>>();
 
         for (const change of accumulatedChanges) {
-            if (change.type === 'RENAME_ENTITY') {
+            if (change.type === 'RENAME_MODEL') {
                 const payload = change.payload as RenameModelPayload;
                 if (payload.oldName && payload.newName) {
                     classRenames.set(payload.oldName, payload.newName);

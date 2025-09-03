@@ -110,11 +110,13 @@ export class TestMetadataFactory {
     }
 
     /**
-     * Creates a field with relationship decorators
+     * Creates a field with relationship decorators (using the existing createRelationshipField)
      */
     static createRelationshipField(
         fieldName: string, 
         relatedModelType: string,
+        uri?: vscode.Uri,
+        range?: vscode.Range
     ): PropertyMetadata {
         return this.createField({
             name: fieldName,
@@ -122,8 +124,55 @@ export class TestMetadataFactory {
             decorators: [
                 { name: 'Field', arguments: [], position: new vscode.Range(5, 0, 5, 10) },
                 { name: 'Relationship', arguments: [], position: new vscode.Range(4, 0, 4, 15) }
-            ]
+            ],
+            declaration: {
+                uri: uri || vscode.Uri.file('/test/relationship.ts'),
+                range: range || new vscode.Range(5, 0, 5, 20)
+            }
         });
+    }
+
+    /**
+     * Creates a field without any decorators (non-field property)
+     */
+    static createNonField(name: string, type: string, uri?: vscode.Uri, range?: vscode.Range): PropertyMetadata {
+        return this.createField({
+            name,
+            type,
+            decorators: [], // No decorators
+            declaration: {
+                uri: uri || vscode.Uri.file('/test/property.ts'),
+                range: range || new vscode.Range(5, 0, 5, 20)
+            }
+        });
+    }
+
+    /**
+     * Creates a non-model class (without @Model decorator)
+     */
+    static createNonModel(name: string, uri?: vscode.Uri, range?: vscode.Range): DecoratedClass {
+        return this.createModel({
+            name,
+            decorators: [], // No Model decorator
+            isDataModel: false,
+            declaration: {
+                uri: uri || vscode.Uri.file('/test/class.ts'),
+                range: range || new vscode.Range(0, 0, 10, 0)
+            }
+        });
+    }
+
+    /**
+     * Creates a mock cache for testing
+     */
+    static createMockCache(): any {
+        return {
+            getMetadataForFile: () => undefined,
+            findMetadata: () => [],
+            notifyFileDeleted: () => {},
+            notifyFileChanged: () => {},
+            refresh: () => Promise.resolve(),
+        } as any;
     }
 }
 
@@ -131,7 +180,7 @@ export class TestMetadataFactory {
  * Helper methods for creating mock contexts and other test objects
  */
 export class TestContextFactory {
-    
+
     /**
      * Creates a mock IRendererContext for testing renderers
      */
