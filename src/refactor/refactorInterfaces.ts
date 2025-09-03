@@ -114,14 +114,14 @@ export interface AddDecoratorPayload {
  * Represents the specific type of refactoring change being applied.
  * This is used to identify the nature of a modification to an model or its fields.
  *
- * - `RENAME_ENTITY`: A change that renames an entire model.
- * - `DELETE_ENTITY`: A change that deletes an entire model.
+ * - `RENAME_MODEL`: A change that renames an entire model.
+ * - `DELETE_MODEL`: A change that deletes an entire model.
  * - `RENAME_FIELD`: A change that renames a field within an model.
  * - `DELETE_FIELD`: A change that deletes a field from an model.
  * - `CHANGE_FIELD_TYPE`: A change that modifies the data type of a field.
  * - `ADD_DECORATOR`: A change that adds a decorator to a field.
  */
-export type ChangeType = 'RENAME_ENTITY' | 'DELETE_ENTITY' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR';
+export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR';
 
 /**
  * Represents a single, atomic change to be applied as part of a refactoring operation.

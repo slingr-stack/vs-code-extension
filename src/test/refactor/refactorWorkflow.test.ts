@@ -297,7 +297,7 @@ if (typeof suite !== 'undefined') {
                 const change = await tool.initiateManualRefactor(context);
                 const payload = change?.payload as RenameModelPayload;
                 assert.ok(change);
-                assert.strictEqual(change.type, 'RENAME_ENTITY');
+                assert.strictEqual(change.type, 'RENAME_MODEL');
                 assert.strictEqual(payload.oldModelMetadata.name, 'User');
                 assert.strictEqual(payload.newName, 'Person');
 
@@ -348,7 +348,7 @@ if (typeof suite !== 'undefined') {
                 const change = await tool.initiateManualRefactor(context);
                 
                 assert.ok(change);
-                assert.strictEqual(change.type, 'DELETE_ENTITY');
+                assert.strictEqual(change.type, 'DELETE_MODEL');
                 assert.strictEqual(change.payload.isManual, true);
                 
                 const edit = await tool.prepareEdit(change, cache);
@@ -469,7 +469,7 @@ if (typeof suite !== 'undefined') {
                 const changes = renameModelTool.analyze(oldFileMeta, newFileMeta);
                 const payload = changes[0].payload as RenameModelPayload;
                 assert.strictEqual(changes.length, 1);
-                assert.strictEqual(changes[0].type, 'RENAME_ENTITY');
+                assert.strictEqual(changes[0].type, 'RENAME_MODEL');
                 
                 // Test that the change has the correct payload
                 assert.strictEqual(payload.oldName, 'User');
@@ -564,7 +564,7 @@ if (typeof suite !== 'undefined') {
                 // Should detect multiple types of changes
                 assert.ok(allChanges.length >= 2); // At least model rename and one field change
                 
-                const hasModelRename = allChanges.some(c => c.type === 'RENAME_ENTITY');
+                const hasModelRename = allChanges.some(c => c.type === 'RENAME_MODEL');
                 const hasFieldChanges = allChanges.some(c => c.type.includes('FIELD'));
                 
                 assert.ok(hasModelRename);
@@ -680,7 +680,7 @@ if (typeof suite !== 'undefined') {
                 const changes = deleteModelTool.analyze(oldFileMeta, undefined);
                 
                 assert.strictEqual(changes.length, 1);
-                assert.strictEqual(changes[0].type, 'DELETE_ENTITY');
+                assert.strictEqual(changes[0].type, 'DELETE_MODEL');
                 
                 // The tool should handle cleanup of related fields
                 const edit = await deleteModelTool.prepareEdit(changes[0], cache);
@@ -701,7 +701,7 @@ if (typeof suite !== 'undefined') {
                     const model = createMockModel(`Model${i}`, modelUri, modelRange);
                     
                     changes.push({
-                        type: 'RENAME_ENTITY',
+                        type: 'RENAME_MODEL',
                         uri: modelUri,
                         description: `Rename Model${i} to NewModel${i}`,
                         payload: {
@@ -746,7 +746,7 @@ if (typeof suite !== 'undefined') {
                             
                             // Verify changes are detected correctly
                             assert.strictEqual(changes.length, 1);
-                            assert.strictEqual(changes[0].type, 'RENAME_ENTITY');
+                            assert.strictEqual(changes[0].type, 'RENAME_MODEL');
                             
                             resolve();
                         }, Math.random() * 100); // Random delay to simulate real-world timing

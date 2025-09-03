@@ -48,7 +48,7 @@ if (typeof suite !== 'undefined') {
             });
 
             test('should handle correct change types', () => {
-                assert.deepStrictEqual(tool.getHandledChangeTypes(), ['RENAME_ENTITY']);
+                assert.deepStrictEqual(tool.getHandledChangeTypes(), ['RENAME_MODEL']);
             });
         });
 
@@ -121,7 +121,7 @@ if (typeof suite !== 'undefined') {
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 const payload = changes[0].payload as RenameModelPayload;
                 assert.strictEqual(changes.length, 1);
-                assert.strictEqual(changes[0].type, 'RENAME_ENTITY');
+                assert.strictEqual(changes[0].type, 'RENAME_MODEL');
                 assert.strictEqual(payload.oldName, 'User');
                 assert.strictEqual(payload.newName, 'Customer');
                 assert.strictEqual(changes[0].description, 'Model \'User\' was renamed to \'Customer\'.');
@@ -181,7 +181,7 @@ if (typeof suite !== 'undefined') {
 
                 // Simulate that Product was deleted by another tool
                 const accumulatedChanges: ChangeObject[] = [{
-                    type: 'DELETE_ENTITY',
+                    type: 'DELETE_MODEL',
                     uri,
                     description: 'Product model deleted',
                     payload: { oldModelMetadata: oldModel2 } as DeleteModelPayload
@@ -225,7 +225,7 @@ if (typeof suite !== 'undefined') {
                 const change = await tool.initiateManualRefactor(context);
                 const payload = change?.payload as RenameModelPayload;
                 assert.ok(change);
-                assert.strictEqual(change.type, 'RENAME_ENTITY');
+                assert.strictEqual(change.type, 'RENAME_MODEL');
                 assert.strictEqual(payload.oldName, 'User');
                 assert.strictEqual(payload.newName, 'ValidModelName');
                 assert.strictEqual(payload.isManual, true);
@@ -332,7 +332,7 @@ if (typeof suite !== 'undefined') {
                 ];
 
                 const change: ChangeObject = {
-                    type: 'RENAME_ENTITY',
+                    type: 'RENAME_MODEL',
                     uri: modelUri,
                     description: 'Rename User to Customer',
                     payload: {
@@ -363,7 +363,7 @@ if (typeof suite !== 'undefined') {
                 ];
 
                 const change: ChangeObject = {
-                    type: 'RENAME_ENTITY',
+                    type: 'RENAME_MODEL',
                     uri: modelUri,
                     description: 'Rename User to Customer',
                     payload: {
@@ -391,7 +391,7 @@ if (typeof suite !== 'undefined') {
                 model.references = []; // No references
 
                 const change: ChangeObject = {
-                    type: 'RENAME_ENTITY',
+                    type: 'RENAME_MODEL',
                     uri: modelUri,
                     description: 'Rename User to Customer',
                     payload: {

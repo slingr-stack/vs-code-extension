@@ -78,7 +78,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         const fieldRenamesByClass = new Map<string, Map<string, string>>();
         // Check for accumulated changes that may affect the analysis
         for (const change of accumulatedChanges) {
-            if (change.type === 'RENAME_ENTITY') {
+            if (change.type === 'RENAME_MODEL') {
                 const payload = change.payload as RenameModelPayload;
                 if (payload.oldName && payload.newName) {
                     classRenames.set(payload.oldName, payload.newName);

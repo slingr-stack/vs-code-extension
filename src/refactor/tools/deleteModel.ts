@@ -39,7 +39,7 @@ export class DeleteModelTool implements IRefactorTool {
   }
 
   public getHandledChangeTypes(): ChangeType[] {
-    return ["DELETE_ENTITY"];
+    return ["DELETE_MODEL"];
   }
 
   /**
@@ -59,7 +59,7 @@ export class DeleteModelTool implements IRefactorTool {
    * 
    * @param oldFileMeta - The metadata of the file before changes, containing class information
    * @param newFileMeta - The metadata of the file after changes, or undefined if file was deleted
-   * @returns An array of ChangeObject instances. Returns a single DELETE_ENTITY change object if an model deletion is detected, otherwise returns an empty array
+   * @returns An array of ChangeObject instances. Returns a single DELETE_MODEL change object if an model deletion is detected, otherwise returns an empty array
    * 
    * @remarks
    * This method performs the following checks:
@@ -67,7 +67,7 @@ export class DeleteModelTool implements IRefactorTool {
    * - Extracts the model class from the old file metadata
    * - Determines if the model was deleted by checking if it no longer exists in newFileMeta
    * - If deleted, collects related URIs that should also be removed (actions and UI directories)
-   * - Returns a DELETE_ENTITY change object with the deleted model metadata and related URIs
+   * - Returns a DELETE_MODEL change object with the deleted model metadata and related URIs
    */
   public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata, accumulatedChanges: ChangeObject[] = []): ChangeObject[] {
     if (!oldFileMeta || !isModelFile(oldFileMeta.uri)) {
@@ -82,7 +82,7 @@ export class DeleteModelTool implements IRefactorTool {
 
     // Check if this model was already handled by a rename operation
     const wasRenamed = accumulatedChanges.some(change => {
-      if (change.type === 'RENAME_ENTITY') {
+      if (change.type === 'RENAME_MODEL') {
         const payload = change.payload as RenameModelPayload;
         return payload.oldName === oldModelClass.name;
       }
@@ -116,7 +116,7 @@ export class DeleteModelTool implements IRefactorTool {
       };
       return [
         {
-          type: "DELETE_ENTITY",
+          type: "DELETE_MODEL",
           uri: oldFileMeta.uri,
           description: `Model '${oldModelClass.name}' was deleted.`,
           payload,
@@ -171,7 +171,7 @@ export class DeleteModelTool implements IRefactorTool {
     };
 
     return {
-      type: "DELETE_ENTITY",
+      type: "DELETE_MODEL",
       uri: context.uri,
       description: `Delete model '${model.name}'.`,
       payload,
@@ -192,8 +192,8 @@ export class DeleteModelTool implements IRefactorTool {
    */
   public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
     // Type guard to ensure we're working with the correct payload type
-    if (change.type !== 'DELETE_ENTITY') {
-      throw new Error(`DeleteModelTool can only handle DELETE_ENTITY changes, received: ${change.type}`);
+    if (change.type !== 'DELETE_MODEL') {
+      throw new Error(`DeleteModelTool can only handle DELETE_MODEL changes, received: ${change.type}`);
     }
     
     const payload = change.payload as DeleteModelPayload;
@@ -360,8 +360,8 @@ export class DeleteModelTool implements IRefactorTool {
    */
   public async executePrompt(change: ChangeObject): Promise<void> {
     // Type guard to ensure we're working with the correct payload type
-    if (change.type !== 'DELETE_ENTITY') {
-      console.error(`DeleteModelTool can only execute prompts for DELETE_ENTITY changes, received: ${change.type}`);
+    if (change.type !== 'DELETE_MODEL') {
+      console.error(`DeleteModelTool can only execute prompts for DELETE_MODEL changes, received: ${change.type}`);
       return;
     }
     

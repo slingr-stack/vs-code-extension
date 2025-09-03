@@ -34,7 +34,7 @@ export class RenameModelTool implements IRefactorTool {
     }
 
     public getHandledChangeTypes(): ChangeType[] {
-        return ['RENAME_ENTITY'];
+        return ['RENAME_MODEL'];
     }
 
     /**
@@ -66,7 +66,7 @@ export class RenameModelTool implements IRefactorTool {
         const newClassNames = new Set(Object.keys(newFileMeta.classes));
         const deletedClassNames = new Set<string>();
         for (const change of accumulatedChanges) {
-            if (change.type === 'DELETE_ENTITY') {
+            if (change.type === 'DELETE_MODEL') {
                 const payload = change.payload as DeleteModelPayload;
                 if (payload.oldModelMetadata) {
                     deletedClassNames.add(payload.oldModelMetadata.name);
@@ -88,7 +88,7 @@ export class RenameModelTool implements IRefactorTool {
                     isManual: false
                 };
                 const change: ChangeObject = {
-                    type: 'RENAME_ENTITY',
+                    type: 'RENAME_MODEL',
                     uri: newFileMeta.uri,
                     description: `Model '${oldClass.name}' was renamed to '${newClass.name}'.`,
                     payload
@@ -133,7 +133,7 @@ export class RenameModelTool implements IRefactorTool {
         };
 
         const change: ChangeObject = {
-            type: 'RENAME_ENTITY',
+            type: 'RENAME_MODEL',
             uri: context.uri,
             description: `Rename model '${model.name}' to '${newName}'.`,
             payload
@@ -155,8 +155,8 @@ export class RenameModelTool implements IRefactorTool {
      */
     public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
         // Type guard to ensure we're working with the correct payload type
-        if (change.type !== 'RENAME_ENTITY') {
-            throw new Error(`RenameModelTool can only handle RENAME_ENTITY changes, received: ${change.type}`);
+        if (change.type !== 'RENAME_MODEL') {
+            throw new Error(`RenameModelTool can only handle RENAME_MODEL changes, received: ${change.type}`);
         }
         
         const payload = change.payload as RenameModelPayload;

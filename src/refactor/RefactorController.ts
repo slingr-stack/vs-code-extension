@@ -138,7 +138,7 @@ export class RefactorController {
 
       const hasTextEdits = workspaceEdit.size > 0;
       let hasFileDeletions = false;
-      if (changeObject.type === 'DELETE_ENTITY') {
+      if (changeObject.type === 'DELETE_MODEL') {
         const deletePayload = changeObject.payload as DeleteModelPayload;
         hasFileDeletions = Array.isArray(deletePayload.urisToDelete) && deletePayload.urisToDelete.length > 0;
       }
@@ -175,7 +175,7 @@ export class RefactorController {
     allChanges?: ChangeObject[] 
   ): Promise<void> {
     const anchorUri = changeObject.uri;
-    const isDelete = changeObject.type === "DELETE_ENTITY";
+    const isDelete = changeObject.type === "DELETE_MODEL";
 
     let uriForDummyChange = anchorUri;
 
@@ -374,7 +374,7 @@ export class RefactorController {
 
           }
 
-          if (change.type === 'DELETE_ENTITY') {
+          if (change.type === 'DELETE_MODEL') {
             const deletePayload = change.payload as DeleteModelPayload;
             if (Array.isArray(deletePayload.urisToDelete)) {
               for (const uri of deletePayload.urisToDelete) {
