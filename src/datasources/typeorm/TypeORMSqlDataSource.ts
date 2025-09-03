@@ -2,6 +2,9 @@ import 'reflect-metadata';
 import { DataSource as TypeORMDataSource, DataSourceOptions as TypeORMDataSourceOptions } from 'typeorm';
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { DataSource, DataSourceOptions } from '../DataSource';
+import { TypeORMTypeMapper } from './TypeORMTypeMapper';
+import { DatabaseConfigBuilder } from './DatabaseConfigBuilder';
+import { ArrayFieldManager } from './ArrayFieldManager';
 
 /**
  * Configuration options for TypeORM SQL data source.
@@ -76,7 +79,7 @@ export interface TypeORMSqlDataSourceOptions extends DataSourceOptions {
 export class TypeORMSqlDataSource extends DataSource {
   private typeormDataSource: TypeORMDataSource | null = null;
   private registeredModels: Set<Function> = new Set();
-  private arrayElementEntities: Map<string, Function> = new Map();
+  private arrayFieldManager: ArrayFieldManager = new ArrayFieldManager();
 
   constructor(options: TypeORMSqlDataSourceOptions) {
     super(options);
@@ -93,41 +96,17 @@ export class TypeORMSqlDataSource extends DataSource {
   async initialize(options: DataSourceOptions): Promise<TypeORMDataSource> {
     const typeormOptions = options as TypeORMSqlDataSourceOptions;
 
-    // Build TypeORM DataSource configuration dynamically based on database type
-    let config: any = {
-      type: typeormOptions.type,
-      logging: typeormOptions.logging ?? false,
-      synchronize: typeormOptions.synchronize ?? typeormOptions.managed,
-      entities: [...Array.from(this.registeredModels), ...Array.from(this.arrayElementEntities.values())], // Include registered entities and array entities
-    };
+    // Get all entities (models + array element entities)
+    const allEntities = [
+      ...Array.from(this.registeredModels), 
+      ...this.arrayFieldManager.getArrayElementEntities()
+    ];
 
-    // SQLite-specific configuration
-    if (typeormOptions.type === 'sqlite') {
-      config.database = typeormOptions.filename || ':memory:';
-    } else {
-      // Configuration for other database types
-      if (typeormOptions.host) config.host = typeormOptions.host;
-      if (typeormOptions.port) config.port = typeormOptions.port;
-      if (typeormOptions.username) config.username = typeormOptions.username;
-      if (typeormOptions.password) config.password = typeormOptions.password;
-      if (typeormOptions.database) config.database = typeormOptions.database;
-    }
-
-    // Connection pooling configuration
-    if (typeormOptions.maxConnections || typeormOptions.minConnections) {
-      config.pool = {
-        max: typeormOptions.maxConnections || 10,
-        min: typeormOptions.minConnections || 1,
-      };
-    }
-
-    // Connection timeout
-    if (typeormOptions.connectTimeout) {
-      config.connectTimeout = typeormOptions.connectTimeout;
-    }
+    // Build TypeORM configuration using the dedicated builder
+    const config = DatabaseConfigBuilder.buildConfig(typeormOptions, allEntities);
 
     // Create and initialize TypeORM DataSource
-    this.typeormDataSource = new TypeORMDataSource(config as TypeORMDataSourceOptions);
+    this.typeormDataSource = new TypeORMDataSource(config);
 
     try {
       await this.typeormDataSource.initialize();
@@ -219,7 +198,7 @@ export class TypeORMSqlDataSource extends DataSource {
 
   /**
    * Configures a field with appropriate TypeORM column decorators.
-   * For array fields, creates a separate entity and sets up a one-to-many relationship.
+   * For array fields, delegates to the array field manager.
    * 
    * @param target - The prototype of the class containing the field
    * @param propertyKey - The name of the property/field
@@ -239,12 +218,12 @@ export class TypeORMSqlDataSource extends DataSource {
 
     // Check if this is an array field
     if (fieldType.startsWith('array:')) {
-      this.configureArrayField(target, propertyKey, fieldType, fieldOptions);
+      this.arrayFieldManager.configureArrayField(target, propertyKey, fieldType, fieldOptions);
       return;
     }
 
-    // Map framework field types to TypeORM column types
-    const typeMapping = this.getTypeOrmColumnType(fieldType, fieldOptions);
+    // Map framework field types to TypeORM column types using the type mapper
+    const typeMapping = TypeORMTypeMapper.getColumnType(fieldType, fieldOptions);
 
     // Apply the TypeORM @Column decorator
     Column(typeMapping)(target, propertyKey);
@@ -257,240 +236,8 @@ export class TypeORMSqlDataSource extends DataSource {
   }
 
   /**
-   * Configures an array field by creating a separate entity and storing metadata.
-   * Note: We don't use TypeORM relationships for dynamically created array entities.
-   * 
-   * @param target - The prototype of the class containing the field
-   * @param propertyKey - The name of the property/field
-   * @param fieldType - The framework field type (e.g., 'array:text', 'array:html')
-   * @param fieldOptions - Field-specific options
-   */
-  private configureArrayField(
-    target: any,
-    propertyKey: string,
-    fieldType: string,
-    fieldOptions?: any
-  ): void {
-    const parentEntityName = target.constructor.name;
-    const baseFieldType = fieldType.replace('array:', ''); // e.g., 'text', 'html', 'email'
-    
-    // Create a unique key for this array field
-    const arrayEntityKey = `${parentEntityName}_${propertyKey}`;
-    
-    // Check if we've already created an entity for this array field
-    if (!this.arrayElementEntities.has(arrayEntityKey)) {
-      const arrayElementEntity = this.createArrayElementEntity(
-        parentEntityName,
-        propertyKey,
-        baseFieldType,
-        fieldOptions
-      );
-      this.arrayElementEntities.set(arrayEntityKey, arrayElementEntity);
-    }
-    
-    // Store metadata about this array field without configuring TypeORM relationships
-    Reflect.defineMetadata('typeorm:array-field', {
-      elementEntityKey: arrayEntityKey,
-      baseFieldType: baseFieldType,
-      options: fieldOptions
-    }, target, propertyKey);
-    
-    // Store that this field is configured for TypeORM
-    Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
-  }
-
-  /**
-   * Creates a new entity class for array elements.
-   * 
-   * @param parentEntityName - Name of the parent entity
-   * @param fieldName - Name of the array field
-   * @param baseFieldType - Base type of array elements (e.g., 'text', 'html')
-   * @param fieldOptions - Field-specific options
-   * @returns The created entity class
-   */
-  private createArrayElementEntity(
-    parentEntityName: string,
-    fieldName: string,
-    baseFieldType: string,
-    fieldOptions?: any
-  ): Function {
-    const tableName = `${parentEntityName.toLowerCase()}_${fieldName}`;
-    const entityName = `${parentEntityName}_${fieldName}`;
-    
-    // Dynamically create the array element entity class
-    const ArrayElementEntity = class {
-      id!: string;
-      parentId!: string;
-      value!: string;
-      index!: number;
-    };
-    
-    // Set the class name for better debugging
-    Object.defineProperty(ArrayElementEntity, 'name', { value: entityName });
-    
-    // Apply TypeORM decorators
-    Entity(tableName)(ArrayElementEntity);
-    
-    // Configure the id field
-    PrimaryGeneratedColumn('uuid')(ArrayElementEntity.prototype, 'id');
-    
-    // Configure the parentId field (foreign key)
-    Column({ type: 'uuid', name: 'parent_id' })(ArrayElementEntity.prototype, 'parentId');
-    
-    // Configure the value field based on the base field type
-    const valueColumnConfig = this.getArrayElementColumnConfig(baseFieldType, fieldOptions);
-    Column(valueColumnConfig)(ArrayElementEntity.prototype, 'value');
-    
-    // Configure the index field to preserve array order
-    Column({ type: 'int', name: 'array_index' })(ArrayElementEntity.prototype, 'index');
-    
-    return ArrayElementEntity;
-  }
-
-  /**
-   * Gets the column configuration for array element values based on the base field type.
-   * 
-   * @param baseFieldType - The base field type (e.g., 'text', 'html', 'email')
-   * @param fieldOptions - Field-specific options
-   * @returns TypeORM column configuration
-   */
-  private getArrayElementColumnConfig(baseFieldType: string, fieldOptions?: any): any {
-    switch (baseFieldType) {
-      case 'text':
-      case 'email':
-      case 'html':
-        return {
-          type: fieldOptions?.maxLength && fieldOptions.maxLength <= 255 ? 'varchar' : 'text',
-          length: fieldOptions?.maxLength <= 255 ? fieldOptions.maxLength : undefined,
-          nullable: false
-        };
-      
-      case 'integer':
-        return {
-          type: 'int',
-          nullable: false
-        };
-      
-      case 'number':
-      case 'decimal':
-        return {
-          type: 'decimal',
-          precision: fieldOptions?.precision || 10,
-          scale: fieldOptions?.decimals || 2,
-          nullable: false
-        };
-      
-      case 'boolean':
-        return {
-          type: 'boolean',
-          nullable: false
-        };
-      
-      case 'datetime':
-        return {
-          type: 'datetime',
-          nullable: false
-        };
-      
-      case 'money':
-        return {
-          type: 'decimal',
-          precision: 19,
-          scale: fieldOptions?.decimals || 2,
-          nullable: false
-        };
-      
-      case 'choice':
-        return {
-          type: 'varchar',
-          length: 50,
-          nullable: false
-        };
-      
-      default:
-        return {
-          type: 'text',
-          nullable: false
-        };
-    }
-  }
-
-  /**
-   * Maps framework field types to TypeORM column configurations.
-   * 
-   * @param fieldType - The framework field type
-   * @param fieldOptions - Field-specific options
-   * @returns TypeORM column configuration
-   */
-  private getTypeOrmColumnType(fieldType: string, fieldOptions?: any): any {
-    // Determine if the field should be nullable based on the required option
-    const isRequired = fieldOptions?.required === true;
-    const nullable = !isRequired;
-
-    switch (fieldType) {
-      case 'text':
-      case 'email':
-      case 'html':
-        return {
-          type: fieldOptions?.maxLength && fieldOptions.maxLength <= 255 ? 'varchar' : 'text',
-          length: fieldOptions?.maxLength <= 255 ? fieldOptions.maxLength : undefined,
-          nullable: nullable
-        };
-
-      case 'integer':
-        return {
-          type: 'int',
-          nullable: nullable
-        };
-
-      case 'number':
-      case 'decimal':
-        return {
-          type: 'decimal',
-          precision: fieldOptions?.precision || 10,
-          scale: fieldOptions?.decimals || 2,
-          nullable: nullable
-        };
-
-      case 'boolean':
-        return {
-          type: 'boolean',
-          nullable: nullable
-        };
-
-      case 'datetime':
-        return {
-          type: 'datetime',
-          nullable: nullable
-        };
-
-      case 'money':
-        return {
-          type: 'decimal',
-          precision: 19,
-          scale: fieldOptions?.decimals || 2,
-          nullable: nullable
-        };
-
-      case 'choice':
-        return {
-          type: 'varchar',
-          length: 50,
-          nullable: nullable
-        };
-
-      default:
-        // Default to text for unknown types
-        return {
-          type: 'text',
-          nullable: nullable
-        };
-    }
-  }
-
-  /**
    * Save an entity to the database.
-   * Handles array field conversion before saving.
+   * Handles array field conversion before saving using the array field manager.
    * 
    * @param entity - The entity instance to save
    * @returns Promise resolving to the saved entity with generated id
@@ -506,19 +253,19 @@ export class TypeORMSqlDataSource extends DataSource {
     const isUpdate = !!(entity as any).id;
     
     if (isUpdate) {
-      // For updates, first handle array field deletion
-      await this.handleArrayFieldsForUpdate(entity);
+      // For updates, first handle array field deletion using the array field manager
+      await this.arrayFieldManager.handleArrayFieldsForUpdate(entity, this.typeormDataSource);
     }
     
     // Preserve array values before extracting main entity fields
-    const arrayValues = this.extractArrayValues(entity);
+    const arrayValues = this.arrayFieldManager.extractArrayValues(entity);
     
     // Save the main entity first (without arrays converted)
-    const mainEntityToSave = this.extractMainEntityFields(entity);
+    const mainEntityToSave = this.arrayFieldManager.extractMainEntityFields(entity);
     const savedMainEntity = await repository.save(mainEntityToSave as any) as T;
     
     // Now save array fields using the preserved values
-    await this.saveArrayFields(entity, arrayValues, savedMainEntity);
+    await this.arrayFieldManager.saveArrayFields(entity, arrayValues, savedMainEntity, this.typeormDataSource);
     
     // Return the entity with arrays loaded
     const result = await this.findById(entity.constructor as any, (savedMainEntity as any).id);
@@ -526,110 +273,8 @@ export class TypeORMSqlDataSource extends DataSource {
   }
 
   /**
-   * Handles array field updates by removing old array elements.
-   */
-  private async handleArrayFieldsForUpdate<T extends object>(entity: T): Promise<void> {
-    const entityClass = entity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', entityClass) || [];
-    
-    for (const fieldName of fieldNames) {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
-      if (fieldType && fieldType.startsWith('array:')) {
-        const arrayMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
-        const ArrayElementEntity = this.arrayElementEntities.get(arrayMetadata.elementEntityKey);
-        
-        if (ArrayElementEntity) {
-          const repository = this.typeormDataSource!.getRepository(ArrayElementEntity as any);
-          // Delete existing array elements for this entity
-          await repository.delete({ parentId: (entity as any).id });
-        }
-      }
-    }
-  }
-
-  /**
-   * Extracts array values from an entity before processing.
-   */
-  private extractArrayValues<T extends object>(entity: T): Record<string, any[]> {
-    const arrayValues: Record<string, any[]> = {};
-    const entityClass = entity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', entityClass) || [];
-    
-    for (const fieldName of fieldNames) {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
-      if (fieldType && fieldType.startsWith('array:')) {
-        const arrayValue = (entity as any)[fieldName];
-        if (Array.isArray(arrayValue)) {
-          arrayValues[fieldName] = arrayValue;
-        }
-      }
-    }
-    
-    return arrayValues;
-  }
-
-  /**
-   * Extracts main entity fields (excluding arrays) for saving.
-   */
-  private extractMainEntityFields<T extends object>(entity: T): T {
-    const entityCopy = { ...entity };
-    const entityClass = entity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', entityClass) || [];
-    
-    for (const fieldName of fieldNames) {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
-      if (fieldType && fieldType.startsWith('array:')) {
-        // Remove array fields from the main entity
-        delete (entityCopy as any)[fieldName];
-      }
-    }
-    
-    return entityCopy;
-  }
-
-  /**
-   * Saves array fields as separate entities.
-   */
-  private async saveArrayFields<T extends object>(originalEntity: T, arrayValues: Record<string, any[]>, savedEntity: T): Promise<void> {
-    const entityClass = originalEntity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', entityClass) || [];
-    
-    for (const fieldName of fieldNames) {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
-      if (fieldType && fieldType.startsWith('array:')) {
-        const arrayValue = arrayValues[fieldName];
-        
-        if (Array.isArray(arrayValue) && arrayValue.length > 0) {
-          const arrayMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
-          const ArrayElementEntity = this.arrayElementEntities.get(arrayMetadata.elementEntityKey);
-          
-          if (ArrayElementEntity) {
-            const repository = this.typeormDataSource!.getRepository(ArrayElementEntity as any);
-            
-            // Create array element entities using the saved entity's ID
-            const elementEntities = arrayValue.map((value, index) => {
-              const elementEntity = new (ArrayElementEntity as any)();
-              elementEntity.parentId = (savedEntity as any).id;
-              elementEntity.value = value;
-              elementEntity.index = index;
-              return elementEntity;
-            });
-            
-            // Save all array elements
-            await repository.save(elementEntities);
-          }
-        }
-      }
-    }
-  }
-
-  /**
    * Find entities by criteria.
-   * Handles array field conversion after loading.
+   * Handles array field conversion after loading using the array field manager.
    * 
    * @param entityClass - The entity class to search for
    * @param criteria - Search criteria (optional)
@@ -649,13 +294,15 @@ export class TypeORMSqlDataSource extends DataSource {
       entities = await repository.find() as T[];
     }
     
-    // Load array data for each entity
-    return await Promise.all(entities.map(entity => this.loadArrayFields(entity)));
+    // Load array data for each entity using the array field manager
+    return await Promise.all(entities.map(entity => 
+      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
+    ));
   }
 
   /**
    * Find a single entity by id.
-   * Handles array field conversion after loading.
+   * Handles array field conversion after loading using the array field manager.
    * 
    * @param entityClass - The entity class to search for
    * @param id - The id of the entity to find
@@ -673,8 +320,8 @@ export class TypeORMSqlDataSource extends DataSource {
       return null;
     }
     
-    // Load array data for the entity
-    return await this.loadArrayFields(entity);
+    // Load array data for the entity using the array field manager
+    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
   }
 
   /**
@@ -712,42 +359,4 @@ export class TypeORMSqlDataSource extends DataSource {
     return await repository.count();
   }
 
-  /**
-   * Loads array fields for an entity by querying array element entities.
-   * 
-   * @param entity - The entity to load array fields for
-   * @returns The entity with array fields populated
-   */
-  private async loadArrayFields<T extends object>(entity: T): Promise<T> {
-    const entityCopy = { ...entity };
-    const entityClass = entity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', entityClass) || [];
-    
-    for (const fieldName of fieldNames) {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
-      if (fieldType && fieldType.startsWith('array:')) {
-        const arrayMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
-        const ArrayElementEntity = this.arrayElementEntities.get(arrayMetadata.elementEntityKey);
-        
-        if (ArrayElementEntity) {
-          const repository = this.typeormDataSource!.getRepository(ArrayElementEntity as any);
-          
-          // Load array elements for this entity, ordered by index
-          const elements = await repository.find({
-            where: { parentId: (entity as any).id },
-            order: { index: 'ASC' }
-          });
-          
-          // Extract values into an array
-          (entityCopy as any)[fieldName] = elements.map(element => element.value);
-        }
-      }
-    }
-    
-    return entityCopy;
-  }
-
-  
-  
 }
