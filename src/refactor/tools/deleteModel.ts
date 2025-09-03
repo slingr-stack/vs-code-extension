@@ -94,9 +94,7 @@ export class DeleteModelTool implements IRefactorTool {
       return [];
     }
 
-    const isDeleted = !newFileMeta || !Object.values(newFileMeta.classes).some(
-      (c) => c.name === oldModelClass.name && isModel(c)
-    );
+    const isDeleted = !newFileMeta || !Object.values(newFileMeta.classes).some(isModel);
 
     if (isDeleted) {
       const urisToDelete: vscode.Uri[] = [];

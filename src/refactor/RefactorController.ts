@@ -193,22 +193,65 @@ export class RefactorController {
       }
     }
 
+    // Try to mark one real edit with confirmation metadata instead of adding a dummy edit.
+    // We will copy all existing edits into a new WorkspaceEdit and annotate the first suitable
+    // text edit (preferably on the same URI as the anchor change) with `needsConfirmation`.
+    const metadata: vscode.WorkspaceEditEntryMetadata = {
+      needsConfirmation: true,
+      label: "Review All Refactoring Changes",
+    };
+
+    let editToApply: vscode.WorkspaceEdit = workspaceEdit;
     try {
-      const document = await vscode.workspace.openTextDocument(uriForDummyChange);
-      const dummyRange = new vscode.Range(0, 0, 0, 1);
-      const firstChar = document.getText(dummyRange);
-      const metadata: vscode.WorkspaceEditEntryMetadata = {
-        needsConfirmation: true,
-        label: "Review All Refactoring Changes",
-      };
-      workspaceEdit.replace(uriForDummyChange, dummyRange, firstChar, metadata);
+      // Find a candidate edit to annotate
+      let chosenUri: vscode.Uri | undefined;
+      let chosenIndex = -1;
+
+      // Prefer an edit on the anchorUri
+      for (const [uri, textEdits] of workspaceEdit.entries()) {
+        if (textEdits.length > 0 && uri.toString() === anchorUri.toString()) {
+          chosenUri = uri;
+          chosenIndex = 0;
+          break;
+        }
+      }
+
+      // Otherwise pick the first available edit
+      if (!chosenUri) {
+        for (const [uri, textEdits] of workspaceEdit.entries()) {
+          if (textEdits.length > 0) {
+            chosenUri = uri;
+            chosenIndex = 0;
+            break;
+          }
+        }
+      }
+
+      if (chosenUri) {
+        // Build a new WorkspaceEdit copying all edits, but annotate the chosen edit
+        const annotated = new vscode.WorkspaceEdit();
+        for (const [uri, textEdits] of workspaceEdit.entries()) {
+          for (let i = 0; i < textEdits.length; i++) {
+            const te = textEdits[i];
+            const isChosen = uri.toString() === chosenUri!.toString() && i === chosenIndex;
+            if (isChosen) {
+              annotated.replace(uri, te.range, te.newText, metadata);
+              // remember which uri we annotated so we can use it if needed (for logging/fallback)
+              uriForDummyChange = uri;
+            } else {
+              annotated.replace(uri, te.range, te.newText);
+            }
+          }
+        }
+        editToApply = annotated;
+      } 
     } catch (e) {
-      console.error("Could not create dummy change for refactor preview:", e);
+      console.error("Error while annotating workspace edits for review:", e);
     }
 
     this.isApplyingEdit = true;
     try {
-      const success = await vscode.workspace.applyEdit(workspaceEdit);
+      const success = await vscode.workspace.applyEdit(editToApply);
       if (success) {
         await vscode.workspace.saveAll(false);
         const changesToProcess = allChanges || [changeObject];
