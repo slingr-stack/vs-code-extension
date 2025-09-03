@@ -22,12 +22,14 @@ export interface RefactorContext {
  * @property `oldName`: The original name of the model being renamed.
  * @property `newName`: The new name to be assigned to the model.
  * @property `oldModelMetadata`: The metadata of the class representing the model before the rename.
+ * @property `newUri`: The new URI for the file if it is being renamed.
  * @property `isManual`: An optional flag indicating whether the rename operation was initiated manually by a user.
  */
 export interface RenameModelPayload {
     oldName: string;
     newName: string;
     oldModelMetadata: DecoratedClass;
+    newUri: vscode.Uri | undefined;
     isManual: boolean;
 }
 

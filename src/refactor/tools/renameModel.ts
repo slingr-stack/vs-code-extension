@@ -85,8 +85,16 @@ export class RenameModelTool implements IRefactorTool {
                     oldName: oldClass.name,
                     newName: newClass.name,
                     oldModelMetadata: oldClass,
+                    newUri: undefined,
                     isManual: false
                 };
+
+                const oldFileName = oldFileMeta.uri.path.split('/').pop()?.replace('.ts', '');
+                if (oldFileName === oldClass.name) {
+                    const newUri = vscode.Uri.joinPath(oldFileMeta.uri, '..', `${newClass.name}.ts`);
+                    payload.newUri = newUri;
+                }
+
                 const change: ChangeObject = {
                     type: 'RENAME_MODEL',
                     uri: newFileMeta.uri,
@@ -129,8 +137,15 @@ export class RenameModelTool implements IRefactorTool {
             oldName: model.name,
             newName: newName,
             oldModelMetadata: model,
+            newUri: undefined,
             isManual: true
         };
+
+        const oldFileName = context.uri.path.split('/').pop()?.replace('.ts', '');
+        if (oldFileName === model.name) {
+            const newUri = vscode.Uri.joinPath(context.uri, '..', `${newName}.ts`);
+            payload.newUri = newUri;
+        }
 
         const change: ChangeObject = {
             type: 'RENAME_MODEL',

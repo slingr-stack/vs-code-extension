@@ -124,6 +124,10 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(changes[0].type, 'RENAME_MODEL');
                 assert.strictEqual(payload.oldName, 'User');
                 assert.strictEqual(payload.newName, 'Customer');
+                // newUri should be set since the file name "User.ts" matches the model name "User"
+                assert.ok(payload.newUri);
+                assert.strictEqual(payload.newUri?.path.endsWith('/Customer.ts'), true);
+                assert.strictEqual(payload.isManual, false);
                 assert.strictEqual(changes[0].description, 'Model \'User\' was renamed to \'Customer\'.');
             });
 
@@ -192,6 +196,10 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(payload.oldName, 'User');
                 assert.strictEqual(payload.newName, 'Customer');
+                // newUri should be set since the file name "User.ts" matches the model name "User"
+                assert.ok(payload.newUri);
+                assert.strictEqual(payload.newUri?.path.endsWith('/Customer.ts'), true);
+                assert.strictEqual(payload.isManual, false);
             });
 
             test('should handle empty or undefined metadata', () => {
@@ -229,6 +237,9 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(payload.oldName, 'User');
                 assert.strictEqual(payload.newName, 'ValidModelName');
                 assert.strictEqual(payload.isManual, true);
+                // The newUri should be set since the file name matches the model name
+                assert.ok(payload.newUri);
+                assert.strictEqual(payload.newUri?.path.endsWith('ValidModelName.ts'), true);
             });
 
             test('should reject invalid model name - lowercase start', async () => {
@@ -339,6 +350,7 @@ if (typeof suite !== 'undefined') {
                         oldName: 'User',
                         newName: 'Customer',
                         oldModelMetadata: model,
+                        newUri: undefined, // No file rename for this test
                         isManual: true
                     }
                 };
@@ -370,6 +382,7 @@ if (typeof suite !== 'undefined') {
                         oldName: 'User',
                         newName: 'Customer',
                         oldModelMetadata: model,
+                        newUri: undefined, // No file rename for this test
                         isManual: false
                     }
                 };
@@ -398,6 +411,7 @@ if (typeof suite !== 'undefined') {
                         oldName: 'User',
                         newName: 'Customer',
                         oldModelMetadata: model,
+                        newUri: undefined, // No file rename for this test
                         isManual: true
                     }
                 };

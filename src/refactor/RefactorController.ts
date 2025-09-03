@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteModelPayload } from "./refactorInterfaces";
+import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteModelPayload, RenameModelPayload } from "./refactorInterfaces";
 import { findNodeAtPosition } from "../utils/ast";
 import { MetadataCache } from "../cache/cache";
 import { AppTreeItem } from "../explorer/appTreeItem";
@@ -150,12 +150,12 @@ export class RefactorController {
     }
   }
 
-   /**
+  /**
    * Presents workspace changes to the user for approval and handles post-approval analysis.
    * 
-   * This method creates a dummy change to trigger VS Code's refactoring preview UI, applies
-   * the workspace edit after user confirmation, and optionally runs AI analysis on the changes
-   * to help identify and fix potential errors.
+   * This method applies the workspace edit with proper confirmation metadata on existing edits
+   * to trigger VS Code's refactoring preview UI, and optionally runs AI analysis on the changes
+   * after user approval to help identify and fix potential errors.
    * 
    * @param workspaceEdit - The VS Code WorkspaceEdit containing all file changes to be applied
    * @param changeObject - The primary change object being processed, used as an anchor for the preview
@@ -164,11 +164,12 @@ export class RefactorController {
    * @returns A Promise that resolves when the approval process and any follow-up analysis is complete
    * 
    * @remarks
-   * - For delete operations, attempts to find a safe URI to create the dummy change
-   * - Creates a dummy edit with confirmation metadata to trigger VS Code's preview UI
+   * - Annotates existing text edits with confirmation metadata to trigger VS Code's preview UI
+   * - Prefers to annotate edits on the anchor URI when available, otherwise uses the first available edit
+   * - Includes file operations (deletions and renames) from the change payloads in the workspace edit
    * - After successful application, saves all documents and optionally runs AI analysis
    * - Uses a timeout to reset the `isApplyingEdit` flag to prevent race conditions
-   */  
+   */
   private async presentChangesForApproval(
     workspaceEdit: vscode.WorkspaceEdit,
     changeObject: ChangeObject,
@@ -240,6 +241,25 @@ export class RefactorController {
               uriForDummyChange = uri;
             } else {
               annotated.replace(uri, te.range, te.newText);
+            }
+          }
+        }
+        // We have to add the file renames and deletions from the original changes
+        const changesToProcess = allChanges || [changeObject];
+        for (const change of changesToProcess) {
+          if (change.type === 'DELETE_MODEL') {
+            const deletePayload = change.payload as DeleteModelPayload;
+            if (Array.isArray(deletePayload.urisToDelete)) {
+              for (const uri of deletePayload.urisToDelete) {
+                annotated.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
+              }
+            }
+          }
+          
+          if (change.type === 'RENAME_MODEL') {
+            const renamePayload = change.payload as RenameModelPayload;
+            if (renamePayload.newUri) {
+              annotated.renameFile(change.uri, renamePayload.newUri);
             }
           }
         }
@@ -380,6 +400,13 @@ export class RefactorController {
               for (const uri of deletePayload.urisToDelete) {
                 mergedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
               }
+            }
+          }
+
+          if (change.type === 'RENAME_MODEL') {
+            const renamePayload = change.payload as RenameModelPayload;
+            if (renamePayload.newUri) {
+              mergedEdit.renameFile(change.uri, renamePayload.newUri);
             }
           }
 
