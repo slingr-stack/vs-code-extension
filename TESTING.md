@@ -86,7 +86,7 @@ Unit tests use mock data and don't require real files. They test:
 
 1. **No models found**:
    - Check that `src/data/` directory exists
-   - Verify model files have `` decorators
+   - Verify model files have `@Model` decorators
    - Ensure `tsconfig.json` is properly configured
 
 2. **Tests timeout**:

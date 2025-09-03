@@ -72,23 +72,34 @@ export class ExplorerProvider
       // The parent contains the host model's metadata
       const modelFilePath = draggedItem.parent.metadata?.declaration.uri.fsPath;
       const modelClassName = draggedItem.parent.metadata?.name;
-      
+
       // We need to find the property name that represents this composition relationship
       // Look through the parent model's properties to find the one that matches this composition
-      if (modelFilePath && modelClassName && draggedItem.parent.metadata && "properties" in draggedItem.parent.metadata) {
+      if (
+        modelFilePath &&
+        modelClassName &&
+        draggedItem.parent.metadata &&
+        "properties" in draggedItem.parent.metadata
+      ) {
         const parentModel = draggedItem.parent.metadata;
         let compositionFieldName = null;
-        
+
         // Find the field that represents this composition relationship
         for (const [propName, prop] of Object.entries(parentModel.properties)) {
-          if (prop.decorators.some(d => d.name === "Field") && 
-              prop.decorators.some(d => d.name === "Relationship" && d.arguments.some(arg => arg.type === "composition" || arg.type === "Composition")) &&
-              prop.type === draggedItem.metadata?.name) {
+          if (
+            prop.decorators.some((d) => d.name === "Field") &&
+            prop.decorators.some(
+              (d) =>
+                d.name === "Relationship" &&
+                d.arguments.some((arg) => arg.type === "composition" || arg.type === "Composition")
+            ) &&
+            this.extractBaseTypeFromArrayType(prop.type) === draggedItem.metadata?.name
+          ) {
             compositionFieldName = propName;
             break;
           }
         }
-        
+
         if (compositionFieldName) {
           dataTransfer.set(
             FIELD_MIME_TYPE,
@@ -118,7 +129,7 @@ export class ExplorerProvider
     // Ensure we have a valid target to drop onto (field or composition model)
     let targetFieldName: string | null = null;
     let targetModelPath: string | undefined = undefined;
-    
+
     if (target && target.itemType === "field" && target.metadata && "name" in target.metadata) {
       // Dropping onto a regular field
       targetFieldName = target.metadata.name;
@@ -126,21 +137,27 @@ export class ExplorerProvider
     } else if (target && target.itemType === "model" && target.parent && target.parent.itemType === "model") {
       // Dropping onto a composition model
       targetModelPath = target.parent.metadata?.declaration.uri.fsPath;
-      
+
       // Find the field name that represents this composition relationship
       if (target.parent.metadata && "properties" in target.parent.metadata) {
         const parentModel = target.parent.metadata;
         for (const [propName, prop] of Object.entries(parentModel.properties)) {
-          if (prop.decorators.some(d => d.name === "Field") && 
-              prop.decorators.some(d => d.name === "Relationship" && d.arguments.some(arg => arg.type === "Composition")) &&
-              prop.type === target.metadata?.name) {
+          if (
+            prop.decorators.some((d) => d.name === "Field") &&
+            prop.decorators.some(
+              (d) =>
+                d.name === "Relationship" &&
+                d.arguments.some((arg) => arg.type === "Composition" || arg.type === "composition")
+            ) &&
+            this.extractBaseTypeFromArrayType(prop.type) === target.metadata?.name
+          ) {
             targetFieldName = propName;
             break;
           }
         }
       }
     }
-    
+
     if (!target || !targetFieldName || !targetModelPath) {
       vscode.window.showWarningMessage("A field can only be dropped onto another field or composition model.");
       return;
@@ -280,20 +297,22 @@ export class ExplorerProvider
         if (
           field.decorators.some(
             (d) =>
-              d.name === "Relationship" && d.arguments.some((arg) => arg.type === "Composition")
+              d.name === "Relationship" &&
+              d.arguments.some((arg) => arg.type === "Composition" || arg.type === "composition")
           )
         ) {
-          const relationshipType = field.type;
+          const relationshipType = this.extractBaseTypeFromArrayType(field.type);
           const relatedModel = this.cache.getDataModelClasses().find((model) => model.name === relationshipType);
+          const upperFieldName = field.name.charAt(0).toUpperCase() + field.name.slice(1);
           const compositionItem = new AppTreeItem(
-            field.decorators.find((d) => d.name === "Field")?.arguments[0]?.label || field.name,
+            upperFieldName,
             vscode.TreeItemCollapsibleState.Collapsed,
             "model",
             this.extensionUri,
             relatedModel,
             element
           );
-          
+
           // Add navigation command to go to related model definition when clicked
           if (relatedModel) {
             compositionItem.command = {
@@ -302,7 +321,7 @@ export class ExplorerProvider
               arguments: [relatedModel.declaration],
             };
           }
-          
+
           return compositionItem;
         } else {
           return this.mapPropertyToTreeItem(field, "field", element);
@@ -347,7 +366,7 @@ export class ExplorerProvider
       const srcDataPattern = /[\/\\]src[\/\\]data[\/\\]/;
       const match = filePath.match(srcDataPattern);
       if (!match) {
-      continue;
+        continue;
       }
 
       const dataIndex = filePath.indexOf(match[0]);
@@ -358,23 +377,23 @@ export class ExplorerProvider
       const fileName = pathParts.pop();
 
       if (pathParts.length === 0) {
-      // Model is directly in src/data/
-      root.models.push(model);
+        // Model is directly in src/data/
+        root.models.push(model);
       } else {
-      // Model is in a subfolder
-      let currentNode = root;
-      let currentPath = "";
+        // Model is in a subfolder
+        let currentNode = root;
+        let currentPath = "";
 
-      for (const part of pathParts) {
-        currentPath = currentPath ? `${currentPath}/${part}` : part;
+        for (const part of pathParts) {
+          currentPath = currentPath ? `${currentPath}/${part}` : part;
 
-        if (!currentNode.folders.has(part)) {
-        currentNode.folders.set(part, { folders: new Map(), models: [] });
+          if (!currentNode.folders.has(part)) {
+            currentNode.folders.set(part, { folders: new Map(), models: [] });
+          }
+          currentNode = currentNode.folders.get(part)!;
         }
-        currentNode = currentNode.folders.get(part)!;
-      }
 
-      currentNode.models.push(model);
+        currentNode.models.push(model);
       }
     }
 
@@ -431,18 +450,24 @@ export class ExplorerProvider
     for (const model of sortedModels) {
       const decorator = model.decorators.find((d) => d.name === "Model");
       const label = decorator?.arguments[0]?.label || model.name;
-      
+
       // Only show models that are NOT referenced by composition relationships
       if (!this.isModelReferencedByComposition(model)) {
-        const modelItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "model", this.extensionUri, model);
-        
+        const modelItem = new AppTreeItem(
+          label,
+          vscode.TreeItemCollapsibleState.Collapsed,
+          "model",
+          this.extensionUri,
+          model
+        );
+
         // Add navigation command to go to model definition when clicked
         modelItem.command = {
           command: "slingr-vscode-extension.navigateToCode",
           title: "Go to Definition",
           arguments: [model.declaration],
         };
-        
+
         items.push(modelItem);
       }
     }
@@ -451,11 +476,10 @@ export class ExplorerProvider
   }
 
   private mapPropertyToTreeItem(propData: PropertyMetadata, itemType: string, parent?: AppTreeItem): AppTreeItem {
-    const decorator = propData.decorators.find((d) => d.name === "Field");
-    const label = decorator?.arguments[0]?.label || propData.name;
+    const upperFieldName = propData.name.charAt(0).toUpperCase() + propData.name.slice(1);
 
     const item = new AppTreeItem(
-      label,
+      upperFieldName,
       vscode.TreeItemCollapsibleState.None,
       itemType,
       this.extensionUri,
@@ -489,7 +513,8 @@ export class ExplorerProvider
   private isModelReferencedByComposition(item: DecoratedClass): boolean {
     // Get all references to this model
     const modelReferences = item.references;
-    
+    const checkedFiles = new Set<string>();
+
     // For each external reference, check if it's part of a composition relationship
     for (const reference of modelReferences) {
       // Get the file metadata for the reference
@@ -497,33 +522,49 @@ export class ExplorerProvider
       if (!referencingFile) {
         continue;
       }
-      
-      // Search through all classes in the referencing file
-      for (const referencingClass of Object.values(referencingFile.classes)) {
-        // Search through all properties in the class
-        for (const property of Object.values(referencingClass.properties)) {
-          // Check if this property references our model type
-          if (property.type === item.name) {
-            // Check if this property has a @Relationship decorator with type: "Composition"
-            const relationshipDecorator = property.decorators.find(d => d.name === "Relationship");
-            if (relationshipDecorator) {
-              // Check if the relationship decorator has type: "Composition"
-              const hasCompositionType = relationshipDecorator.arguments.some(arg => 
-                typeof arg === 'object' && 
-                arg !== null && 
-                'type' in arg && 
-                arg.type === "Composition"
-              );
-              
-              if (hasCompositionType) {
-                return true;
+
+      if (reference.uri.fsPath !== item.declaration.uri.fsPath && !checkedFiles.has(reference.uri.fsPath)) {
+        for (const referencingClass of Object.values(referencingFile.classes)) {
+          // Search through all properties in the class
+          for (const property of Object.values(referencingClass.properties)) {
+            // Check if this property references our model type
+            const lowerItemName = item.name.toLowerCase();
+            if (property.type === item.name || property.type === `${item.name}[]` || property.type.toLowerCase() === lowerItemName) {
+              // Check if this property has a @Relationship decorator with type: "Composition"
+              const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
+              if (relationshipDecorator) {
+                // Check if the relationship decorator has type: "Composition"
+                const hasCompositionType = relationshipDecorator.arguments.some(
+                  (arg) =>
+                    (typeof arg === "object" && arg !== null && "type" in arg && arg.type === "Composition") ||
+                    arg.type === "composition"
+                );
+
+                if (hasCompositionType) {
+                  return true;
+                }
               }
             }
           }
         }
+        checkedFiles.add(reference.uri.fsPath);
       }
     }
-    
+
     return false;
+  }
+
+  /**
+   * Extracts the base type from array types.
+   * For example, "Note[]" becomes "Note", "string" remains "string"
+   * @param type The type string that might be an array type
+   * @returns The base type without array brackets
+   */
+  private extractBaseTypeFromArrayType(type: string): string {
+    // Remove array brackets if present
+    if (type.endsWith("[]")) {
+      return type.slice(0, -2);
+    }
+    return type;
   }
 }
