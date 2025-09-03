@@ -1,8 +1,5 @@
-// Add vscode.TreeDragAndDropController to the import
 import * as vscode from "vscode";
-import * as path from "path";
-// Add Project from ts-morph for the reordering logic
-import { Project, IndentationText } from "ts-morph";
+import { Project } from "ts-morph";
 import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
 

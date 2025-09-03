@@ -10,7 +10,7 @@ import { findNodeAtPosition } from '../utils/ast';
 import { cache } from '../extension';
 import { AppTreeItem } from '../explorer/appTreeItem';
 import { AddDecoratorTool } from './tools/addDecorator';
-import { isField, isModelFile } from '../utils/metadata';
+import { isModelFile } from '../utils/metadata';
 import { PropertyMetadata } from '../cache/cache';
 import { fieldTypeConfig } from '../utils/fieldTypes';
 

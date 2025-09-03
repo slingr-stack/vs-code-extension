@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { MetadataCache } from './cache/cache';
-import { ExplorerProvider } from './explorer/explorerProvider';
 import { getAllRefactorTools, registerRefactorCommands } from './refactor/refactorDisposables';
 import { RefactorController } from './refactor/RefactorController';
 import { registerExplorer } from './explorer/explorerRegistration';
