@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ts, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration } from 'ts-morph';
 import * as path from 'path';
+import { RefactorController } from '../refactor/RefactorController';
+import { ChangeObject } from '../refactor/refactorInterfaces';
+
+// Represents the type of changes that can occur to a file
+type FileChangeType = 'create' | 'change' | 'delete';
 
 /**
  * The main cache structure to hold all the metadata of the project.
@@ -38,8 +43,8 @@ export interface PropertyMetadata {
     name: string;
     type: string;
     decorators: DecoratorMetadata[];
-    references: vscode.Location[];
-    declaration: vscode.Location;
+    references: vscode.Location[]; 
+    declaration: vscode.Location; 
 }
 
 /**
@@ -64,13 +69,11 @@ export interface ParameterMetadata {
  */
 export interface MethodMetadata {
     name: string;
-    parameters: ParameterMetadata[];
+    parameters: ParameterMetadata[]; 
     decorators: DecoratorMetadata[];
     returnedFields: string[] | null;
     declaration: vscode.Location;
 }
-
-type FileChangeType = 'create' | 'change' | 'delete';
 
 /**
  * Manages a cache of project metadata extracted from TypeScript files using ts-morph.
@@ -84,6 +87,8 @@ export class MetadataCache {
     private fileWatcher: vscode.FileSystemWatcher | null = null;
     private isProcessingQueue = false;
     private fileChangeQueue: { uri: vscode.Uri, type: FileChangeType }[] = [];
+    private refactorController: RefactorController | null = null;
+    private automaticRefactorsEnabled: boolean = true;
 
     /**
      * Initializes the cache and the ts-morph project.
@@ -105,13 +110,29 @@ export class MetadataCache {
      */
     public async initialize(): Promise<void> {
         
-        const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/ui/**/*.ts}', '**/node_modules/**');
+        const files = await vscode.workspace.findFiles('{src/data/**/*.ts}');
         for (const file of files) {
             this.addSourceFile(file);
         }
 
         this.buildAllReferences();
         this.setupFileWatcher();
+    }
+
+    /**
+     * Sets the refactor controller to be used for managing refactorings.
+     * @param controller The refactor controller instance.
+     */
+    public setRefactorController(controller: RefactorController): void {
+        this.refactorController = controller;
+    }
+
+    /**
+     * Sets whether automatic refactors should be proposed and executed.
+     * @param enabled True to enable, false to disable.
+     */
+    public setAutomaticRefactorsEnabled(enabled: boolean): void {
+        this.automaticRefactorsEnabled = enabled;
     }
 
     /**
@@ -141,7 +162,7 @@ export class MetadataCache {
     }
 
     /**
-    * Processes a file change from the queue.
+    * Processes a file change from the queue, performing Phase 1 (Analysis) of the pipeline.
     */
     private async processQueue(): Promise<void> {
         if (this.isProcessingQueue || this.fileChangeQueue.length === 0) {
@@ -151,20 +172,52 @@ export class MetadataCache {
         this.isProcessingQueue = true;
         const { uri, type } = this.fileChangeQueue.shift()!;
         const filePath = uri.fsPath.replace(/\\/g, '/');
-
         try {
-            if (type === 'delete') {
-                this.removeSourceFile(filePath);
-            } else {
+            // Get "before" state from cache and "after" state from disk.
+            const oldFileMeta = this.cache[filePath];
+            let newFileMeta: FileMetadata | undefined;
+
+            if (type === 'create' || type === 'change') {
                 let sourceFile = this.tsMorphProject.getSourceFile(filePath);
                 if (sourceFile) {
                     await sourceFile.refreshFromFileSystem();
                 } else {
                     sourceFile = this.tsMorphProject.addSourceFileAtPath(filePath);
                 }
-                this.parseFileForMetadata(sourceFile, true);
+                newFileMeta = this.parseFileForMetadata(sourceFile, false);
             }
 
+            // Only perform analysis and propose refactors if the feature is enabled.
+            if (this.automaticRefactorsEnabled && this.refactorController) {
+                const allChanges: ChangeObject[] = [];
+                const tools = this.refactorController.getTools();
+                for (const tool of tools) {
+                    const detectedChanges = tool.analyze(oldFileMeta, newFileMeta, allChanges);
+                    allChanges.push(...detectedChanges);
+                }
+
+                // If analysis found changes, hand them off for Planning and Execution.
+                if (allChanges.length > 0) {
+                    await this.refactorController.proposeAutomaticRefactors(allChanges);
+                    
+                    // After execution, the file(s) on disk have changed. We must re-read
+                    // the primary file to update our cache with the final state.
+                    if (type !== 'delete') {
+                        const sourceFile = this.tsMorphProject.getSourceFile(filePath);
+                        if (sourceFile) {
+                            await sourceFile.refreshFromFileSystem();
+                            newFileMeta = this.parseFileForMetadata(sourceFile, false);
+                        }
+                    }
+                }
+            }
+            
+            if (type === 'delete') {
+                this.removeSourceFile(filePath);
+            } else if (newFileMeta) {
+                this.cache[filePath] = newFileMeta;
+            }
+            
             this.buildAllReferences();
             this._onDidUpdate.fire();
 
@@ -179,10 +232,10 @@ export class MetadataCache {
     /**
      * Helper to get a deep copy of metadata to prevent mutation of the cache state.
      */
-    public getMetadataForFile(path: string): FileMetadata | undefined {
+    public getMetadataForFile(path: string, isCopy: boolean = false): FileMetadata | undefined {
         const normalizedPath = path.replace(/\\/g, '/');
         const fileData = this.cache[normalizedPath];
-        return fileData ? JSON.parse(JSON.stringify(fileData)) : undefined;
+        return fileData ? (isCopy ? JSON.parse(JSON.stringify(fileData)) : fileData) : undefined;
     }
 
     /**
@@ -194,20 +247,6 @@ export class MetadataCache {
         const normalizedPath = path.replace(/\\/g, '/');
         const sourceFile = this.tsMorphProject.addSourceFileAtPath(normalizedPath);
         this.parseFileForMetadata(sourceFile);
-    }
-
-    /**
-     * Updates an existing source file in the cache by re-parsing it.
-     * @param filePath The path to the source file.
-     */
-    private async updateSourceFile(filePath: string): Promise<void> {
-        const sourceFile = this.tsMorphProject.getSourceFile(filePath);
-        if (sourceFile) {
-            await sourceFile.refreshFromFileSystem();
-            this.parseFileForMetadata(sourceFile);
-        } else {
-            this.addSourceFile(filePath);
-        }
     }
 
     /**
@@ -417,38 +456,6 @@ export class MetadataCache {
     }
 
     /**
-     * Finds all file paths that reference any class or property within a given file.
-     * This is useful for understanding the impact of deleting a file.
-     * @param filePath The path of the file whose references are being sought.
-     * @returns An array of unique file paths that reference the given file.
-     */
-    private getReferencingFilePaths(filePath: string): string[] {
-        const referencingFiles = new Set<string>();
-        const fileMeta = this.cache[filePath];
-
-        if (!fileMeta) {
-            return [];
-        }
-
-        // Collect all references from the file's classes and properties
-        for (const classData of Object.values(fileMeta.classes)) {
-            // Add files that reference the class itself
-            for (const ref of classData.references) {
-                referencingFiles.add(ref.uri.fsPath);
-            }
-
-            // Add files that reference any of the class's properties
-            for (const propData of Object.values(classData.properties)) {
-                for (const ref of propData.references) {
-                    referencingFiles.add(ref.uri.fsPath);
-                }
-            }
-        }
-
-        return Array.from(referencingFiles);
-    }
-
-    /**
      * Iterates through all cached items and finds their references throughout the project.
      * This includes direct references found by ts-morph and implicit references
      * from string literals in places like ModelView `getFields` methods.
@@ -484,116 +491,6 @@ export class MetadataCache {
                     }
                 }
             }
-        }
-
-        this.buildImplicitViewFieldReferences();
-    }
-
-     /**
-     * After a file is changed, this function efficiently updates all affected references.
-     * It avoids a full project-wide reference rebuild by focusing only on the items
-     * within the changed file.
-     * @param changedFilePath The path of the file that was modified.
-     */
-    private updateAffectedReferences(changedFilePath: string): void {
-        const sourceFile = this.tsMorphProject.getSourceFile(changedFilePath);
-        if (!sourceFile) {
-            return;
-        }
-
-        const affectedItems: (DecoratedClass | PropertyMetadata)[] = [];
-        const fileMeta = this.cache[changedFilePath];
-        if (fileMeta) {
-            for (const classData of Object.values(fileMeta.classes)) {
-                affectedItems.push(classData);
-                affectedItems.push(...Object.values(classData.properties));
-            }
-        }
-
-        for (const item of affectedItems) {
-            item.references = [];
-        }
-
-        for (const classData of Object.values(fileMeta.classes)) {
-            const classNode = sourceFile.getClass(classData.name);
-            if (classNode) {
-                this.findAndStoreReferences(classNode, classData);
-
-                for (const propData of Object.values(classData.properties)) {
-                    const propNode = classNode.getProperty(propData.name);
-                    if (propNode) {
-                        this.findAndStoreReferences(propNode, propData);
-                    }
-                }
-            }
-        }
-
-        this.buildImplicitViewFieldReferences();
-    }
-
-    /**
-     * Finds implicit field references within `getFields` methods of `ModelView` classes.
-     * This is necessary because `ts-morph`'s `findReferences` does not detect references
-     * made via string literals (e.g., `{ field: 'fieldName' }`).
-     */
-    private buildImplicitViewFieldReferences(): void {
-        const modelMap = new Map<string, DecoratedClass>();
-        this.findMetadata(item => 'properties' in item && item.decorators.some(d => d.name === 'Model'))
-            .forEach(model => modelMap.set((model as DecoratedClass).name, model as DecoratedClass));
-
-        const viewClasses = this.findMetadata(
-            item => 'properties' in item && item.decorators.some(d => d.name === 'ModelView')
-        ) as DecoratedClass[];
-
-        for (const viewClass of viewClasses) {
-            const modelViewDecorator = viewClass.decorators.find(d => d.name === 'ModelView');
-            const modelName = modelViewDecorator?.arguments[0]?.model;
-
-            if (!modelName || !modelMap.has(modelName)) {
-                continue;
-            }
-
-            const modelClass = modelMap.get(modelName)!;
-            const normalizedViewPath = viewClass.declaration.uri.fsPath.replace(/\\/g, '/');
-            const viewSourceFile = this.tsMorphProject.getSourceFile(normalizedViewPath);
-            const viewClassNode = viewSourceFile?.getClass(viewClass.name);
-            const getFieldsMethodNode = viewClassNode?.getMethod('getFields');
-            const returnStatement = getFieldsMethodNode?.getFirstDescendantByKind(SyntaxKind.ReturnStatement);
-            const returnExpression = returnStatement?.getExpression();
-
-            if (!returnExpression || !Node.isArrayLiteralExpression(returnExpression)) {
-                continue;
-            }
-
-            returnExpression.getElements().forEach((element: Node) => {
-                if (Node.isObjectLiteralExpression(element)) {
-                    const fieldProperty = element.getProperty('field');
-                    if (fieldProperty && Node.isPropertyAssignment(fieldProperty)) {
-                        const initializer = fieldProperty.getInitializer();
-                        if (initializer && Node.isStringLiteral(initializer)) {
-                            const fieldName = initializer.getLiteralValue();
-                            const targetProperty = modelClass.properties[fieldName];
-                            if (targetProperty) {
-                                const contentStartPos = initializer.getStart() + 1;
-                                const contentEndPos = initializer.getEnd() - 1;
-
-                                const start = viewSourceFile!.getLineAndColumnAtPos(contentStartPos);
-                                const end = viewSourceFile!.getLineAndColumnAtPos(contentEndPos);
-
-                                const range = new vscode.Range(
-                                    start.line - 1, start.column - 1,
-                                    end.line - 1, end.column - 1
-                                );
-                                const refLocation = new vscode.Location(
-                                    vscode.Uri.file(viewSourceFile!.getFilePath().replace(/\\/g, '/')),
-                                    range
-                                );
-                                targetProperty.references.push(refLocation);
-                            }
-                        }
-                    }
-                }
-            });
         }
     }
 
@@ -666,6 +563,9 @@ export class MetadataCache {
         const dataModels: DecoratedClass[] = [];
         for (const fileData of Object.values(this.cache)) {
             for (const classData of Object.values(fileData.classes)) {
+                if (classData.isDataModel) {
+                    dataModels.push(classData);
+                }
                 if (classData.isDataModel) {
                     dataModels.push(classData);
                 }
