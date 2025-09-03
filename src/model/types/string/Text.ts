@@ -130,13 +130,13 @@ export function Text(options?: TextOptions) {
             IsArray()(target as any, propName);
             IsString({ each: true })(target as any, propName);
             
-            // Apply array size constraints
+            // Apply element-level string length constraints
             if (options?.minLength !== undefined) {
-                ArrayMinSize(options.minLength)(target as any, propName);
+                MinLength(options.minLength, { each: true })(target as any, propName);
             }
             
             if (options?.maxLength !== undefined) {
-                ArrayMaxSize(options.maxLength)(target as any, propName);
+                MaxLength(options.maxLength, { each: true })(target as any, propName);
             }
 
             // Apply transformation for JSON serialization/deserialization
