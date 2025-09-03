@@ -1,80 +1,79 @@
 import 'reflect-metadata';
-import { validateStringType } from './utils';
-import { Text } from './Text';
-import { IsArray, IsString } from 'class-validator';
+import { IsEmail, IsArray } from 'class-validator';
 import { Transform, TransformationType } from 'class-transformer';
+import { validateStringType } from '../utils';
 
 /**
- * HTML type decorator.
+ * Email type decorator.
  * - Must be used on `string` or `string[]` fields.
- * - For single strings: identical to `Text()` without extra options.
- * - For string arrays: validates each element is a string.
+ * - For single strings: uses standard class-validator email validation.
+ * - For string arrays: validates each element as an email address.
+ * - No options.
  */
 // Custom key types for clearer IntelliSense errors
-type HtmlKey<T, K extends keyof T & string> = T[K] extends string | string[]
+type EmailKey<T, K extends keyof T & string> = T[K] extends string | string[]
     ? K
-    : `HTML: requires string or string[] field`;
+    : `Email: requires string or string[] field`;
 
 /**
  * Validates that a property is of string or string array type at runtime.
  */
-function validateHtmlType(proto: Object, propertyKey: string): void {
+function validateEmailType(proto: Object, propertyKey: string): void {
     const designType = Reflect.getMetadata('design:type', proto, propertyKey);
     if (designType !== String && designType !== Array) {
-        throw new Error(`@HTML can only be applied to 'string' or 'string[]' properties: ${propertyKey}`);
+        throw new Error(`@Email can only be applied to 'string' or 'string[]' properties: ${propertyKey}`);
     }
 }
 
 /**
- * HTML type decorator for string or string array properties.
+ * Email type decorator for string or string array properties.
  *
  * This decorator can be applied to properties of type `string` or `string[]` and provides
- * validation capabilities. For single strings, it behaves identically to the Text decorator.
- * For string arrays, it validates that each element is a string. It also stores
- * metadata that can be consumed by other layers such as database mapping or
- * documentation generation to indicate this field contains HTML content.
+ * email validation capabilities through class-validator decorators. For single strings,
+ * it validates email format. For string arrays, it validates that each element is a valid
+ * email address. It also stores metadata that can be consumed by other layers such as 
+ * database mapping or documentation generation.
  *
  * @example
  * ```typescript
- * class Article {
- *   @HTML()
- *   content: string;
+ * class User {
+ *   @Email()
+ *   email: string;
  *   
- *   @HTML()
- *   sections: string[];
+ *   @Email()
+ *   alternativeEmails: string[];
  * }
  * ```
  *
- * @returns A property decorator function that applies text validation and stores HTML metadata
+ * @returns A property decorator function that applies email validation and stores metadata
  *
  * @throws {Error} When applied to non-string or non-string[] properties
  *
  * @remarks
- * - For strings: identical to Text() decorator in functionality
- * - For arrays: validates each element is a string
- * - Metadata is stored under 'field:type' key with value 'html' or 'array:html'
+ * - For strings: uses standard class-validator email validation
+ * - For arrays: validates each element as an email address
+ * - Metadata is stored under 'field:type' key with value 'email' or 'array:email'
  * - The decorator uses reflection to verify the property type at runtime
- * - Inherits validation capabilities from the Text decorator for single strings
  */
-export function HTML() {
+export function Email() {
     return function <T, K extends keyof T & string>(
         target: T,
-        propertyKey: HtmlKey<T, K>
+        propertyKey: EmailKey<T, K>
     ) {
         const propName = propertyKey as unknown as string;
         const proto = target as unknown as Object;
 
-        validateHtmlType(proto, propName);
+        validateEmailType(proto, propName);
         
         const designType = Reflect.getMetadata('design:type', proto, propName);
         
         if (designType === Array) {
-            // Handle string array case
-            Reflect.defineMetadata('field:type', 'array:html', proto, propName);
+            // Handle email array case
+            Reflect.defineMetadata('field:type', 'array:email', proto, propName);
             
             // Use built-in class-validator decorators for array validation
             IsArray()(target as any, propName);
-            IsString({ each: true })(target as any, propName);
+            IsEmail({}, { each: true })(target as any, propName);
 
             // Apply transformation for JSON serialization/deserialization
             Transform(({ value, type }) => {
@@ -95,9 +94,11 @@ export function HTML() {
                 return value;
             })(target as any, propName);
         } else {
-            // Handle single string case
-            Reflect.defineMetadata('field:type', 'html', proto, propName);
-            Text()(target as any, propName as any);
+            // Handle single email case
+            Reflect.defineMetadata('field:type', 'email', proto, propName);
+            
+            // Use standard class-validator email decorator
+            IsEmail()(target as any, propName);
         }
     };
 }

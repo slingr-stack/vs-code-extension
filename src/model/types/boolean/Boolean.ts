@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { validateBooleanType } from './utils';
+import { validateBooleanType } from '../utils';
 
 /**
  * Boolean type decorator.

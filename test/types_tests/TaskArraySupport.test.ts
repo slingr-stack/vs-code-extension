@@ -1,4 +1,4 @@
-import { Task, TaskStatus, Priority } from "./model/Task";
+import { Task, TaskStatus, Priority } from "../model/Task";
 
 describe("Task Model with HTML Array Support", () => {
     it("should create and validate a task with HTML notes array", async () => {

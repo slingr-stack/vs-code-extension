@@ -1,8 +1,4 @@
-import { Field } from "@/model/Field";
-import { Model } from "@/model/Model";
-import { BaseModel } from "@/model/BaseModel";
-import { Text, Email } from "@/model/types";
-import { Relationship } from "@/model/types";
+import { BaseModel, Field, Model, Text, Email, Relationship } from "../../index";
 import type { ValidationError } from "class-validator";
 
 /**

@@ -7,7 +7,7 @@ import {
     IsOptional
 } from 'class-validator';
 import { Type, Transform, TransformationType, Expose } from 'class-transformer';
-import { dateToISO8601, dateFromJSON } from './utils';
+import { dateToISO8601, dateFromJSON } from '../utils';
 
 /**
  * Options for the DateTimeRange decorator.

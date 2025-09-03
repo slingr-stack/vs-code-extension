@@ -1,4 +1,4 @@
-import { NumberIntegerModel } from "./model/NumberIntegerModel";
+import { NumberIntegerModel } from "../model/NumberIntegerModel";
 
 describe('Number and Integer Decorators', () => {
 

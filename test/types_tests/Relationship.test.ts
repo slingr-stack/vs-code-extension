@@ -1,13 +1,9 @@
-import { Relationship } from '@/model/types';
-import { Field } from '@/model/Field';
-import { Model } from '@/model/Model';
-import { BaseModel } from '@/model/BaseModel';
-import { Customer } from './model/Customer';
-import { LineItem } from './model/LineItem';
-import { Order } from './model/Order';
-import { Project } from './model/Project';
-import { Task } from './model/Task';
-import { DateTimeRangeType } from '@/model/types/DateTimeRange';
+import { BaseModel, Field, Model, DateTimeRangeType, Relationship } from "../../index";
+import { Customer } from '../model/Customer';
+import { LineItem } from '../model/LineItem';
+import { Order } from '../model/Order';
+import { Project } from '../model/Project';
+import { Task } from '../model/Task';
 
 // Additional test models for relationship validation
 @Model()

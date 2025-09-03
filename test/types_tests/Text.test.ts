@@ -1,5 +1,5 @@
-import { App } from "./model/App";
-import { Person } from "./model/Person";
+import { App } from "../model/App";
+import { Person } from "../model/Person";
 
 import type { ValidationError } from "class-validator";
 

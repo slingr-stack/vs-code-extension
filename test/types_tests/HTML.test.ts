@@ -1,4 +1,4 @@
-import { Person } from "./model/Person";
+import { Person } from "../model/Person";
 
 describe("HTML Field Type", () => {
   describe("validation-tests", () => {

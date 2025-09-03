@@ -1,4 +1,4 @@
-import { Person } from "./model/Person";
+import { Person } from "../model/Person";
 
 describe("Boolean Field Type", () => {
   describe("validation-tests", () => {

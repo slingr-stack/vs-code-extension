@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import number from 'financial-number';
-import { DecimalMoneyModel } from './model/DecimalMoneyModel';
+import { DecimalMoneyModel } from '../model/DecimalMoneyModel';
 
 describe('@Decimal Decorator', () => {
 

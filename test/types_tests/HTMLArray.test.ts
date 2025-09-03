@@ -1,4 +1,4 @@
-import { Field, Model, BaseModel, HTML } from "../index";
+import { Field, Model, BaseModel, HTML } from "../../index";
 
 @Model({
     docs: "Test model for HTML decorator with array support",

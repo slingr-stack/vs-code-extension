@@ -5,7 +5,7 @@ import {
     ValidationOptions,
 } from 'class-validator';
 import { Transform, TransformationType } from 'class-transformer';
-import { validateDateType, dateToISO8601, dateFromJSON } from './utils';
+import { validateDateType, dateToISO8601, dateFromJSON } from '../utils';
 
 /**
  * Options for the DateTime decorator.

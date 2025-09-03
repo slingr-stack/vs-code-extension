@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { Transform, TransformationType } from 'class-transformer';
-import { validateEnumType } from './utils';
+import { validateEnumType } from '../utils';
 
 /**
  * Choice type decorator.

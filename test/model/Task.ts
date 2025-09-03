@@ -50,4 +50,10 @@ export class Task extends BaseModel {
     })
     @HTML()
     notes!: string[];
+
+    @Field({
+        required: false
+    })
+    @Text()
+    sponsors!: string[];
 }

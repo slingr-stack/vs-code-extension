@@ -1,4 +1,4 @@
-import { Task, TaskStatus, Priority } from "./model/Task";
+import { Task, TaskStatus, Priority } from "../model/Task";
 
 describe("Choice Field Type", () => {
   describe("validation-tests", () => {

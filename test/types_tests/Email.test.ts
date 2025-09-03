@@ -1,4 +1,4 @@
-import { Person } from "./model/Person";
+import { Person } from "../model/Person";
 
 import type { ValidationError } from "class-validator";
 

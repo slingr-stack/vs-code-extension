@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Transform, TransformationType, Type } from 'class-transformer';
 import { ValidateNested } from 'class-validator';
-import { BaseModel } from '../BaseModel';
+import { BaseModel } from '../../index';
 
 /**
  * Relationship type options.

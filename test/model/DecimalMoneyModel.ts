@@ -1,4 +1,4 @@
-import { Field, Model, BaseModel, Money, Decimal } from '../../index';
+import { BaseModel, Field, Model, Decimal, Money } from "../../index";
 
 @Model({
     docs: "Represents a product",

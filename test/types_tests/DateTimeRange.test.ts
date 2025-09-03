@@ -1,5 +1,5 @@
-import { Project } from "./model/Project";
-import { DateTimeRangeType } from "@/model/types";
+import { Project } from "../model/Project";
+import { DateTimeRangeType } from "../../index";
 
 import type { ValidationError } from "class-validator";
 
