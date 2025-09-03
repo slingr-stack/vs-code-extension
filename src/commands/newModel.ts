@@ -125,17 +125,36 @@ export class NewModelTool implements AIEnhancedTool {
                 return; // User cancelled
             }
 
+            // Check if model name already exists in cache
+            if (cache) {
+                const existingModels = cache.getDataModelClasses().map(m => m.name);
+                if (existingModels.includes(modelName)) {
+                    vscode.window.showErrorMessage(`A model named ${modelName} already exists. Please choose a different name.`);
+                    return; // Stop the process if model already exists
+                }
+            }
+
             // Step 2: Get optional documentation
             const docs = await vscode.window.showInputBox({
                 prompt: "Enter optional documentation for the model (press Enter to skip)",
                 placeHolder: "e.g., Represents a task in the project management system"
             });
 
+            // Check if user cancelled
+            if (docs === undefined) {
+                return; // User pressed Esc
+            }
+
             // Step 3: Get optional fields information
             const fieldsInfo = await vscode.window.showInputBox({
                 prompt: "Enter field information (free text, press Enter to skip)",
                 placeHolder: "e.g., title (string), description (text), project (relationship to Project), status (enum)"
             });
+
+            // Check if user cancelled
+            if (fieldsInfo === undefined) {
+                return; // User pressed Esc
+            }
 
             // Step 4: Determine target file path
             let targetDirectory = finalTargetUri.fsPath;
@@ -153,7 +172,11 @@ export class NewModelTool implements AIEnhancedTool {
                 }
             }
 
-            // Convert PascalCase to camelCase for filename
+            // Check if the target directory exists, if not create it
+            const camelFileName = this.toCamelCase(modelName) + '.ts';
+            const targetCamelFilePath = path.join(targetDirectory, camelFileName);
+            const targetCamelFileUri = vscode.Uri.file(targetCamelFilePath);
+
             const fileName = modelName + '.ts';
             const targetFilePath = path.join(targetDirectory, fileName);
             const targetFileUri = vscode.Uri.file(targetFilePath);
@@ -161,6 +184,8 @@ export class NewModelTool implements AIEnhancedTool {
             // Step 5: Check if file already exists
             try {
                 await vscode.workspace.fs.stat(targetFileUri);
+                await vscode.workspace.fs.stat(targetCamelFileUri);
+                // If we reach here, the file exists
                 const overwrite = await vscode.window.showWarningMessage(
                     `File ${fileName} already exists. Do you want to overwrite it?`,
                     'Overwrite',
