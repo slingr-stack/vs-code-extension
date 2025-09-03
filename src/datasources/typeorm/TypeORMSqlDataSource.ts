@@ -256,6 +256,10 @@ export class TypeORMSqlDataSource extends DataSource {
    * @returns TypeORM column configuration
    */
   private getTypeOrmColumnType(fieldType: string, fieldOptions?: any): any {
+    // Determine if the field should be nullable based on the required option
+    const isRequired = fieldOptions?.required === true;
+    const nullable = !isRequired;
+
     switch (fieldType) {
       case 'text':
       case 'email':
@@ -263,13 +267,13 @@ export class TypeORMSqlDataSource extends DataSource {
         return {
           type: fieldOptions?.maxLength && fieldOptions.maxLength <= 255 ? 'varchar' : 'text',
           length: fieldOptions?.maxLength <= 255 ? fieldOptions.maxLength : undefined,
-          nullable: true // Will be overridden based on @Field required option
+          nullable: nullable
         };
 
       case 'integer':
         return {
           type: 'int',
-          nullable: true
+          nullable: nullable
         };
 
       case 'number':
@@ -278,19 +282,19 @@ export class TypeORMSqlDataSource extends DataSource {
           type: 'decimal',
           precision: fieldOptions?.precision || 10,
           scale: fieldOptions?.decimals || 2,
-          nullable: true
+          nullable: nullable
         };
 
       case 'boolean':
         return {
           type: 'boolean',
-          nullable: true
+          nullable: nullable
         };
 
       case 'datetime':
         return {
           type: 'datetime',
-          nullable: true
+          nullable: nullable
         };
 
       case 'money':
@@ -298,21 +302,21 @@ export class TypeORMSqlDataSource extends DataSource {
           type: 'decimal',
           precision: 19,
           scale: fieldOptions?.decimals || 2,
-          nullable: true
+          nullable: nullable
         };
 
       case 'choice':
         return {
           type: 'varchar',
           length: 50,
-          nullable: true
+          nullable: nullable
         };
 
       default:
         // Default to text for unknown types
         return {
           type: 'text',
-          nullable: true
+          nullable: nullable
         };
     }
   }

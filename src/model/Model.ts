@@ -58,10 +58,17 @@ export function Model(options?: ModelOptions) {
       fieldNames.forEach((fieldName: string) => {
         const fieldType = Reflect.getMetadata('field:type', constructor.prototype, fieldName);
         const fieldTypeOptions = Reflect.getMetadata('field:type:options', constructor.prototype, fieldName);
+        const fieldRequired = Reflect.getMetadata('field:required', constructor.prototype, fieldName);
 
         if (fieldType) {
+          // Combine field options including required information
+          const allFieldOptions = {
+            ...fieldTypeOptions,
+            required: fieldRequired
+          };
+          
           // Configure the field with the data source
-          options.dataSource!.configureField(constructor.prototype, fieldName, fieldType, fieldTypeOptions);
+          options.dataSource!.configureField(constructor.prototype, fieldName, fieldType, allFieldOptions);
         }
       });
     }

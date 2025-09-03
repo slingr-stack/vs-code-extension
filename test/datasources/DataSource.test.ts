@@ -143,17 +143,17 @@ describe('Data Source Integration', () => {
       expect(nameColumn).toEqual({
         type: 'varchar',
         length: 50,
-        nullable: true
+        nullable: false  // Required field should not be nullable
       });
 
       expect(ageColumn).toEqual({
         type: 'int',
-        nullable: true
+        nullable: true  // Optional field should be nullable
       });
 
       expect(createdAtColumn).toEqual({
         type: 'datetime',
-        nullable: true
+        nullable: true  // Optional field should be nullable
       });
     });
 

@@ -187,6 +187,11 @@ export function Field<TObject extends object = object, TValue = unknown>(options
       Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
     }
 
+    // Store required metadata if provided
+    if (options.required !== undefined) {
+      Reflect.defineMetadata('field:required', options.required, target, propertyKey);
+    }
+
     // Handle field availability for JSON serialization/deserialization
     if (options?.available === false) {
       Exclude()(target, propertyKey);
