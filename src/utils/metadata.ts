@@ -9,7 +9,8 @@ import { fieldTypeConfig } from '../utils/fieldTypes';
  * @returns True if the URI is for an model file, false otherwise.
  */
 export function isModelFile(uri: vscode.Uri): boolean {
-    return uri.path.includes('/src/data/');
+    const modelFileRegex = /src\/data\/.*\.ts$/;
+    return modelFileRegex.test(uri.path);
 }
 
 /**
