@@ -82,8 +82,13 @@ export class NewModelTool implements AIEnhancedTool {
             
             // Handle AppTreeItem case
             if (targetUri.folderPath) {
-                // Use the folderPath directly (this now includes dataRoot path)
-                finalTargetUri = vscode.Uri.file(targetUri.folderPath);
+                // Construct the full path: workspace + src/data + folderPath
+                const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                if (!workspaceFolder) {
+                    throw new Error('No workspace folder found');
+                }
+                const fullFolderPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data', targetUri.folderPath);
+                finalTargetUri = vscode.Uri.file(fullFolderPath);
             } else {
                 // Fallback to src/data if folderPath is not available
                 const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
