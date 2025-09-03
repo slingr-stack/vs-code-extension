@@ -85,6 +85,7 @@ export class MetadataCache {
     private tsMorphProject: Project;
     private cache: ProjectMetadataCache = {};
     private fileWatcher: vscode.FileSystemWatcher | null = null;
+    private folderWatcher: vscode.FileSystemWatcher | null = null;
     private isProcessingQueue = false;
     private fileChangeQueue: { uri: vscode.Uri, type: FileChangeType }[] = [];
     private refactorController: RefactorController | null = null;
@@ -136,15 +137,23 @@ export class MetadataCache {
     }
 
     /**
-     * Sets up a file system watcher to detect changes, creations, and deletions
-     * of TypeScript files and updates the cache accordingly.
+     * Sets up file system watchers to detect changes, creations, and deletions
+     * of TypeScript files and folder structure changes in src/data.
      */
     private setupFileWatcher(): void {
+        // Watch for TypeScript file changes
         this.fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.ts');
 
         this.fileWatcher.onDidCreate(uri => this.queueFileChange(uri, 'create'));
         this.fileWatcher.onDidChange(uri => this.queueFileChange(uri, 'change'));
         this.fileWatcher.onDidDelete(uri => this.queueFileChange(uri, 'delete'));
+
+        // Watch for folder structure changes in src/data directory
+        // ignoreCreateEvents: false, ignoreChangeEvents: true, ignoreDeleteEvents: false
+        this.folderWatcher = vscode.workspace.createFileSystemWatcher('**/src/data/**/*', false, true, false);
+
+        this.folderWatcher.onDidCreate(uri => this.handleFolderStructureChange(uri, 'create'));
+        this.folderWatcher.onDidDelete(uri => this.handleFolderStructureChange(uri, 'delete'));
     }
 
     /**
@@ -159,6 +168,69 @@ export class MetadataCache {
         }
         this.fileChangeQueue.push({ uri, type });
         this.processQueue();
+    }
+
+    /**
+     * Handles folder structure changes in the src/data directory.
+     * When folders are created, deleted, or renamed, this triggers a cache refresh
+     * to ensure the explorer reflects the updated folder structure.
+     * @param uri The URI of the folder that changed.
+     * @param type The type of change (create, delete).
+     */
+    private async handleFolderStructureChange(uri: vscode.Uri, type: 'create' | 'delete'): Promise<void> {
+        // Only handle changes in src/data directory
+        if (!uri.path.includes('/src/data/')) {
+            return;
+        }
+
+        // For folder changes, we need to refresh the entire cache to ensure
+        // the explorer reflects the new folder structure
+        console.log(`[Cache] Folder structure change detected: ${type} ${uri.path}`);
+        
+        // Force a cache refresh by re-reading all files
+        await this.forceRefresh();
+    }
+
+    /**
+     * Forces a complete refresh of the cache by re-reading all TypeScript files.
+     * This is useful when folder structure changes occur.
+     */
+    public async forceRefresh(): Promise<void> {
+        try {
+            console.log('[Cache] Force refreshing cache due to folder structure change...');
+            
+            // Clear the current cache
+            this.cache = {};
+            
+            // Clear and rebuild the ts-morph project
+            this.tsMorphProject.getSourceFiles().forEach(sf => {
+                this.tsMorphProject.removeSourceFile(sf);
+            });
+            
+            // Re-scan and add all files
+            const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/ui/**/*.ts}', '**/node_modules/**');
+            for (const file of files) {
+                this.addSourceFile(file);
+            }
+
+            // Rebuild all references
+            this.buildAllReferences();
+            
+            // Notify listeners that the cache has been updated
+            this._onDidUpdate.fire();
+            
+            console.log('[Cache] Force refresh completed');
+        } catch (error) {
+            console.error('[Cache] Error during force refresh:', error);
+        }
+    }
+
+    /**
+     * Manually triggers a cache update event.
+     * This can be used by external tools to force explorer refresh.
+     */
+    public triggerUpdate(): void {
+        this._onDidUpdate.fire();
     }
 
     /**
@@ -710,9 +782,10 @@ export class MetadataCache {
     }
 
     /**
-     * Disposes of the file watcher when the extension is deactivated.
+     * Disposes of the file watchers when the extension is deactivated.
      */
     public dispose(): void {
         this.fileWatcher?.dispose();
+        this.folderWatcher?.dispose();
     }
 }
