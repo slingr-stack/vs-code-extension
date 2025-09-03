@@ -253,7 +253,7 @@ export class DefineFieldsTool {
         );
 
         if (action === "Execute Prompt") {
-            await vscode.commands.executeCommand("workbench.action.chat.open", prompt);
+            await vscode.commands.executeCommand("workbench.action.chat.openAgent", prompt);
             return "";
         }
 

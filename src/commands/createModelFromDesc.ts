@@ -36,7 +36,7 @@ export class CreateModelFromDescriptionTool {
         const prompt = this.generatePrompt(userInput, appDescription, parentModelInfo);
 
         // Execute the chat command
-        await vscode.commands.executeCommand('workbench.action.chat.open', { query: prompt });
+        await vscode.commands.executeCommand('workbench.action.chat.openAgent', { query: prompt });
     }
 
     private generatePrompt(userInput: string, appDescription: string, parentModelInfo?: { name: string, filePath: string } | null): string {

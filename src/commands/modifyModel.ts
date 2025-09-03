@@ -29,7 +29,7 @@ export class ModifyModelTool {
 
         const prompt = this.generatePrompt(userInput, document.uri.fsPath, content);
 
-        await vscode.commands.executeCommand('workbench.action.chat.open', { query: prompt });
+        await vscode.commands.executeCommand('workbench.action.chat.openAgent', { query: prompt });
     }
 
     private generatePrompt(userInput: string, filePath: string, fileContent: string): string {

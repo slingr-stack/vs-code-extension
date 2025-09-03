@@ -154,7 +154,7 @@ export class CreateTestTool {
         );
 
         if (action === "Execute Prompt") {
-            await vscode.commands.executeCommand("workbench.action.chat.open", { query: prompt });
+            await vscode.commands.executeCommand("workbench.action.chat.openAgent", { query: prompt });
             // In a real implementation, you would get the response from the AI
             // and write it to the testFileUri. For this example, we'll just open the chat.
         }
