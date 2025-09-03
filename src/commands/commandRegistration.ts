@@ -5,10 +5,12 @@ import { NewModelTool } from './newModel';
 import { DefineFieldsTool } from './defineFields';
 import { AddFieldTool } from './addField';
 import { NewFolderTool } from './newFolder';
+import { RenameFolderTool } from './renameFolder';
 import { CreateTestTool } from './createTest';
 import { AppTreeItem } from '../explorer/appTreeItem';
 import { CreateModelFromDescriptionTool } from './createModelFromDesc';
 import { ModifyModelTool } from './modifyModel';
+import { ExplorerService } from '../explorer/explorerService';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -16,6 +18,7 @@ export function registerGeneralCommands(
     explorerProvider: ExplorerProvider
 ): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
+    const explorerService = new ExplorerService();
 
     // Navigation command
     const navigateToCodeCommand = vscode.commands.registerCommand('slingr-vscode-extension.navigateToCode', (location: vscode.Location) => {
@@ -126,11 +129,18 @@ export function registerGeneralCommands(
     disposables.push(addFieldCommand);
 
     // New Folder Tool
-    const newFolderTool = new NewFolderTool();
+    const newFolderTool = new NewFolderTool(explorerService);
     const newFolderCommand = vscode.commands.registerCommand('slingr-vscode-extension.newFolder', (uri?: vscode.Uri | AppTreeItem) => {
         return newFolderTool.createFolder(explorerProvider, uri);
     });
     disposables.push(newFolderCommand);
+
+    // Rename Folder Tool
+    const renameFolderTool = new RenameFolderTool(explorerService);
+    const renameFolderCommand = vscode.commands.registerCommand('slingr-vscode-extension.renameFolder', (uri?: vscode.Uri | AppTreeItem) => {
+        return renameFolderTool.renameFolder(explorerProvider, cache, uri);
+    });
+    disposables.push(renameFolderCommand);
 
     // Create Test Tool
     const createTestTool = new CreateTestTool();

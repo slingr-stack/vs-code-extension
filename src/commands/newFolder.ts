@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { AppTreeItem } from "../explorer/appTreeItem";
 import { ExplorerProvider } from "../explorer/explorerProvider";
+import { ExplorerService } from "../explorer/explorerService";
 
 /**
  * Tool for creating new folders in the src/data directory structure.
@@ -11,6 +12,8 @@ import { ExplorerProvider } from "../explorer/explorerProvider";
  * to organize their models in a structured way.
  */
 export class NewFolderTool {
+
+  constructor(private explorerService: ExplorerService) {}
   
   /**
    * Creates a new folder in the appropriate location within src/data.
@@ -21,7 +24,7 @@ export class NewFolderTool {
   public async createFolder(explorerProvider: ExplorerProvider, targetUri?: vscode.Uri | AppTreeItem): Promise<void> {
     try {
       // Determine the target directory
-      const targetDirectory = this.getTargetDirectory(targetUri);
+      const targetDirectory = this.explorerService.getTargetDirectory(targetUri);
       
       // Get folder name from user
       const folderName = await vscode.window.showInputBox({
@@ -70,49 +73,5 @@ export class NewFolderTool {
     }
   }
 
-  /**
-   * Determines the target directory where the folder should be created.
-   * 
-   * @param targetUri - The provided target URI (folder or data root)
-   * @returns The absolute path where the folder should be created
-   */
-  private getTargetDirectory(targetUri?: vscode.Uri | AppTreeItem): string {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    
-    if (!workspaceFolder) {
-      throw new Error('No workspace folder found');
-    }
 
-    // Default to src/data if no specific target provided
-    let targetDirectory = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
-
-    if (targetUri) {
-      if (targetUri instanceof AppTreeItem) {
-        // Handle AppTreeItem cases
-        if (targetUri.itemType === 'folder' && targetUri.folderPath) {
-          // Creating folder inside an existing folder
-          targetDirectory = path.join(workspaceFolder.uri.fsPath, 'src', 'data', targetUri.folderPath);
-        } else if (targetUri.itemType === 'dataRoot') {
-          // Creating folder at the root of src/data
-          targetDirectory = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
-        }
-      } else if (targetUri.scheme === 'file') {
-        // Handle vscode.Uri cases
-        const targetPath = targetUri.fsPath;
-        if (fs.existsSync(targetPath) && fs.lstatSync(targetPath).isDirectory()) {
-          // If it's a directory within src/data, use it
-          if (targetPath.includes('/src/data/') || targetPath.includes('\\src\\data\\')) {
-            targetDirectory = targetPath;
-          }
-        }
-      }
-    }
-
-    // Ensure the target directory exists
-    if (!fs.existsSync(targetDirectory)) {
-      fs.mkdirSync(targetDirectory, { recursive: true });
-    }
-
-    return targetDirectory;
-  }
 }
