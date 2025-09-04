@@ -371,7 +371,7 @@ describe('Data Source Integration', () => {
       expect(savedUser.email).toBe('john@example.com');
 
       // Find the user by id
-      const foundUser = await dataSource.findById(TestUser, savedUser.id);
+      const foundUser = await dataSource.findOneById(TestUser, savedUser.id);
       expect(foundUser).toBeDefined();
       expect(foundUser!.name).toBe('John Doe');
       expect(foundUser!.email).toBe('john@example.com');
@@ -471,14 +471,14 @@ describe('Data Source Integration', () => {
       const savedUser = await dataSource.save(user);
 
       // Verify user exists
-      let foundUser = await dataSource.findById(TestUser, savedUser.id);
+      let foundUser = await dataSource.findOneById(TestUser, savedUser.id);
       expect(foundUser).toBeDefined();
 
       // Delete the user
-      await dataSource.deleteById(TestUser, savedUser.id);
+      await dataSource.delete(TestUser, savedUser.id);
 
       // Verify user is deleted
-      foundUser = await dataSource.findById(TestUser, savedUser.id);
+      foundUser = await dataSource.findOneById(TestUser, savedUser.id);
       expect(foundUser).toBeNull();
     });
 
@@ -567,7 +567,7 @@ describe('Data Source Integration', () => {
       expect(savedModel.id).toBeDefined();
 
       // Retrieve and verify
-      const foundModel = await dataSource.findById(ComplexModel, savedModel.id);
+      const foundModel = await dataSource.findOneById(ComplexModel, savedModel.id);
       expect(foundModel).toBeDefined();
       expect(foundModel!.title).toBe('Test Record');
       expect(foundModel!.count).toBe(42);

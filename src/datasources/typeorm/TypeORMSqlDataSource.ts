@@ -1,6 +1,18 @@
 import 'reflect-metadata';
-import { DataSource as TypeORMDataSource, DataSourceOptions as TypeORMDataSourceOptions } from 'typeorm';
+import { 
+  FindOptionsWhere, 
+  FindManyOptions, 
+  FindOneOptions,
+  FindOptionsOrder,
+  DataSource as TypeORMDataSource, 
+  DataSourceOptions as TypeORMDataSourceOptions,
+  UpdateResult,
+  DeleteResult,
+  InsertResult
+} from 'typeorm';
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import { Repository } from 'typeorm';
+import { ObjectId } from 'typeorm';
 import { DataSource, DataSourceOptions } from '../DataSource';
 import { TypeORMTypeMapper } from './TypeORMTypeMapper';
 import { DatabaseConfigBuilder } from './DatabaseConfigBuilder';
@@ -98,7 +110,7 @@ export class TypeORMSqlDataSource extends DataSource {
 
     // Get all entities (models + array element entities)
     const allEntities = [
-      ...Array.from(this.registeredModels), 
+      ...Array.from(this.registeredModels),
       ...this.arrayFieldManager.getArrayElementEntities()
     ];
 
@@ -178,7 +190,7 @@ export class TypeORMSqlDataSource extends DataSource {
   configureModel(modelClass: Function, options?: any): void {
     // Register this model for inclusion in TypeORM entities
     this.registeredModels.add(modelClass);
-    
+
     // Apply the TypeORM @Entity decorator
     const tableName = options?.tableName || modelClass.name.toLowerCase();
     Entity(tableName)(modelClass as any);
@@ -191,7 +203,7 @@ export class TypeORMSqlDataSource extends DataSource {
 
     // Store that this model is configured for TypeORM
     Reflect.defineMetadata('datasource:type', 'typeorm-sql', modelClass);
-    
+
     // Store the dataSource instance in the model metadata for later access
     Reflect.defineMetadata('model:dataSource', this, modelClass);
   }
@@ -248,106 +260,453 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     const repository = this.typeormDataSource.getRepository(entity.constructor as any);
-    
+
     // If entity has an id, we need to handle updates differently
     const isUpdate = !!(entity as any).id;
-    
+
     if (isUpdate) {
       // For updates, first handle array field deletion using the array field manager
       await this.arrayFieldManager.handleArrayFieldsForUpdate(entity, this.typeormDataSource);
     }
-    
+
     // Preserve array values before extracting main entity fields
     const arrayValues = this.arrayFieldManager.extractArrayValues(entity);
-    
+
     // Save the main entity first (without arrays converted)
     const mainEntityToSave = this.arrayFieldManager.extractMainEntityFields(entity);
     const savedMainEntity = await repository.save(mainEntityToSave as any) as T;
-    
+
     // Now save array fields using the preserved values
     await this.arrayFieldManager.saveArrayFields(entity, arrayValues, savedMainEntity, this.typeormDataSource);
-    
+
     // Return the entity with arrays loaded
-    const result = await this.findById(entity.constructor as any, (savedMainEntity as any).id);
+    const result = await this.findOneById(entity.constructor as any, (savedMainEntity as any).id);
     return result as T; // We know it exists since we just saved it
   }
 
   /**
-   * Find entities by criteria.
+   * Find entities by simple criteria (deprecated in favor of findBy or findWithOptions).
    * Handles array field conversion after loading using the array field manager.
    * 
    * @param entityClass - The entity class to search for
    * @param criteria - Search criteria (optional)
    * @returns Promise resolving to array of found entities
+   * @deprecated Use findBy() or findWithOptions() instead for better TypeORM compatibility
    */
-  async find<T extends object>(entityClass: new() => T, criteria?: any): Promise<T[]> {
+  async find<T extends object>(entityClass: new () => T, criteria?: any): Promise<T[]> {
     if (!this.typeormDataSource) {
       throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
     let entities: T[];
-    
+
     if (criteria) {
       entities = await repository.find({ where: criteria }) as T[];
     } else {
       entities = await repository.find() as T[];
     }
-    
+
     // Load array data for each entity using the array field manager
-    return await Promise.all(entities.map(entity => 
+    return await Promise.all(entities.map(entity =>
       this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
     ));
   }
 
   /**
-   * Find a single entity by id.
-   * Handles array field conversion after loading using the array field manager.
+   * Find entities using TypeORM FindManyOptions.
+   * Supports all TypeORM find options including where, order, relations, pagination, etc.
+   * Handles array field conversion after loading.
    * 
    * @param entityClass - The entity class to search for
-   * @param id - The id of the entity to find
-   * @returns Promise resolving to the found entity or null
+   * @param options - TypeORM FindManyOptions (where, order, relations, skip, take, etc.)
+   * @returns Promise resolving to array of found entities
    */
-  async findById<T extends object>(entityClass: new() => T, id: string): Promise<T | null> {
+  async findWithOptions<T extends object>(entityClass: new () => T, options?: FindManyOptions<T>): Promise<T[]> {
     if (!this.typeormDataSource) {
       throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
-    const entity = await repository.findOne({ where: { id } as any }) as T | null;
-    
+    const entities = await repository.find(options) as T[];
+
+    // Load array data for each entity using the array field manager
+    return await Promise.all(entities.map(entity =>
+      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
+    ));
+  }
+
+  /**
+   * Find entities that match given WHERE conditions.
+   * This matches TypeORM Repository's findBy method signature.
+   * 
+   * @param entityClass - The entity class to search for
+   * @param where - WHERE conditions
+   * @returns Promise resolving to array of found entities
+   */
+  async findBy<T extends object>(entityClass: new () => T, where: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<T[]> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    const entities = await repository.findBy(where) as T[];
+
+    // Load array data for each entity using the array field manager
+    return await Promise.all(entities.map(entity =>
+      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
+    ));
+  }
+
+  /**
+   * Find first entity that matches given WHERE conditions.
+   * Returns null if no entity found.
+   * 
+   * @param entityClass - The entity class to search for
+   * @param where - WHERE conditions
+   * @returns Promise resolving to found entity or null
+   */
+  async findOneBy<T extends object>(entityClass: new () => T, where: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<T | null> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    const entity = await repository.findOneBy(where) as T | null;
+
     if (!entity) {
       return null;
     }
-    
+
     // Load array data for the entity using the array field manager
     return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
   }
 
   /**
-   * Delete an entity by id.
+   * Find first entity using TypeORM FindOneOptions.
+   * Returns null if no entity found.
    * 
-   * @param entityClass - The entity class
-   * @param id - The id of the entity to delete
-   * @returns Promise resolving to delete result
+   * @param entityClass - The entity class to search for
+   * @param options - TypeORM FindOneOptions
+   * @returns Promise resolving to found entity or null
    */
-  async deleteById<T extends object>(entityClass: new() => T, id: string): Promise<void> {
+  async findOne<T extends object>(entityClass: new () => T, options: FindOneOptions<T>): Promise<T | null> {
     if (!this.typeormDataSource) {
       throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
-    await repository.delete(id);
+    const entity = await repository.findOne(options) as T | null;
+
+    if (!entity) {
+      return null;
+    }
+
+    // Load array data for the entity using the array field manager
+    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
   }
 
   /**
-   * Count entities matching criteria.
+   * Find first entity that matches given WHERE conditions.
+   * Throws error if no entity found.
+   * 
+   * @param entityClass - The entity class to search for
+   * @param where - WHERE conditions
+   * @returns Promise resolving to found entity
+   * @throws Error if entity not found
+   */
+  async findOneByOrFail<T extends object>(entityClass: new () => T, where: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<T> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    const entity = await repository.findOneByOrFail(where) as T;
+
+    // Load array data for the entity using the array field manager
+    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
+  }
+
+  /**
+   * Find first entity using TypeORM FindOneOptions.
+   * Throws error if no entity found.
+   * 
+   * @param entityClass - The entity class to search for
+   * @param options - TypeORM FindOneOptions
+   * @returns Promise resolving to found entity
+   * @throws Error if entity not found
+   */
+  async findOneOrFail<T extends object>(entityClass: new () => T, options: FindOneOptions<T>): Promise<T> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    const entity = await repository.findOneOrFail(options) as T;
+
+    // Load array data for the entity using the array field manager
+    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
+  }
+
+  /**
+   * Find entities and count matching the given options.
+   * Returns tuple of [entities, totalCount].
+   * 
+   * @param entityClass - The entity class to search for
+   * @param options - TypeORM FindManyOptions
+   * @returns Promise resolving to [entities, count] tuple
+   */
+  async findAndCount<T extends object>(entityClass: new () => T, options?: FindManyOptions<T>): Promise<[T[], number]> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    const [entities, count] = await repository.findAndCount(options) as [T[], number];
+
+    // Load array data for each entity using the array field manager
+    const entitiesWithArrays = await Promise.all(entities.map(entity =>
+      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
+    ));
+
+    return [entitiesWithArrays, count];
+  }
+
+  /**
+   * Find entities and count matching the given WHERE conditions.
+   * Returns tuple of [entities, totalCount].
+   * 
+   * @param entityClass - The entity class to search for
+   * @param where - WHERE conditions
+   * @returns Promise resolving to [entities, count] tuple
+   */
+  async findAndCountBy<T extends object>(entityClass: new () => T, where: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<[T[], number]> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    const [entities, count] = await repository.findAndCountBy(where) as [T[], number];
+
+    // Load array data for each entity using the array field manager
+    const entitiesWithArrays = await Promise.all(entities.map(entity =>
+      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
+    ));
+
+    return [entitiesWithArrays, count];
+  }
+
+  /**
+   * Check if any entity exists that matches the given options.
+   * 
+   * @param entityClass - The entity class to check
+   * @param options - TypeORM FindManyOptions
+   * @returns Promise resolving to true if entity exists, false otherwise
+   */
+  async exists<T extends object>(entityClass: new () => T, options?: FindManyOptions<T>): Promise<boolean> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    return await repository.exists(options);
+  }
+
+  /**
+   * Check if any entity exists that matches the given WHERE conditions.
+   * 
+   * @param entityClass - The entity class to check
+   * @param where - WHERE conditions
+   * @returns Promise resolving to true if entity exists, false otherwise
+   */
+  async existsBy<T extends object>(entityClass: new () => T, where: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<boolean> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    return await repository.existsBy(where);
+  }
+
+  /**
+   * Count entities matching the given options.
+   * 
+   * @param entityClass - The entity class to count
+   * @param options - TypeORM FindManyOptions
+   * @returns Promise resolving to count of entities
+   */
+  async countWithOptions<T extends object>(entityClass: new () => T, options?: FindManyOptions<T>): Promise<number> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    return await repository.count(options);
+  }
+
+  /**
+   * Count entities matching the given WHERE conditions.
+   * 
+   * @param entityClass - The entity class to count
+   * @param where - WHERE conditions
+   * @returns Promise resolving to count of entities
+   */
+  async countBy<T extends object>(entityClass: new () => T, where: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<number> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    return await repository.countBy(where);
+  }
+
+  /**
+   * Update entities matching the given criteria.
+   * 
+   * @param entityClass - The entity class to update
+   * @param criteria - Criteria to match entities for update
+   * @param partialEntity - Partial entity with fields to update
+   * @returns Promise resolving to UpdateResult
+   */
+  async update<T extends object>(
+    entityClass: new () => T, 
+    criteria: FindOptionsWhere<T> | FindOptionsWhere<T>[], 
+    partialEntity: Partial<T>
+  ): Promise<UpdateResult> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    return await repository.update(criteria as any, partialEntity as any);
+  }
+
+  /**
+   * Delete entities matching the given criteria.
+   * 
+   * @param entityClass - The entity class to delete
+   * @param criteria - Criteria to match entities for deletion (ID, IDs, or WHERE conditions)
+   * @returns Promise resolving to DeleteResult
+   */
+  async delete<T extends object>(
+    entityClass: new () => T, 
+    criteria: string | string[] | number | number[] | Date | Date[] | ObjectId | ObjectId[] | FindOptionsWhere<T> | FindOptionsWhere<T>[]
+  ): Promise<DeleteResult> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    return await repository.delete(criteria as any);
+  }
+
+  /**
+   * Soft delete entities matching the given criteria.
+   * 
+   * @param entityClass - The entity class to soft delete
+   * @param criteria - Criteria to match entities for soft deletion
+   * @returns Promise resolving to UpdateResult
+   */
+  async softDelete<T extends object>(entityClass: new () => T, criteria: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<UpdateResult> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    return await repository.softDelete(criteria as any);
+  }
+
+  /**
+   * Restore soft deleted entities matching the given criteria.
+   * 
+   * @param entityClass - The entity class to restore
+   * @param criteria - Criteria to match entities for restoration
+   * @returns Promise resolving to UpdateResult
+   */
+  async restore<T extends object>(entityClass: new () => T, criteria: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<UpdateResult> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    return await repository.restore(criteria as any);
+  }
+
+  /**
+   * Insert a new entity or entities.
+   * 
+   * @param entityClass - The entity class to insert
+   * @param entity - Entity or entities to insert
+   * @returns Promise resolving to InsertResult
+   */
+  async insert<T extends object>(entityClass: new () => T, entity: Partial<T> | Partial<T>[]): Promise<InsertResult> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    return await repository.insert(entity as any);
+  }
+  /**
+   * Find first entity that matches given id.
+   * If entity was not found in the database - returns null.
+   * 
+   * @param entityClass - The entity class to search for
+   * @param id - The id of the entity to find
+   * @returns Promise resolving to the found entity or null
+   */
+  async findOneById<T extends object>(entityClass: new () => T, id: number | string | Date): Promise<T | null> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    const entity = await repository.findOneById(id as any) as T | null;
+
+    if (!entity) {
+      return null;
+    }
+
+    // Load array data for the entity using the array field manager
+    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
+  }
+
+  /**
+   * Find entities with ids.
+   * Optionally find options or conditions can be applied.
+   * 
+   * @param entityClass - The entity class to search for
+   * @param ids - Array of ids to find
+   * @returns Promise resolving to array of found entities
+   * @deprecated use `findBy` method instead in conjunction with `In` operator, for example:
+   * 
+   * .findBy({
+   *     id: In([1, 2, 3])
+   * })
+   */
+  async findByIds<T extends object>(entityClass: new () => T, ids: any[]): Promise<T[]> {
+    if (!this.typeormDataSource) {
+      throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
+    }
+
+    const repository = this.typeormDataSource.getRepository(entityClass);
+    const entities = await repository.findByIds(ids) as T[];
+
+    // Load array data for each entity using the array field manager
+    return await Promise.all(entities.map(entity =>
+      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
+    ));
+  }
+
+  /**
+   * Count entities matching simple criteria (deprecated in favor of countBy or countWithOptions).
    * 
    * @param entityClass - The entity class to count
    * @param criteria - Search criteria (optional)
    * @returns Promise resolving to count of entities
+   * @deprecated Use countBy() or countWithOptions() instead for better TypeORM compatibility
    */
-  async count<T extends object>(entityClass: new() => T, criteria?: any): Promise<number> {
+  async count<T extends object>(entityClass: new () => T, criteria?: any): Promise<number> {
     if (!this.typeormDataSource) {
       throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
     }
