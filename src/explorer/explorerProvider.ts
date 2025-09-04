@@ -1,4 +1,3 @@
-// Add vscode.TreeDragAndDropController to the import
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
@@ -215,6 +214,143 @@ export class ExplorerProvider
     }
   }
 
+  private async handleModelDrop(target: AppTreeItem | undefined, transferItem: vscode.DataTransferItem): Promise<void> {
+    const draggedData = transferItem.value;
+
+    // Models can only be dropped into folders or the data root
+    if (!target || (target.itemType !== "folder" && target.itemType !== "dataRoot")) {
+      vscode.window.showWarningMessage("Models can only be dropped into folders.");
+      return;
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      vscode.window.showErrorMessage("No workspace folder found.");
+      return;
+    }
+
+    const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
+    const targetPath = target.itemType === "dataRoot" ? srcDataPath : path.join(srcDataPath, target.folderPath || "");
+
+    try {
+      // Move the model file to the new location using VS Code's workspace edit API
+      const sourcePath = draggedData.modelPath;
+      const fileName = path.basename(sourcePath);
+      const newPath = path.join(targetPath, fileName);
+
+      // Check if target file already exists
+      if (fs.existsSync(newPath)) {
+        vscode.window.showErrorMessage(`A file named "${fileName}" already exists in the target folder.`);
+        return;
+      }
+
+      // Create target directory if it doesn't exist
+      if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath, { recursive: true });
+      }
+
+      // Use VS Code's workspace edit API to move the file
+      // This will automatically trigger import updates
+      const workspaceEdit = new vscode.WorkspaceEdit();
+      const sourceUri = vscode.Uri.file(sourcePath);
+      const targetUri = vscode.Uri.file(newPath);
+      
+      workspaceEdit.renameFile(sourceUri, targetUri);
+      
+      const success = await vscode.workspace.applyEdit(workspaceEdit);
+      
+      if (success) {
+        // Force cache refresh after model move to ensure proper file path updates
+        await this.cache.forceRefresh();
+        
+        // Refresh the tree
+        setTimeout(() => {
+          this.refresh();
+        }, 100);
+
+        vscode.window.showInformationMessage(`Model "${draggedData.modelClassName}" moved successfully.`);
+      } else {
+        vscode.window.showErrorMessage(`Failed to move model "${draggedData.modelClassName}".`);
+      }
+    } catch (error: any) {
+      console.error("Error moving model:", error);
+      vscode.window.showErrorMessage(`Failed to move model: ${error.message}`);
+    }
+  }
+
+  private async handleFolderDrop(target: AppTreeItem | undefined, transferItem: vscode.DataTransferItem): Promise<void> {
+    const draggedData = transferItem.value;
+
+    // Folders can only be dropped into other folders or the data root
+    if (!target || (target.itemType !== "folder" && target.itemType !== "dataRoot")) {
+      vscode.window.showWarningMessage("Folders can only be dropped into other folders.");
+      return;
+    }
+
+    // Prevent dropping a folder into itself or its children
+    if (target.itemType === "folder" && target.folderPath) {
+      // Normalize paths for cross-platform comparison
+      const normalizedTargetPath = target.folderPath.replace(/[\/\\]/g, path.sep);
+      const normalizedDraggedPath = draggedData.folderPath.replace(/[\/\\]/g, path.sep);
+      
+      if (normalizedTargetPath.startsWith(normalizedDraggedPath)) {
+        vscode.window.showWarningMessage("Cannot move a folder into itself or its subfolder.");
+        return;
+      }
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      vscode.window.showErrorMessage("No workspace folder found.");
+      return;
+    }
+
+    const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
+    const sourcePath = path.join(srcDataPath, draggedData.folderPath);
+    const targetBasePath = target.itemType === "dataRoot" ? srcDataPath : path.join(srcDataPath, target.folderPath || "");
+    const newPath = path.join(targetBasePath, draggedData.folderName);
+
+    try {
+      // Check if target folder already exists
+      if (fs.existsSync(newPath)) {
+        vscode.window.showErrorMessage(`A folder named "${draggedData.folderName}" already exists in the target location.`);
+        return;
+      }
+
+      // Create target directory if it doesn't exist
+      if (!fs.existsSync(targetBasePath)) {
+        fs.mkdirSync(targetBasePath, { recursive: true });
+      }
+
+      // Use VS Code's workspace edit API to move the folder
+      // This will automatically trigger import updates for all files in the folder
+      const workspaceEdit = new vscode.WorkspaceEdit();
+      const sourceUri = vscode.Uri.file(sourcePath);
+      const targetUri = vscode.Uri.file(newPath);
+      
+      workspaceEdit.renameFile(sourceUri, targetUri);
+      
+      const success = await vscode.workspace.applyEdit(workspaceEdit);
+      
+      if (success) {
+        // Force cache refresh after folder move to ensure proper file path updates
+        await this.cache.forceRefresh();
+        
+        // Refresh the tree
+        setTimeout(() => {
+          this.refresh();
+        }, 100);
+
+        vscode.window.showInformationMessage(`Folder "${draggedData.folderName}" moved successfully.`);
+      } else {
+        vscode.window.showErrorMessage(`Failed to move folder "${draggedData.folderName}".`);
+      }
+    } catch (error: any) {
+      console.error("Error moving folder:", error);
+      vscode.window.showErrorMessage(`Failed to move folder: ${error.message}`);
+    }
+  }
+
   /**
    * Reorders fields in the model class file and returns the updated text.
    * This function uses ts-morph to manipulate the source code without saving it.
@@ -314,13 +450,13 @@ export class ExplorerProvider
             relatedModel,
             element
           );
-
-          // Add navigation command to go to related model definition when clicked
+          
+          // Set command for click handling (single vs double-click detection)
           if (relatedModel) {
             compositionItem.command = {
-              command: "slingr-vscode-extension.navigateToCode",
-              title: "Go to Definition",
-              arguments: [relatedModel.declaration],
+              command: "slingr-vscode-extension.handleTreeItemClick",
+              title: "Handle Click",
+              arguments: [compositionItem],
             };
           }
 
@@ -388,7 +524,7 @@ export class ExplorerProvider
         let currentPath = "";
 
         for (const part of pathParts) {
-          currentPath = currentPath ? `${currentPath}/${part}` : part;
+          currentPath = currentPath ? `${currentPath}${path.sep}${part}` : part;
 
           if (!currentNode.folders.has(part)) {
             currentNode.folders.set(part, { folders: new Map(), models: [] });
@@ -434,7 +570,7 @@ export class ExplorerProvider
         if (entry.isDirectory()) {
           const folderName = entry.name;
           const fullPath = path.join(dirPath, folderName);
-          const newRelativePath = relativePath ? `${relativePath}/${folderName}` : folderName;
+          const newRelativePath = relativePath ? `${relativePath}${path.sep}${folderName}` : folderName;
 
           // Add folder to structure if it doesn't exist
           if (!currentNode.folders.has(folderName)) {
@@ -461,7 +597,7 @@ export class ExplorerProvider
     // Get the current node for the given base path
     let currentNode = structure;
     if (basePath) {
-      const pathParts = basePath.split("/");
+      const pathParts = basePath.split(/[\/\\]/);
       for (const part of pathParts) {
         const nextNode = currentNode.folders.get(part);
         if (!nextNode) {
@@ -474,7 +610,7 @@ export class ExplorerProvider
     // Add folders (sorted alphabetically)
     const sortedFolders = Array.from(currentNode.folders.entries()).sort(([a], [b]) => a.localeCompare(b));
     for (const [folderName, folderNode] of sortedFolders) {
-      const folderPath = basePath ? `${basePath}/${folderName}` : folderName;
+      const folderPath = basePath ? `${basePath}${path.sep}${folderName}` : folderName;
       const hasChildren = folderNode.folders.size > 0 || folderNode.models.length > 0;
 
       items.push(
@@ -505,19 +641,13 @@ export class ExplorerProvider
 
       // Only show models that are NOT referenced by composition relationships
       if (!this.isModelReferencedByComposition(model)) {
-        const modelItem = new AppTreeItem(
-          label,
-          vscode.TreeItemCollapsibleState.Collapsed,
-          "model",
-          this.extensionUri,
-          model
-        );
-
-        // Add navigation command to go to model definition when clicked
+        const modelItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "model", this.extensionUri, model);
+        
+        // Set command for click handling (single vs double-click detection)
         modelItem.command = {
-          command: "slingr-vscode-extension.navigateToCode",
-          title: "Go to Definition",
-          arguments: [model.declaration],
+          command: "slingr-vscode-extension.handleTreeItemClick",
+          title: "Handle Click",
+          arguments: [modelItem],
         };
 
         items.push(modelItem);
@@ -538,10 +668,11 @@ export class ExplorerProvider
       propData,
       parent
     );
+    // Set command for click handling (single vs double-click detection)
     item.command = {
-      command: "slingr-vscode-extension.navigateToCode",
-      title: "Go to Definition",
-      arguments: [propData.declaration],
+      command: "slingr-vscode-extension.handleTreeItemClick",
+      title: "Handle Click",
+      arguments: [item],
     };
     return item;
   }
@@ -563,47 +694,51 @@ export class ExplorerProvider
   }
 
   private isModelReferencedByComposition(item: DecoratedClass): boolean {
-    // Get all references to this model
-    const modelReferences = item.references;
-    const checkedFiles = new Set<string>();
+      // Get all references to this model
+      const modelReferences = item.references;
+      const checkedFiles = new Set<string>();
 
-    // For each external reference, check if it's part of a composition relationship
-    for (const reference of modelReferences) {
-      // Get the file metadata for the reference
-      const referencingFile = this.cache.getMetadataForFile(reference.uri.fsPath);
-      if (!referencingFile) {
-        continue;
-      }
+      // For each external reference, check if it's part of a composition relationship
+      for (const reference of modelReferences) {
+          // Normalize paths for cross-platform consistency
+          const normalizedRefPath = reference.uri.fsPath.replace(/\\/g, "/");
+          const normalizedItemPath = item.declaration.uri.fsPath.replace(/\\/g, "/");
 
-      if (reference.uri.fsPath !== item.declaration.uri.fsPath && !checkedFiles.has(reference.uri.fsPath)) {
-        for (const referencingClass of Object.values(referencingFile.classes)) {
-          // Search through all properties in the class
-          for (const property of Object.values(referencingClass.properties)) {
-            // Check if this property references our model type
-            const lowerItemName = item.name.toLowerCase();
-            if (property.type === item.name || property.type === `${item.name}[]` || property.type.toLowerCase() === lowerItemName) {
-              // Check if this property has a @Relationship decorator with type: "Composition"
-              const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
-              if (relationshipDecorator) {
-                // Check if the relationship decorator has type: "Composition"
-                const hasCompositionType = relationshipDecorator.arguments.some(
-                  (arg) =>
-                    (typeof arg === "object" && arg !== null && "type" in arg && arg.type === "Composition") ||
-                    arg.type === "composition"
-                );
-
-                if (hasCompositionType) {
-                  return true;
-                }
-              }
-            }
+          // Get the file metadata for the reference
+          const referencingFile = this.cache.getMetadataForFile(reference.uri.fsPath);
+          if (!referencingFile) {
+              continue;
           }
-        }
-        checkedFiles.add(reference.uri.fsPath);
-      }
-    }
 
-    return false;
+          if (normalizedRefPath !== normalizedItemPath && !checkedFiles.has(normalizedRefPath)) {
+              for (const referencingClass of Object.values(referencingFile.classes)) {
+                  // Search through all properties in the class
+                  for (const property of Object.values(referencingClass.properties)) {
+                      // Check if this property references our model type
+                      const lowerItemName = item.name.toLowerCase();
+                      if (property.type === item.name || property.type === `${item.name}[]` || property.type.toLowerCase() === lowerItemName) {
+                          // Check if this property has a @Relationship decorator with type: "Composition"
+                          const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
+                          if (relationshipDecorator) {
+                              // Check if the relationship decorator has type: "Composition"
+                              const hasCompositionType = relationshipDecorator.arguments.some(
+                                  (arg) =>
+                                  (typeof arg === "object" && arg !== null && "type" in arg && arg.type === "Composition") ||
+                                  arg.type === "composition"
+                              );
+
+                              if (hasCompositionType) {
+                                  return true;
+                              }
+                          }
+                      }
+                  }
+              }
+              checkedFiles.add(normalizedRefPath);
+          }
+      }
+
+      return false;
   }
 
   /**

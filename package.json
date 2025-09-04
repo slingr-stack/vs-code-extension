@@ -266,7 +266,7 @@
         {
           "id": "slingr-vscode-extension",
           "title": "Slingr",
-          "icon": "resources/field.svg"
+          "icon": "resources/slingr-icon.svg"
         }
       ]
     },
@@ -278,9 +278,10 @@
           "icon": "resources/slingr-icon.jpg" 
         },
         {
-          "id": "slingrExtensionView",
-          "name": "Slingr Extension",
-          "icon": "resources/field.svg"
+          "id": "slingrQuickInfo",
+          "name": "Quick Info",
+          "type": "webview",
+          "icon": "resources/eye.svg"
         }
       ]
     }

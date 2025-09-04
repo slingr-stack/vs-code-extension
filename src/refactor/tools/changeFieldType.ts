@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ChangeObject, IRefactorTool, ManualRefactorContext } from '../refactorInterfaces';
+import { ChangeObject, IRefactorTool, ManualRefactorContext, ChangeFieldTypePayload, RenameModelPayload, RenameFieldPayload, ChangeType } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
 import { isModel, isModelFile, isField } from '../../utils/metadata';
 import { fieldTypeConfig } from '../../utils/fieldTypes';
@@ -35,7 +35,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         return 'Change Field Type';
     }
 
-    public getHandledChangeTypes(): string[] {
+    public getHandledChangeTypes(): ChangeType[] {
         return ['CHANGE_FIELD_TYPE'];
     }
 
@@ -45,7 +45,10 @@ export class ChangeFieldTypeTool implements IRefactorTool {
     }
 
     public async canHandleManualTrigger(context: ManualRefactorContext): Promise<boolean> {
-        return !!context.metadata && 'type' in context.metadata && isField(context.metadata); //
+        if (!context.metadata) {
+            return false;
+        }
+        return (isModelFile(context.uri) && isField(context.metadata));
     }
 
     /**
@@ -75,16 +78,22 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         const fieldRenamesByClass = new Map<string, Map<string, string>>();
         // Check for accumulated changes that may affect the analysis
         for (const change of accumulatedChanges) {
-            if (change.type === 'RENAME_MODEL' && change.payload.oldName && change.payload.newName) {
-                classRenames.set(change.payload.oldName, change.payload.newName);
-            }
-            if (change.type === 'RENAME_FIELD' && change.payload.oldName && change.payload.newName) {
-                const className = change.payload.modelName;
-                if (!className) { continue; }
-                if (!fieldRenamesByClass.has(className)) {
-                    fieldRenamesByClass.set(className, new Map());
+            if (change.type === 'RENAME_MODEL') {
+                const payload = change.payload as RenameModelPayload;
+                if (payload.oldName && payload.newName) {
+                    classRenames.set(payload.oldName, payload.newName);
                 }
-                fieldRenamesByClass.get(className)!.set(change.payload.oldName, change.payload.newName);
+            }
+            if (change.type === 'RENAME_FIELD') {
+                const payload = change.payload as RenameFieldPayload;
+                if (payload.oldName && payload.newName) {
+                    const className = payload.modelName;
+                    if (!className) { continue; }
+                    if (!fieldRenamesByClass.has(className)) {
+                        fieldRenamesByClass.set(className, new Map());
+                    }
+                    fieldRenamesByClass.get(className)!.set(payload.oldName, payload.newName);
+                }
             }
         }
 
@@ -113,11 +122,17 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                 // Detect if the user explicitly changed the decorator
                 if (oldDecoratorName && newDecoratorName && oldDecoratorName !== newDecoratorName) {
                     const oldDecorator = oldProp.decorators.find(d => d.name === oldDecoratorName);
+                    const payload: ChangeFieldTypePayload = {
+                        isManual: false,
+                        field: newProp,
+                        newType: newDecoratorName,
+                        oldDecorator
+                    };
                     changes.push({
                         type: 'CHANGE_FIELD_TYPE',
                         uri: newFileMeta.uri,
                         description: `Decorator for '${newProp.name}' changed to '@${newDecoratorName}'.`,
-                        payload: { isManual: false, field: newProp, newType: newDecoratorName, oldDecorator }
+                        payload
                     });
                 }
                 // Detect if the user changed the TS type, but not the decorator
@@ -126,11 +141,17 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                     // Propose a change only if the current decorator is not an appropriate one for the new type
                     if (suggestedDecorator && suggestedDecorator !== newDecoratorName) {
                         const oldDecorator = oldProp.decorators.find(d => d.name === oldDecoratorName);
+                        const payload: ChangeFieldTypePayload = {
+                            isManual: false,
+                            field: newProp,
+                            newType: suggestedDecorator,
+                            oldDecorator
+                        };
                         changes.push({
                             type: 'CHANGE_FIELD_TYPE',
                             uri: newFileMeta.uri,
                             description: `Type for '${newProp.name}' changed to '${newTsType}'. Suggest changing decorator to '@${suggestedDecorator}'.`,
-                            payload: { isManual: false, field: newProp, newType: suggestedDecorator, oldDecorator }
+                            payload
                         });
                     }
                 }
@@ -186,7 +207,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                 field: field,
                 decoratorPosition: targetDecorator.position,
                 oldDecorator: typeDecorator // Will be undefined if only @Field exists
-            }
+            } as ChangeFieldTypePayload
         };
     }
 
@@ -202,7 +223,12 @@ export class ChangeFieldTypeTool implements IRefactorTool {
      * @returns A promise that resolves to a WorkspaceEdit containing all necessary changes
      */
      public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
-        const { isManual, newType, field, decoratorPosition, oldDecorator } = change.payload;
+        if (change.type !== 'CHANGE_FIELD_TYPE') {
+            throw new Error(`ChangeFieldTypeTool can only handle CHANGE_FIELD_TYPE changes, received: ${change.type}`);
+        }
+        
+        const payload = change.payload as ChangeFieldTypePayload;
+        const { isManual, newType, field, decoratorPosition, oldDecorator } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
 
         let isReplacing = false;
@@ -217,8 +243,11 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                 positionToActOn = typeDecorator.position;
                 isReplacing = true;
             } else {
-                positionToActOn = field?.decorators.find((d: any) => d.name === 'Field')?.position;
-                isReplacing = false;
+                const anyDecorator = field?.decorators[0];
+                if (anyDecorator) {
+                    positionToActOn = anyDecorator.position;
+                    isReplacing = false;
+                }
             }
         }
 

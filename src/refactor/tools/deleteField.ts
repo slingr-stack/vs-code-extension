@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ChangeObject, IRefactorTool, ManualRefactorContext } from '../refactorInterfaces';
+import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteFieldPayload, ChangeType, RenameModelPayload, RenameFieldPayload } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
 import { isModel, isModelFile, isField } from '../../utils/metadata';
 import { areRangesEqual } from '../../utils/metadata';
@@ -37,7 +37,7 @@ export class DeleteFieldTool implements IRefactorTool {
         return 'Delete Field';
     }
 
-    public getHandledChangeTypes(): string[] {
+    public getHandledChangeTypes(): ChangeType[] {
         return ['DELETE_FIELD'];
     }
 
@@ -47,8 +47,12 @@ export class DeleteFieldTool implements IRefactorTool {
      * @returns True if the context metadata represents a valid field.
      */
     public async canHandleManualTrigger(context: ManualRefactorContext): Promise<boolean> {
-        return !!context.metadata && 'type' in context.metadata && isField(context.metadata); //
+        if (!context.metadata) {
+            return false;
+        }
+        return (isModelFile(context.uri) && isField(context.metadata));
     }
+        
 
     /**
      * Analyzes file metadata changes to detect field deletions.
@@ -74,15 +78,21 @@ export class DeleteFieldTool implements IRefactorTool {
         const renamedFieldsByClass = new Map<string, Set<string>>();
 
         for (const change of accumulatedChanges) {
-            if (change.type === 'RENAME_MODEL' && change.payload.oldName && change.payload.newName) {
-                classRenames.set(change.payload.oldName, change.payload.newName);
-            }
-            if (change.type === 'RENAME_FIELD' && change.payload.oldName && change.payload.modelName) {
-                const oldClassName = change.payload.modelName;
-                if (!renamedFieldsByClass.has(oldClassName)) {
-                    renamedFieldsByClass.set(oldClassName, new Set());
+            if (change.type === 'RENAME_MODEL') {
+                const payload = change.payload as RenameModelPayload;
+                if (payload.oldName && payload.newName) {
+                    classRenames.set(payload.oldName, payload.newName);
                 }
-                renamedFieldsByClass.get(oldClassName)!.add(change.payload.oldName);
+            }
+            if (change.type === 'RENAME_FIELD') {
+                const payload = change.payload as RenameFieldPayload;
+                if (payload.oldName && payload.modelName) {
+                    const oldClassName = payload.modelName;
+                    if (!renamedFieldsByClass.has(oldClassName)) {
+                        renamedFieldsByClass.set(oldClassName, new Set());
+                    }
+                    renamedFieldsByClass.get(oldClassName)!.add(payload.oldName);
+                }
             }
         }
 
@@ -127,11 +137,16 @@ export class DeleteFieldTool implements IRefactorTool {
                             }
                         }
                     }
+                    const payload: DeleteFieldPayload = {
+                        oldFieldMetadata: oldProp,
+                        modelName: newClass.name,
+                        isManual: false
+                    };
                     changes.push({
                         type: 'DELETE_FIELD',
                         uri: newFileMeta.uri,
                         description: `Field '${oldProp.name}' was deleted from Model '${newClass.name}'.`,
-                        payload: { oldFieldMetadata: oldProp, modelName: newClass.name }
+                        payload
                     });
                 }
             }
@@ -154,11 +169,38 @@ export class DeleteFieldTool implements IRefactorTool {
         }
 
         const field = context.metadata as PropertyMetadata;
+        const confirmation = await vscode.window.showWarningMessage(
+              `Are you sure you want to delete the Field '${field.name}' and all its references? This action cannot be undone.`,
+              "Yes, Delete All"
+            );
+        
+            if (confirmation !== "Yes, Delete All") {
+              return undefined;
+            }
+            
+        // Find the model name by getting the file metadata and looking for the class containing this field
+        const fileMetadata = context.cache.getMetadataForFile(context.uri.fsPath);
+        let modelName = 'Unknown';
+        if (fileMetadata) {
+            for (const [className, classData] of Object.entries(fileMetadata.classes)) {
+                if (classData.properties[field.name] === field) {
+                    modelName = className;
+                    break;
+                }
+            }
+        }
+        
+        const payload: DeleteFieldPayload = {
+            oldFieldMetadata: field,
+            modelName: modelName,
+            isManual: true
+        };
+        
         return {
             type: 'DELETE_FIELD',
             uri: context.uri,
             description: `Delete field '${field.name}'.`,
-            payload: { oldFieldMetadata: field, isManual: true }
+            payload
         };
     }
 
@@ -176,7 +218,13 @@ export class DeleteFieldTool implements IRefactorTool {
      * @returns A promise that resolves to a `WorkspaceEdit` with all necessary changes.
      */
     public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
-        const { oldFieldMetadata, isManual } = change.payload;
+        // Type guard to ensure we're working with the correct payload type
+        if (change.type !== 'DELETE_FIELD') {
+            throw new Error(`DeleteFieldTool can only handle DELETE_FIELD changes, received: ${change.type}`);
+        }
+        
+        const payload = change.payload as DeleteFieldPayload;
+        const { oldFieldMetadata, isManual } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
         const field = oldFieldMetadata as PropertyMetadata;
 
@@ -228,20 +276,24 @@ export class DeleteFieldTool implements IRefactorTool {
      * @throws Will log an error to console if the chat command fails to execute
      */
     public async executePrompt(change: ChangeObject): Promise<void> {
-        const { modelName, oldFieldMetadata } = change.payload;
-        const fieldName = oldFieldMetadata?.name || 'unknown';
-        const modifiedRanges = change.payload.modifiedRanges || [];
-
-        let affectedPathsMessage = '';
-        if (modifiedRanges && modifiedRanges.length > 0) {
-            const paths = modifiedRanges.map((path: string) => `- ${path}`).join('\n');
-            affectedPathsMessage = `\n\n${paths}`;
+        // Type guard to ensure we're working with the correct payload type
+        if (change.type !== 'DELETE_FIELD') {
+            console.error(`DeleteFieldTool can only execute prompts for DELETE_FIELD changes, received: ${change.type}`);
+            return;
         }
+        
+        const payload = change.payload as DeleteFieldPayload;
+        const { modelName, oldFieldMetadata } = payload;
+        const fieldName = oldFieldMetadata?.name || 'unknown';
+        
+        // Note: modifiedRanges was not part of the original payload interface
+        // If this functionality is needed, it should be added to DeleteFieldPayload interface
+        let affectedPathsMessage = '';
 
         const prompt = `I have just deleted the field "${fieldName}" from the model "${modelName}".
         This has left broken references in the code, marked with a "/* DELETED_FIELD_REFERENCE */" comment.
 
-        Your task is to help me fix these broken references by proposing concrete code modifications.
+        Your task is to help me fix these broken references by proposing concrete code modifications and asking the user if it wants you to apply them.
 
         Please do the following:
         1.  Analyze the code where "/* DELETED_FIELD_REFERENCE */" appears.

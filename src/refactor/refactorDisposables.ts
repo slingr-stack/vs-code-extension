@@ -9,6 +9,10 @@ import { ChangeFieldTypeTool } from './tools/changeFieldType';
 import { findNodeAtPosition } from '../utils/ast';
 import { cache } from '../extension';
 import { AppTreeItem } from '../explorer/appTreeItem';
+import { AddDecoratorTool } from './tools/addDecorator';
+import { isModelFile } from '../utils/metadata';
+import { PropertyMetadata } from '../cache/cache';
+import { fieldTypeConfig } from '../utils/fieldTypes';
 
 /**
  * Returns an array of all available refactor tools for the application.
@@ -31,6 +35,7 @@ export function getAllRefactorTools(): IRefactorTool[] {
         new RenameFieldTool(),
         new DeleteFieldTool(),
         new ChangeFieldTypeTool(),
+        new AddDecoratorTool(),
     ];
 }
 
@@ -46,13 +51,18 @@ export function getAllRefactorTools(): IRefactorTool[] {
  * @param controller - The refactor controller that manages refactor tools and handles command execution
  * @returns An array of disposables that can be used to clean up the registered commands and providers
  */
-export function registerRefactorCommands(controller: RefactorController): vscode.Disposable[] {
+export function registerRefactorCommands(controller: RefactorController, context: vscode.ExtensionContext): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
 
     for (const tool of controller.getTools()) {
         disposables.push(
-            vscode.commands.registerCommand(tool.getCommandId(), (context?: vscode.Uri | AppTreeItem) => {
-                controller.handleManualRefactorCommand(tool.getCommandId(), context);
+            vscode.commands.registerCommand(tool.getCommandId(), (context?: vscode.Uri | AppTreeItem | ManualRefactorContext, decoratorName?: string) => {
+                // The command can now be called with more complex arguments from CodeActions
+                if (context && 'cache' in context && 'uri' in context) {
+                    controller.handleManualRefactorCommand(tool.getCommandId(), context, decoratorName);
+                } else {
+                    controller.handleManualRefactorCommand(tool.getCommandId(), context);
+                }
             })
         );
     }
@@ -96,6 +106,7 @@ export class RefactorCodeActionProvider implements vscode.CodeActionProvider {
     public async provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<vscode.CodeAction[]> {
         const codeActions: vscode.CodeAction[] = [];
         const position = range.start;
+        const metadata = await findNodeAtPosition(document.uri, position);
         const refactorContext: ManualRefactorContext = {
             cache,
             uri: document.uri,
@@ -104,6 +115,9 @@ export class RefactorCodeActionProvider implements vscode.CodeActionProvider {
         };
 
         for (const tool of this.tools) {
+            if (tool.getCommandId() === 'slingr-vscode-extension.addDecorator') {
+                continue;
+            }
             if (await tool.canHandleManualTrigger(refactorContext)) {
                 const action = new vscode.CodeAction(tool.getTitle(), vscode.CodeActionKind.Refactor);
                 action.command = {
@@ -112,6 +126,37 @@ export class RefactorCodeActionProvider implements vscode.CodeActionProvider {
                     arguments: [document.uri]
                 };
                 codeActions.push(action);
+            }
+        }
+
+        if (isModelFile(document.uri) && metadata) {
+            const fieldMetadata = metadata as PropertyMetadata;
+            const existingDecorators = new Set(fieldMetadata.decorators.map(d => d.name));
+
+            // Suggest @Field() if not present
+            if (!existingDecorators.has('Field')) {
+                const action = new vscode.CodeAction('Add @Field Decorator', vscode.CodeActionKind.Refactor);
+                action.command = {
+                    command: 'slingr-vscode-extension.addDecorator',
+                    title: 'Add @Field Decorator',
+                    arguments: [refactorContext, 'Field']
+                };
+                codeActions.push(action);
+            }
+
+            // Suggest type-specific decorators based on fieldTypes.ts
+            const fieldTsType = fieldMetadata.type.toLowerCase();
+            for (const decoratorName in fieldTypeConfig) {
+                const config = fieldTypeConfig[decoratorName];
+                if (config.mapsFromTsTypes?.includes(fieldTsType) && !existingDecorators.has(decoratorName)) {
+                     const action = new vscode.CodeAction(`Add @${decoratorName} Decorator`, vscode.CodeActionKind.Refactor);
+                     action.command = {
+                         command: 'slingr-vscode-extension.addDecorator',
+                         title: `Add @${decoratorName} Decorator`,
+                         arguments: [refactorContext, decoratorName]
+                     };
+                     codeActions.push(action);
+                }
             }
         }
         return codeActions;

@@ -66,7 +66,7 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
             { name: 'maxLength', type: 'number' },
             { name: 'minLength', type: 'number' },
             { name: 'regex', type: 'string' },
-            { name: 'regex', type: 'string' },
+            { name: 'regexMessage', type: 'string' },
         ],
         buildDecoratorString: genericBuildDecoratorString
     },

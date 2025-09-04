@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ChangeObject, IRefactorTool, ManualRefactorContext } from '../refactorInterfaces';
+import { ChangeObject, ChangeType, DeleteModelPayload, IRefactorTool, ManualRefactorContext, RenameModelPayload } from '../refactorInterfaces';
 import { DecoratedClass, FileMetadata, MetadataCache } from '../../cache/cache';
 import { areRangesEqual, isModel, isModelFile } from '../../utils/metadata';
 
@@ -33,7 +33,7 @@ export class RenameModelTool implements IRefactorTool {
         return 'Rename Model';
     }
 
-    public getHandledChangeTypes(): string[] {
+    public getHandledChangeTypes(): ChangeType[] {
         return ['RENAME_MODEL'];
     }
 
@@ -66,8 +66,11 @@ export class RenameModelTool implements IRefactorTool {
         const newClassNames = new Set(Object.keys(newFileMeta.classes));
         const deletedClassNames = new Set<string>();
         for (const change of accumulatedChanges) {
-            if (change.type === 'DELETE_MODEL' && change.payload.oldModelMetadata) {
-                deletedClassNames.add(change.payload.oldModelMetadata.name);
+            if (change.type === 'DELETE_MODEL') {
+                const payload = change.payload as DeleteModelPayload;
+                if (payload.oldModelMetadata) {
+                    deletedClassNames.add(payload.oldModelMetadata.name);
+                }
             }
         }
 
@@ -78,15 +81,25 @@ export class RenameModelTool implements IRefactorTool {
             const newClass = newFileMeta.classes[addedClassNames[0]];
 
             if (isModel(oldClass) && isModel(newClass)) {
+                const payload: RenameModelPayload = {
+                    oldName: oldClass.name,
+                    newName: newClass.name,
+                    oldModelMetadata: oldClass,
+                    newUri: undefined,
+                    isManual: false
+                };
+
+                const oldFileName = oldFileMeta.uri.path.split('/').pop()?.replace('.ts', '');
+                if (oldFileName === oldClass.name) {
+                    const newUri = vscode.Uri.joinPath(oldFileMeta.uri, '..', `${newClass.name}.ts`);
+                    payload.newUri = newUri;
+                }
+
                 const change: ChangeObject = {
                     type: 'RENAME_MODEL',
                     uri: newFileMeta.uri,
                     description: `Model '${oldClass.name}' was renamed to '${newClass.name}'.`,
-                    payload: {
-                        oldName: oldClass.name,
-                        newName: newClass.name,
-                        oldModelMetadata: oldClass,
-                    }
+                    payload
                 };
                 return [change];
             }
@@ -120,16 +133,25 @@ export class RenameModelTool implements IRefactorTool {
             return undefined;
         }
 
+        const payload: RenameModelPayload = {
+            oldName: model.name,
+            newName: newName,
+            oldModelMetadata: model,
+            newUri: undefined,
+            isManual: true
+        };
+
+        const oldFileName = context.uri.path.split('/').pop()?.replace('.ts', '');
+        if (oldFileName === model.name) {
+            const newUri = vscode.Uri.joinPath(context.uri, '..', `${newName}.ts`);
+            payload.newUri = newUri;
+        }
+
         const change: ChangeObject = {
             type: 'RENAME_MODEL',
             uri: context.uri,
             description: `Rename model '${model.name}' to '${newName}'.`,
-            payload: {
-                oldName: model.name,
-                newName: newName,
-                oldModelMetadata: model,
-                isManual: true
-            }
+            payload
         };
         return change;
     }
@@ -147,7 +169,13 @@ export class RenameModelTool implements IRefactorTool {
      * @returns A promise that resolves to a `WorkspaceEdit` with all necessary changes.
      */
     public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
-        const { newName, oldModelMetadata } = change.payload;
+        // Type guard to ensure we're working with the correct payload type
+        if (change.type !== 'RENAME_MODEL') {
+            throw new Error(`RenameModelTool can only handle RENAME_MODEL changes, received: ${change.type}`);
+        }
+        
+        const payload = change.payload as RenameModelPayload;
+        const { newName, oldModelMetadata } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
 
         const references = (oldModelMetadata.references as vscode.Location[]) || [];

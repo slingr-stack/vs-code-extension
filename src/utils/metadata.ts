@@ -1,6 +1,6 @@
 
 import * as vscode from 'vscode';
-import { DecoratedClass, PropertyMetadata } from "../cache/cache";
+import { DecoratedClass, MethodMetadata, PropertyMetadata } from "../cache/cache";
 import { fieldTypeConfig } from '../utils/fieldTypes';
 
 /**
@@ -9,7 +9,8 @@ import { fieldTypeConfig } from '../utils/fieldTypes';
  * @returns True if the URI is for an model file, false otherwise.
  */
 export function isModelFile(uri: vscode.Uri): boolean {
-    return uri.path.includes('/src/data/');
+    const modelFileRegex = /src\/data\/.*\.ts$/;
+    return modelFileRegex.test(uri.path);
 }
 
 /**
@@ -29,7 +30,12 @@ const fieldDecoratorNames = Object.keys(fieldTypeConfig);
  * @returns True if the metadata is for a Field property, false otherwise.
  */
 export function isField(metadata: DecoratedClass | PropertyMetadata): metadata is PropertyMetadata {
-    return 'type' in metadata && metadata.decorators.some(d => d.name === 'Field');
+    return 'type' in metadata && metadata.decorators.some(d => fieldDecoratorNames.includes(d.name) || d.name === 'Field');
+}
+
+export function isMethodMetadata(value: any): value is MethodMetadata {
+    // Check for properties that uniquely identify a MethodMetadata object
+    return typeof value === 'object' && value !== null && 'parameters' in value && 'declaration' in value;
 }
 
 /**

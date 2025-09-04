@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import { ChangeObject, IRefactorTool, ManualRefactorContext } from "../refactorInterfaces";
-import { DecoratedClass, FileMetadata, MetadataCache, PropertyMetadata } from "../../cache/cache";
+import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteModelPayload, ChangeType, RenameModelPayload } from "../refactorInterfaces";
+import { DecoratedClass, FileMetadata, MetadataCache } from "../../cache/cache";
 import { isModel, isModelFile, isField } from "../../utils/metadata";
 
 /**
@@ -38,7 +38,7 @@ export class DeleteModelTool implements IRefactorTool {
     return "Delete Model";
   }
 
-  public getHandledChangeTypes(): string[] {
+  public getHandledChangeTypes(): ChangeType[] {
     return ["DELETE_MODEL"];
   }
 
@@ -55,41 +55,73 @@ export class DeleteModelTool implements IRefactorTool {
   }
 
   /**
-   * Analyzes file metadata changes to detect model deletions.
+   * Analyzes file metadata changes to detect when an model has been deleted.
    * 
-   * A deletion is detected when there is old file metadata but no corresponding
-   * new file metadata for a file that is identified as an model file.
+   * @param oldFileMeta - The metadata of the file before changes, containing class information
+   * @param newFileMeta - The metadata of the file after changes, or undefined if file was deleted
+   * @returns An array of ChangeObject instances. Returns a single DELETE_MODEL change object if an model deletion is detected, otherwise returns an empty array
    * 
-   * @param oldFileMeta The metadata of the file before the change.
-   * @param newFileMeta The metadata of the file after the change (or undefined if deleted).
-   * @returns An array of ChangeObjects representing the detected deletion. Returns an
-   *          empty array if no model deletion is detected.
+   * @remarks
+   * This method performs the following checks:
+   * - Validates that oldFileMeta exists and represents an model file
+   * - Extracts the model class from the old file metadata
+   * - Determines if the model was deleted by checking if it no longer exists in newFileMeta
+   * - If deleted, collects related URIs that should also be removed (actions and UI directories)
+   * - Returns a DELETE_MODEL change object with the deleted model metadata and related URIs
    */
-  public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata): ChangeObject[] {
-    if (oldFileMeta && !newFileMeta && isModelFile(oldFileMeta.uri)) {
-      const oldClass = Object.values(oldFileMeta.classes)[0];
-      if (oldClass && isModel(oldClass)) {
-        const urisToDelete: vscode.Uri[] = [];
-        const modelUri = oldFileMeta.uri;
-        const modelNameLower = oldClass.name.toLowerCase();
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(modelUri);
-        
-        if (workspaceFolder) {
-          const parentDirsToSearch = ["src/model/actions", "src/ui"];
-          for (const parentDir of parentDirsToSearch) {
-            const relatedDirUri = vscode.Uri.joinPath(workspaceFolder.uri, parentDir, modelNameLower);
-            urisToDelete.push(relatedDirUri);
-          }
-        }
-        return [
-          {
-            type: "DELETE_MODEL",
-            uri: oldFileMeta.uri,
-            description: `Model file '${oldClass.name}' was deleted.`,
-            payload: { oldModelMetadata: oldClass, urisToDelete: urisToDelete },
-          },
-        ];
+  public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata, accumulatedChanges: ChangeObject[] = []): ChangeObject[] {
+    if (!oldFileMeta || !isModelFile(oldFileMeta.uri)) {
+      return [];
+    }
+
+    const oldModelClass = Object.values(oldFileMeta.classes).find(isModel);
+
+    if (!oldModelClass) {
+      return [];
+    }
+
+    // Check if this model was already handled by a rename operation
+    const wasRenamed = accumulatedChanges.some(change => {
+      if (change.type === 'RENAME_MODEL') {
+        const payload = change.payload as RenameModelPayload;
+        return payload.oldName === oldModelClass.name;
       }
+      return false;
+    });
+
+    if (wasRenamed) {
+      // Model was renamed, not deleted
+      return [];
+    }
+
+    const isDeleted = !newFileMeta || !Object.values(newFileMeta.classes).some(isModel);
+
+    if (isDeleted) {
+      const urisToDelete: vscode.Uri[] = [];
+      const modelUri = oldFileMeta.uri;
+      const modelNameLower = oldModelClass.name.toLowerCase();
+      const workspaceFolder = vscode.workspace.getWorkspaceFolder(modelUri);
+
+      if (workspaceFolder) {
+        const parentDirsToSearch = ["src/data/actions", "src/ui"];
+        for (const parentDir of parentDirsToSearch) {
+          const relatedDirUri = vscode.Uri.joinPath(workspaceFolder.uri, parentDir, modelNameLower);
+          urisToDelete.push(relatedDirUri);
+        }
+      }
+      const payload: DeleteModelPayload = {
+        oldModelMetadata: oldModelClass,
+        urisToDelete: urisToDelete,
+        isManual: false
+      };
+      return [
+        {
+          type: "DELETE_MODEL",
+          uri: oldFileMeta.uri,
+          description: `Model '${oldModelClass.name}' was deleted.`,
+          payload,
+        },
+      ];
     }
     return [];
   }
@@ -132,15 +164,17 @@ export class DeleteModelTool implements IRefactorTool {
       }
     }
 
+    const payload: DeleteModelPayload = {
+      oldModelMetadata: model,
+      isManual: true,
+      urisToDelete: urisToDelete,
+    };
+
     return {
       type: "DELETE_MODEL",
       uri: context.uri,
       description: `Delete model '${model.name}'.`,
-      payload: {
-        oldModelMetadata: model,
-        isManual: true,
-        urisToDelete: urisToDelete,
-      },
+      payload,
     };
   }
 
@@ -157,9 +191,15 @@ export class DeleteModelTool implements IRefactorTool {
    * @returns A promise that resolves to a `WorkspaceEdit` with all necessary changes.
    */
   public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
-    const { oldModelMetadata } = change.payload;
+    // Type guard to ensure we're working with the correct payload type
+    if (change.type !== 'DELETE_MODEL') {
+      throw new Error(`DeleteModelTool can only handle DELETE_MODEL changes, received: ${change.type}`);
+    }
+    
+    const payload = change.payload as DeleteModelPayload;
+    const { oldModelMetadata } = payload;
     const workspaceEdit = new vscode.WorkspaceEdit();
-    const urisToDelete: vscode.Uri[] = change.payload.urisToDelete || [];
+    const urisToDelete: vscode.Uri[] = payload.urisToDelete || [];
     const pathsToDelete = new Set(urisToDelete.map((uri) => uri.fsPath));
     const deletedModelName = oldModelMetadata.name;
     const allReferences = (oldModelMetadata.references as vscode.Location[]) || [];
@@ -319,21 +359,26 @@ export class DeleteModelTool implements IRefactorTool {
    * @throws Will log an error to console if the chat command fails to execute
    */
   public async executePrompt(change: ChangeObject): Promise<void> {
-    const { oldModelMetadata } = change.payload;
-    const modelName = oldModelMetadata?.name || 'unknown';
-    const modifiedRanges = change.payload.modifiedRanges || [];
-
-    let affectedPathsMessage = '';
-    if (modifiedRanges && modifiedRanges.length > 0) {
-      const paths = modifiedRanges.map((path: string) => `- ${path}`).join('\n');
-      affectedPathsMessage = `\n\n${paths}`;
+    // Type guard to ensure we're working with the correct payload type
+    if (change.type !== 'DELETE_MODEL') {
+      console.error(`DeleteModelTool can only execute prompts for DELETE_MODEL changes, received: ${change.type}`);
+      return;
     }
+    
+    const payload = change.payload as DeleteModelPayload;
+    const { oldModelMetadata } = payload;
+    const modelName = oldModelMetadata?.name || 'unknown';
+    
+    // Note: modifiedRanges was not part of the original payload interface
+    // If this functionality is needed, it should be added to DeleteModelPayload interface
+    let affectedPathsMessage = '';
+
     const prompt = `I have just deleted the model "${modelName}".
     This action has removed the model's source file, related directories (like actions and UI components), and cleaned up relationship fields in other models.
 
     However, some broken references might remain, marked with comments like "/* DELETED_REFERENCE */", "/* DELETED_FIELD_DECORATOR */", or "/* DELETED_RELATIONSHIP_DECORATOR */".
 
-    Your task is to help me fix these remaining issues by proposing concrete code modifications.
+    Your task is to help me fix these remaining issues by proposing concrete code modifications and asking the user if it wants you to apply them.
 
     Please do the following:
     1.  Analyze the code where these "/* DELETED_... */" comments appear.
