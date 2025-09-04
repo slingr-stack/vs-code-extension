@@ -1,77 +1,61 @@
-// src/infrastructure/infraStatusRegistration.ts
-
 import * as vscode from 'vscode';
 import { MetadataCache } from '../cache/cache';
 import { InfrastructureStatus } from './infrastructureStatus';
+import { exec } from 'child_process';
 
 /**
- * Registers the infrastructure status checker.
- * This sets up a listener for data source changes and manages a status bar item
- * to notify the user when an infrastructure update is needed.
- * @param context The VS Code extension context.
- * @param cache The metadata cache.
+ * Registers the automatic infrastructure status checker and updater.
  */
 export function registerInfraStatus(context: vscode.ExtensionContext, cache: MetadataCache) {
     const infraStatus = new InfrastructureStatus();
     context.subscriptions.push(infraStatus);
+    
+    let isUpdating = false;
+    let lastError = '';
 
-    let hasShownInitialNotification = false;
+    // The main function to run the update
+    const runUpdate = () => {
+        if (isUpdating) {
+            return; // Prevent concurrent runs
+        }
+
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            return; // Cannot run without a workspace
+        }
+
+        isUpdating = true;
+        infraStatus.showSyncing();
+
+        exec('slingr infra update', { cwd: workspaceFolder.uri.fsPath }, (error, stdout, stderr) => {
+            isUpdating = false;
+
+            if (error) {
+                // Command failed
+                lastError = stderr || stdout || error.message;
+                infraStatus.showError(lastError);
+                // We do NOT acknowledge the update, so the `isInfrastructureUpdateNeeded` flag remains true,
+                // allowing another attempt on the next file change.
+                return;
+            }
+
+            // Command succeeded
+            infraStatus.showSynced();
+            cache.acknowledgeInfrastructureUpdate(); // Reset the state in the cache
+        });
+    };
 
     // Listen for changes detected by the cache
     cache.onInfrastructureChange(() => {
         if (cache.isInfrastructureUpdateNeeded) {
-            infraStatus.showUpdateNeeded();
-
-            // Show a toast notification only the first time the state becomes inconsistent
-            if (!hasShownInitialNotification) {
-                vscode.window.showWarningMessage(
-                    'Data source change detected. Your infrastructure may be out of sync.',
-                    'Update Now'
-                ).then(selection => {
-                    if (selection === 'Update Now') {
-                        vscode.commands.executeCommand('slingr.runInfraUpdate');
-                    }
-                });
-                hasShownInitialNotification = true;
-            }
-        } else {
-            infraStatus.hide();
-            // Reset the flag so the notification can show again on the next change
-            hasShownInitialNotification = false;
+            runUpdate();
         }
     });
-
-    // Register the command that the status bar item will trigger
-    const runInfraUpdateCommand = vscode.commands.registerCommand('slingr.runInfraUpdate', () => {
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) {
-            vscode.window.showErrorMessage('Please open a project folder to update the infrastructure.');
-            return;
-        }
-
-        vscode.window.showInformationMessage(
-            'Run "slingr infra update" to sync your infrastructure?', 
-            { modal: true },
-            'Yes, update now'
-        ).then(selection => {
-            if (selection === 'Yes, update now') {
-                // 1. Create a new terminal dedicated to this task.
-                const terminal = vscode.window.createTerminal({
-                    name: `Slingr Infra Update`,
-                    cwd: workspaceFolder.uri
-                });
-
-                // 2. Send the command to the terminal.
-                terminal.sendText('slingr infra update');
-                
-                // 3. Show the terminal to the user.
-                terminal.show();
-                
-                // 4. Acknowledge the update to hide the notification.
-                cache.acknowledgeInfrastructureUpdate();
-            }
-        });
+    
+    // Command to show the last error when the status bar item is clicked in an error state
+    const showInfraErrorCommand = vscode.commands.registerCommand('slingr.showInfraError', () => {
+        vscode.window.showErrorMessage(`Slingr Infra Sync Failed:\n${lastError}`, { modal: true });
     });
-
-    context.subscriptions.push(runInfraUpdateCommand);
+    
+    context.subscriptions.push(showInfraErrorCommand);
 }
