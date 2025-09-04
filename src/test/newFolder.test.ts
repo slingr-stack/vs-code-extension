@@ -7,6 +7,7 @@ import { NewFolderTool } from '../commands/newFolder';
 import { ExplorerProvider } from '../explorer/explorerProvider';
 import { MetadataCache } from '../cache/cache';
 import { AppTreeItem } from '../explorer/appTreeItem';
+import { ExplorerService } from '../explorer/explorerService';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -15,6 +16,7 @@ if (typeof suite !== 'undefined') {
         let testDataDir: string;
         let mockExplorerProvider: ExplorerProvider;
         let mockCache: MetadataCache;
+        const explorerService = new ExplorerService();
 
         setup(async () => {
             // Create a temporary workspace directory for testing
@@ -56,7 +58,7 @@ if (typeof suite !== 'undefined') {
         });
 
         test('NewFolderTool should create instance successfully', () => {
-            const tool = new NewFolderTool();
+            const tool = new NewFolderTool(explorerService);
             assert.ok(tool, 'NewFolderTool should be instantiated');
             assert.ok(typeof tool.createFolder === 'function', 'createFolder method should exist');
         });
@@ -80,7 +82,7 @@ if (typeof suite !== 'undefined') {
         test('Should handle workspace folder detection', () => {
             // This is a basic test for the workspace folder logic
             // In a real environment, we'd need to mock vscode.workspace.workspaceFolders
-            const tool = new NewFolderTool();
+            const tool = new NewFolderTool(explorerService);
             
             // Test that the tool exists and has the necessary methods
             assert.ok(tool, 'Tool should be created');
@@ -91,7 +93,7 @@ if (typeof suite !== 'undefined') {
         });
 
         test('Should create folder programmatically', async () => {
-            const tool = new NewFolderTool();
+            const tool = new NewFolderTool(explorerService);
             
             // Mock the workspace folders to point to our test directory
             const originalWorkspaceFolders = vscode.workspace.workspaceFolders;
@@ -139,7 +141,7 @@ if (typeof suite !== 'undefined') {
         });
 
         test('Should create nested folder structure', async () => {
-            const tool = new NewFolderTool();
+            const tool = new NewFolderTool(explorerService);
             
             // Create a parent folder first
             const parentFolderName = 'parent-folder';
