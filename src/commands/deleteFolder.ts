@@ -5,15 +5,20 @@ import { AppTreeItem } from "../explorer/appTreeItem";
 import { ExplorerProvider } from "../explorer/explorerProvider";
 import { ExplorerService } from "../explorer/explorerService";
 import { MetadataCache } from "../cache/cache";
-import { isModel } from "../utils/metadata";
 
 /**
  * Tool for deleting folders in the src/data directory structure.
  * 
  * This tool allows users to delete folders within the data model hierarchy.
- * When deleting a folder that contains model files, it will automatically
- * trigger the delete model refactor for each model found within the folder
- * and its subdirectories.
+ * It provides two deletion modes:
+ * 1. "Yes, Delete All" - Deletes the folder and all its contents permanently using
+ *    VS Code's workspace API to ensure file watcher events trigger automatic refactors
+ * 2. "Delete Folder, Keep Contents" - Deletes only the folder structure but moves
+ *    all contents (files and subdirectories) to the parent directory
+ * 
+ * The tool ensures that when files are deleted, they are processed through VS Code's
+ * workspace API rather than direct filesystem operations, which allows the metadata
+ * cache to detect the changes and trigger automatic refactoring operations.
  */
 export class DeleteFolderTool {
 
@@ -62,8 +67,9 @@ export class DeleteFolderTool {
       
       if (modelsInFolder.length > 0) {
         const modelNames = modelsInFolder.map(model => model.name).join(", ");
-        confirmationMessage += `\n\nThis will also delete ${modelsInFolder.length} model(s): ${modelNames}`;
-        confirmationMessage += "\n\nAll references to these models will be removed from the codebase.";
+        confirmationMessage += `\n\nThis folder contains ${modelsInFolder.length} model(s): ${modelNames}`;
+      } else {
+        confirmationMessage += `\n\nThis folder does not contain any models.`;
       }
       
       confirmationMessage += "\n\nThis action cannot be undone.";
@@ -72,42 +78,38 @@ export class DeleteFolderTool {
       const confirmation = await vscode.window.showWarningMessage(
         confirmationMessage,
         "Yes, Delete All",
+        "Delete Folder, Keep Contents",
         "Cancel"
       );
 
-      if (confirmation !== "Yes, Delete All") {
+      if (confirmation === "Cancel" || !confirmation) {
         return; // User cancelled
       }
-
-      // First, trigger delete model refactor for each model in the folder
-      if (modelsInFolder.length > 0) {
-        for (const model of modelsInFolder) {
-          try {
-            // Get the file URI where this model is defined
-            const modelUri = model.declaration.uri;
-            
-            // Execute the delete model command for this specific model
-            await vscode.commands.executeCommand('slingr-vscode-extension.deleteModel', modelUri);
-            
-            vscode.window.showInformationMessage(`Triggered delete refactor for model "${model.name}"`);
-          } catch (error) {
-            console.error(`Failed to trigger delete model refactor for ${model.name}:`, error);
-            vscode.window.showWarningMessage(`Could not trigger delete refactor for model "${model.name}". Please delete it manually.`);
-          }
-        }
+      // If user chose to delete models as well, proceed with model deletion
+      else if (confirmation === "Yes, Delete All") {
         
-        // Give user a moment to see the messages
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Use VS Code's workspace API to delete files one by one
+        // This will naturally trigger the file watcher events and automatic refactors
+        await this.deleteDirectoryThroughWorkspaceAPI(targetDirectory);
+
+        explorerProvider.refresh();
+        
+        vscode.window.showInformationMessage(
+          `Folder "${folderName}" deleted successfully${modelsInFolder.length > 0 ? ` along with ${modelsInFolder.length} model(s)` : ''}.`
+        );
+      } else if (confirmation === "Delete Folder, Keep Contents") {
+        // Move all contents to parent directory, then delete the empty folder
+        await this.moveFolderContentsToParent(targetDirectory);
+        
+        // Delete the now-empty folder
+        fs.rmdirSync(targetDirectory);
+        
+        explorerProvider.refresh();
+        
+        vscode.window.showInformationMessage(
+          `Folder "${folderName}" deleted successfully. All contents moved to parent directory.`
+        );
       }
-
-      // Delete the folder and all its contents
-      await this.deleteFolderRecursively(targetDirectory);
-
-      explorerProvider.refresh();
-      
-      vscode.window.showInformationMessage(
-        `Folder "${folderName}" deleted successfully${modelsInFolder.length > 0 ? ` along with ${modelsInFolder.length} model(s)` : ''}.`
-      );
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -185,6 +187,208 @@ export class DeleteFolderTool {
     }
 
     return models;
+  }
+
+  /**
+   * Deletes a directory and its contents using VS Code's workspace API.
+   * This method deletes files one by one, which triggers the file watcher events
+   * and allows automatic refactors to be processed properly.
+   * 
+   * @param directoryPath - The absolute path of the directory to delete
+   */
+  private async deleteDirectoryThroughWorkspaceAPI(directoryPath: string): Promise<void> {
+    if (!fs.existsSync(directoryPath)) {
+      return;
+    }
+
+    // Collect all files and directories first to avoid issues with files being deleted during traversal
+    const allItems = await this.collectAllItemsRecursively(directoryPath);
+    
+    // Add the target directory itself to the list (it should be deleted last)
+    allItems.push({ path: directoryPath, isFile: false });
+    
+    // Sort items so files come before their containing directories
+    // This ensures we delete files first, then empty directories
+    allItems.sort((a, b) => {
+      // Files (not directories) should come first
+      if (a.isFile && !b.isFile) {
+        return -1;
+      }
+      if (!a.isFile && b.isFile) {
+        return 1;
+      }
+      
+      // For directories, deeper ones should come first (so we delete children before parents)
+      if (!a.isFile && !b.isFile) {
+        return b.path.split(path.sep).length - a.path.split(path.sep).length;
+      }
+      
+      return 0;
+    });
+
+    // Delete all files first (this triggers automatic refactors)
+    for (const item of allItems.filter(item => item.isFile)) {
+      try {
+        const fileUri = vscode.Uri.file(item.path);
+        const workspaceEdit = new vscode.WorkspaceEdit();
+        workspaceEdit.deleteFile(fileUri, { ignoreIfNotExists: true });
+        
+        const success = await vscode.workspace.applyEdit(workspaceEdit);
+        if (success) {
+          console.log(`[DeleteFolder] Deleted file: ${item.path}`);
+          // Small delay to allow cache to process the deletion
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } else {
+          console.warn(`[DeleteFolder] Failed to delete file via workspace API: ${item.path}`);
+          // Fallback to direct filesystem deletion if file still exists
+          if (fs.existsSync(item.path)) {
+            fs.unlinkSync(item.path);
+          }
+        }
+      } catch (error) {
+        console.error(`[DeleteFolder] Error deleting file ${item.path}:`, error);
+        // Fallback to direct filesystem deletion if file still exists
+        try {
+          if (fs.existsSync(item.path)) {
+            fs.unlinkSync(item.path);
+          }
+        } catch (fallbackError) {
+          console.error(`[DeleteFolder] Fallback file deletion also failed:`, fallbackError);
+        }
+      }
+    }
+
+    // Then delete all directories (starting with the deepest ones)
+    for (const item of allItems.filter(item => !item.isFile)) {
+      try {
+        if (fs.existsSync(item.path)) {
+          const directoryUri = vscode.Uri.file(item.path);
+          const workspaceEdit = new vscode.WorkspaceEdit();
+          workspaceEdit.deleteFile(directoryUri, { recursive: false, ignoreIfNotExists: true });
+          
+          const success = await vscode.workspace.applyEdit(workspaceEdit);
+          if (success) {
+            console.log(`[DeleteFolder] Deleted directory: ${item.path}`);
+          } else {
+            console.warn(`[DeleteFolder] Failed to delete directory via workspace API: ${item.path}`);
+            // Fallback to direct filesystem deletion
+            fs.rmdirSync(item.path);
+          }
+        }
+      } catch (error) {
+        console.error(`[DeleteFolder] Error deleting directory ${item.path}:`, error);
+        // Fallback to direct filesystem deletion
+        try {
+          if (fs.existsSync(item.path)) {
+            fs.rmdirSync(item.path);
+          }
+        } catch (fallbackError) {
+          console.error(`[DeleteFolder] Fallback directory deletion also failed:`, fallbackError);
+        }
+      }
+    }
+  }
+
+  /**
+   * Collects all files and directories within a directory recursively.
+   * 
+   * @param directoryPath - The absolute path of the directory to search
+   * @returns An array of objects containing path and type information
+   */
+  private async collectAllItemsRecursively(directoryPath: string): Promise<{ path: string; isFile: boolean }[]> {
+    const items: { path: string; isFile: boolean }[] = [];
+    
+    if (!fs.existsSync(directoryPath)) {
+      return items;
+    }
+
+    try {
+      const files = fs.readdirSync(directoryPath);
+      
+      for (const file of files) {
+        const filePath = path.join(directoryPath, file);
+        
+        try {
+          const stat = fs.lstatSync(filePath);
+          
+          if (stat.isDirectory()) {
+            // Recursively collect items from subdirectories first
+            const subItems = await this.collectAllItemsRecursively(filePath);
+            items.push(...subItems);
+            
+            // Then add the directory itself
+            items.push({ path: filePath, isFile: false });
+          } else {
+            // Add files
+            items.push({ path: filePath, isFile: true });
+          }
+        } catch (statError) {
+          console.warn(`[DeleteFolder] Could not stat ${filePath}:`, statError);
+        }
+      }
+    } catch (readdirError) {
+      console.error(`[DeleteFolder] Could not read directory ${directoryPath}:`, readdirError);
+    }
+    
+    return items;
+  }
+
+  /**
+   * Moves all contents of a folder to its parent directory.
+   * 
+   * @param directoryPath - The absolute path of the directory whose contents should be moved
+   */
+  private async moveFolderContentsToParent(directoryPath: string): Promise<void> {
+    if (!fs.existsSync(directoryPath)) {
+      throw new Error(`Directory "${directoryPath}" does not exist.`);
+    }
+
+    const parentDirectory = path.dirname(directoryPath);
+    
+    // Check if parent directory exists
+    if (!fs.existsSync(parentDirectory)) {
+      throw new Error(`Parent directory "${parentDirectory}" does not exist.`);
+    }
+
+    const files = fs.readdirSync(directoryPath);
+    
+    for (const file of files) {
+      const sourcePath = path.join(directoryPath, file);
+      const targetPath = path.join(parentDirectory, file);
+      
+      // Handle potential naming conflicts
+      const finalTargetPath = await this.resolveNamingConflict(targetPath);
+      
+      // Move the file or directory
+      fs.renameSync(sourcePath, finalTargetPath);
+    }
+  }
+
+  /**
+   * Resolves naming conflicts when moving files to parent directory.
+   * If a file/folder with the same name already exists, appends a number to make it unique.
+   * 
+   * @param targetPath - The intended target path
+   * @returns The final target path (may be modified to avoid conflicts)
+   */
+  private async resolveNamingConflict(targetPath: string): Promise<string> {
+    if (!fs.existsSync(targetPath)) {
+      return targetPath; // No conflict
+    }
+
+    const directory = path.dirname(targetPath);
+    const extension = path.extname(targetPath);
+    const baseName = path.basename(targetPath, extension);
+    
+    let counter = 1;
+    let newTargetPath: string;
+    
+    do {
+      newTargetPath = path.join(directory, `${baseName}_${counter}${extension}`);
+      counter++;
+    } while (fs.existsSync(newTargetPath));
+    
+    return newTargetPath;
   }
 
   /**
