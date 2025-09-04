@@ -73,6 +73,10 @@
         "title": "Rename Folder"
       },
       {
+        "command": "slingr-vscode-extension.deleteFolder",
+        "title": "Delete Folder"
+      },
+      {
         "command": "slingr-vscode-extension.createTest",
         "title": "Create Test"
       },
@@ -154,6 +158,11 @@
           "command": "slingr-vscode-extension.renameFolder",
           "when": "view == slingrExplorer && viewItem == 'folder'",
           "group": "1_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteFolder",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "2_modification"
         },
         {
           "command": "slingr-vscode-extension.renameField",
@@ -243,6 +252,11 @@
           "command": "slingr-vscode-extension.renameFolder",
           "when": "view == slingrExplorer && viewItem == 'folder'",
           "group": "1_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteFolder",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "2_modification"
         },
         {
           "command": "slingr-vscode-extension.renameField",
