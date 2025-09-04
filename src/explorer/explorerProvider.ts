@@ -1,12 +1,15 @@
 import * as vscode from "vscode";
-import * as path from "path";
-import * as fs from "fs";
-import { Project, IndentationText } from "ts-morph";
+import { Project } from "ts-morph";
 import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
+import * as fs from "fs";
+import * as path from "path";
 
-// Define a custom MIME type for our drag-and-drop operation
+
+// Define custom MIME types for our drag-and-drop operations
 const FIELD_MIME_TYPE = "application/vnd.slingr-vscode-extension.field";
+const MODEL_MIME_TYPE = "application/vnd.slingr-vscode-extension.model";
+const FOLDER_MIME_TYPE = "application/vnd.slingr-vscode-extension.folder";
 
 // Interface for folder structure
 interface FolderNode {
@@ -22,8 +25,8 @@ export class ExplorerProvider
   >();
   readonly onDidChangeTreeData: vscode.Event<AppTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
-  public dragMimeTypes: readonly string[] = [FIELD_MIME_TYPE];
-  public dropMimeTypes: readonly string[] = [FIELD_MIME_TYPE];
+  public dragMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
+  public dropMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
 
   constructor(private cache: MetadataCache, private extensionUri: vscode.Uri) {
     // --- Listen for the cache's update event ---
@@ -51,7 +54,7 @@ export class ExplorerProvider
     }
     const draggedItem = source[0];
 
-    // We can drag fields or composition models
+    // We can drag fields, models, or folders
     if (draggedItem.itemType === "field" && draggedItem.metadata && "name" in draggedItem.metadata) {
       // The parent of a field item is the 'modelFieldsFolder', which holds the model's metadata
       const modelFilePath = draggedItem.parent?.metadata?.declaration.uri.fsPath;
@@ -66,50 +69,71 @@ export class ExplorerProvider
           })
         );
       }
-    } else if (draggedItem.itemType === "model" && draggedItem.parent && draggedItem.parent.itemType === "model") {
-      // This is a composition model (nested model within another model)
-      // The parent contains the host model's metadata
-      const modelFilePath = draggedItem.parent.metadata?.declaration.uri.fsPath;
-      const modelClassName = draggedItem.parent.metadata?.name;
+    } else if (draggedItem.itemType === "model" && draggedItem.metadata && this.isDecoratedClass(draggedItem.metadata)) {
+      // Check if this is a composition model (nested model within another model)
+      if (draggedItem.parent && draggedItem.parent.itemType === "model") {
+        // This is a composition model
+        const modelFilePath = draggedItem.parent.metadata?.declaration.uri.fsPath;
+        const modelClassName = draggedItem.parent.metadata?.name;
 
-      // We need to find the property name that represents this composition relationship
-      // Look through the parent model's properties to find the one that matches this composition
-      if (
-        modelFilePath &&
-        modelClassName &&
-        draggedItem.parent.metadata &&
-        "properties" in draggedItem.parent.metadata
-      ) {
-        const parentModel = draggedItem.parent.metadata;
-        let compositionFieldName = null;
+        // We need to find the property name that represents this composition relationship
+        // Look through the parent model's properties to find the one that matches this composition
+        if (
+          modelFilePath &&
+          modelClassName &&
+          draggedItem.parent.metadata &&
+          "properties" in draggedItem.parent.metadata
+        ) {
+          const parentModel = draggedItem.parent.metadata;
+          let compositionFieldName = null;
 
-        // Find the field that represents this composition relationship
-        for (const [propName, prop] of Object.entries(parentModel.properties)) {
-          if (
-            prop.decorators.some((d) => d.name === "Field") &&
-            prop.decorators.some(
-              (d) =>
-                d.name === "Relationship" &&
-                d.arguments.some((arg) => arg.type === "composition" || arg.type === "Composition")
-            ) &&
-            this.extractBaseTypeFromArrayType(prop.type) === draggedItem.metadata?.name
-          ) {
-            compositionFieldName = propName;
-            break;
+          // Find the field that represents this composition relationship
+          for (const [propName, prop] of Object.entries(parentModel.properties)) {
+            if (
+              prop.decorators.some((d) => d.name === "Field") &&
+              prop.decorators.some(
+                (d) =>
+                  d.name === "Relationship" &&
+                  d.arguments.some((arg) => arg.type === "composition" || arg.type === "Composition")
+              ) &&
+              this.extractBaseTypeFromArrayType(prop.type) === draggedItem.metadata?.name
+            ) {
+              compositionFieldName = propName;
+              break;
+            }
+          }
+
+          if (compositionFieldName) {
+            dataTransfer.set(
+              FIELD_MIME_TYPE,
+              new vscode.DataTransferItem({
+                field: compositionFieldName,
+                modelPath: modelFilePath,
+                modelClassName: modelClassName,
+              })
+            );
           }
         }
-
-        if (compositionFieldName) {
-          dataTransfer.set(
-            FIELD_MIME_TYPE,
-            new vscode.DataTransferItem({
-              field: compositionFieldName,
-              modelPath: modelFilePath,
-              modelClassName: modelClassName,
-            })
-          );
-        }
+      } else {
+        // This is a standalone model that can be moved to folders
+        const modelFilePath = draggedItem.metadata.declaration.uri.fsPath;
+        dataTransfer.set(
+          MODEL_MIME_TYPE,
+          new vscode.DataTransferItem({
+            modelPath: modelFilePath,
+            modelClassName: draggedItem.metadata.name,
+          })
+        );
       }
+    } else if (draggedItem.itemType === "folder" && draggedItem.folderPath) {
+      // This is a folder that can be moved to other folders
+      dataTransfer.set(
+        FOLDER_MIME_TYPE,
+        new vscode.DataTransferItem({
+          folderPath: draggedItem.folderPath,
+          folderName: draggedItem.label,
+        })
+      );
     }
   }
 
@@ -118,12 +142,40 @@ export class ExplorerProvider
     dataTransfer: vscode.DataTransfer,
     token: vscode.CancellationToken
   ): Promise<void> {
-    const transferItem = dataTransfer.get(FIELD_MIME_TYPE);
-    if (!transferItem) {
-      return; // Not a valid drop
+    // Handle field reordering (existing functionality)
+    const fieldTransferItem = dataTransfer.get(FIELD_MIME_TYPE);
+    const modelTransferItem = dataTransfer.get(MODEL_MIME_TYPE);
+    const folderTransferItem = dataTransfer.get(FOLDER_MIME_TYPE);
+
+    if (fieldTransferItem?.value !== '' && fieldTransferItem) {
+      await this.handleFieldDrop(target, fieldTransferItem);
+      return;
     }
 
+    // Handle model moving to folders
+    if (modelTransferItem?.value !== '' && modelTransferItem) {
+      await this.handleModelDrop(target, modelTransferItem);
+      return;
+    }
+
+    // Handle folder moving to other folders
+    if (folderTransferItem?.value !== '' && folderTransferItem) {
+      await this.handleFolderDrop(target, folderTransferItem);
+      return;
+    }
+
+    // If no valid transfer item is found, show an appropriate message
+    vscode.window.showWarningMessage("Invalid drop operation.");
+  }
+
+  private async handleFieldDrop(target: AppTreeItem | undefined, transferItem: vscode.DataTransferItem): Promise<void> {
     const draggedData = transferItem.value;
+
+    // Check if someone is trying to drop a composition model into a folder or data root
+    if (target && (target.itemType === "folder" || target.itemType === "dataRoot" || target.itemType === "model")) {
+      vscode.window.showWarningMessage("Composition models cannot be moved to folders or models. They are part of their parent model structure.");
+      return;
+    }
 
     // Ensure we have a valid target to drop onto (field or composition model)
     let targetFieldName: string | null = null;
@@ -407,10 +459,8 @@ export class ExplorerProvider
    */
   async getChildren(element?: AppTreeItem): Promise<AppTreeItem[]> {
     if (!element) {
-      // Root level: Data - include the src/data path as folderPath
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      const dataRootPath = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, 'src', 'data') : undefined;
-      return [new AppTreeItem("Data", vscode.TreeItemCollapsibleState.Expanded, "dataRoot", this.extensionUri, undefined, undefined, dataRootPath)];
+      // Root level: Data
+      return [new AppTreeItem("Data", vscode.TreeItemCollapsibleState.Expanded, "dataRoot", this.extensionUri)];
     }
 
     // --- DATA ROOT ---
@@ -492,12 +542,11 @@ export class ExplorerProvider
   }
 
   /**
-   * Builds a hierarchical folder structure from model file paths and actual file system folders
+   * Builds a hierarchical folder structure from model file paths
    */
   private buildFolderStructure(models: DecoratedClass[]): FolderNode {
     const root: FolderNode = { folders: new Map(), models: [] };
 
-    // First, build structure from models
     for (const model of models) {
       const filePath = model.declaration.uri.fsPath;
 
@@ -535,8 +584,7 @@ export class ExplorerProvider
         currentNode.models.push(model);
       }
     }
-
-    // Now add empty directories from the file system
+    // Also add empty directories from the filesystem
     this.addEmptyDirectoriesToStructure(root);
 
     return root;

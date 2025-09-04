@@ -781,9 +781,6 @@ export class MetadataCache {
                 if (classData.isDataModel) {
                     dataModels.push(classData);
                 }
-                if (classData.isDataModel) {
-                    dataModels.push(classData);
-                }
             }
         }
         return dataModels;
