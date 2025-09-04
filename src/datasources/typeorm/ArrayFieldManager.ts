@@ -18,6 +18,7 @@ export interface ArrayFieldMetadata {
  */
 export class ArrayFieldManager {
   private arrayElementEntities: Map<string, Function> = new Map();
+  private arrayFieldNamesCache: WeakMap<Function, string[]> = new WeakMap();
 
   /**
    * Gets all registered array element entities.
@@ -44,10 +45,10 @@ export class ArrayFieldManager {
   ): void {
     const parentEntityName = target.constructor.name;
     const baseFieldType = fieldType.replace('array:', '');
-    
+
     // Create a unique key for this array field
     const arrayEntityKey = ArrayEntityFactory.generateEntityKey(parentEntityName, propertyKey);
-    
+
     // Check if we've already created an entity for this array field
     if (!this.arrayElementEntities.has(arrayEntityKey)) {
       const arrayElementEntity = ArrayEntityFactory.createArrayElementEntity(
@@ -58,16 +59,19 @@ export class ArrayFieldManager {
       );
       this.arrayElementEntities.set(arrayEntityKey, arrayElementEntity);
     }
-    
+
     // Store metadata about this array field
     const metadata: ArrayFieldMetadata = {
       elementEntityKey: arrayEntityKey,
       baseFieldType: baseFieldType,
       options: fieldOptions
     };
-    
+
     Reflect.defineMetadata('typeorm:array-field', metadata, target, propertyKey);
     Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
+
+    // Invalidate cached array field names for this class so future calls recompute once
+    this.arrayFieldNamesCache.delete(target.constructor);
   }
 
   /**
@@ -78,20 +82,18 @@ export class ArrayFieldManager {
    */
   extractArrayValues<T extends object>(entity: T): Record<string, any[]> {
     const arrayValues: Record<string, any[]> = {};
-    const entityClass = entity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', entityClass) || [];
-    
-    for (const fieldName of fieldNames) {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
-      if (fieldType && fieldType.startsWith('array:')) {
-        const arrayValue = (entity as any)[fieldName];
-        if (Array.isArray(arrayValue)) {
-          arrayValues[fieldName] = arrayValue;
-        }
+    const entityClass = entity.constructor as Function;
+    const arrayFieldNames = this.getArrayFieldNames(entityClass);
+
+    for (const fieldName of arrayFieldNames) {
+      const value = (entity as any)[fieldName];
+      if (Array.isArray(value)) {
+        arrayValues[fieldName] = value;
+      } else if (value == null) {
+        // Normalize missing arrays to empty arrays to simplify downstream logic
+        arrayValues[fieldName] = [];
       }
     }
-    
     return arrayValues;
   }
 
@@ -102,20 +104,13 @@ export class ArrayFieldManager {
    * @returns Entity copy without array fields
    */
   extractMainEntityFields<T extends object>(entity: T): T {
-    const entityCopy = { ...entity };
-    const entityClass = entity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', entityClass) || [];
-    
-    for (const fieldName of fieldNames) {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
-      if (fieldType && fieldType.startsWith('array:')) {
-        // Remove array fields from the main entity
-        delete (entityCopy as any)[fieldName];
-      }
+    // Keep it simple: shallow clone and strip only array fields; leave everything else intact
+    const entityCopy: any = { ...(entity as any) };
+    const entityClass = entity.constructor as Function;
+    for (const fieldName of this.getArrayFieldNames(entityClass)) {
+      delete entityCopy[fieldName];
     }
-    
-    return entityCopy;
+    return entityCopy as T;
   }
 
   /**
@@ -125,26 +120,10 @@ export class ArrayFieldManager {
    * @param typeormDataSource - TypeORM data source for database operations
    */
   async handleArrayFieldsForUpdate<T extends object>(
-    entity: T, 
-    typeormDataSource: TypeORMDataSource
+    _entity: T,
+    _typeormDataSource: TypeORMDataSource
   ): Promise<void> {
-    const entityClass = entity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', entityClass) || [];
-    
-    for (const fieldName of fieldNames) {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
-      if (fieldType && fieldType.startsWith('array:')) {
-        const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
-        const ArrayElementEntity = this.arrayElementEntities.get(arrayMetadata.elementEntityKey);
-        
-        if (ArrayElementEntity) {
-          const repository = typeormDataSource.getRepository(ArrayElementEntity as any);
-          // Delete existing array elements for this entity
-          await repository.delete({ parentId: (entity as any).id });
-        }
-      }
-    }
+    // No-op: we now handle delete-and-replace in saveArrayFields to rely on TypeORM per-field operations.
   }
 
   /**
@@ -156,25 +135,20 @@ export class ArrayFieldManager {
    * @param typeormDataSource - TypeORM data source for database operations
    */
   async saveArrayFields<T extends object>(
-    originalEntity: T, 
-    arrayValues: Record<string, any[]>, 
+    originalEntity: T,
+    arrayValues: Record<string, any[]>,
     savedEntity: T,
     typeormDataSource: TypeORMDataSource
   ): Promise<void> {
-    const entityClass = originalEntity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', entityClass) || [];
-    
-    for (const fieldName of fieldNames) {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
-      if (fieldType && fieldType.startsWith('array:')) {
-        const arrayValue = arrayValues[fieldName];
-        
-        if (Array.isArray(arrayValue) && arrayValue.length > 0) {
-          await this.saveArrayField(fieldName, arrayValue, savedEntity, typeormDataSource, entityClass);
-        }
-      }
-    }
+    const entityClass = originalEntity.constructor as Function;
+    const fieldNames = this.getArrayFieldNames(entityClass);
+
+    await Promise.all(
+      fieldNames.map(async (fieldName) => {
+        const values = arrayValues[fieldName] ?? [];
+        await this.persistArrayField(fieldName, values, savedEntity, typeormDataSource, entityClass);
+      })
+    );
   }
 
   /**
@@ -186,31 +160,35 @@ export class ArrayFieldManager {
    * @param typeormDataSource - TypeORM data source for database operations
    * @param entityClass - The entity class
    */
-  private async saveArrayField<T extends object>(
+  private async persistArrayField<T extends object>(
     fieldName: string,
     arrayValue: any[],
     savedEntity: T,
     typeormDataSource: TypeORMDataSource,
     entityClass: Function
   ): Promise<void> {
-    const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
+    const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata(
+      'typeorm:array-field',
+      entityClass.prototype,
+      fieldName
+    );
     const ArrayElementEntity = this.arrayElementEntities.get(arrayMetadata.elementEntityKey);
-    
-    if (ArrayElementEntity) {
-      const repository = typeormDataSource.getRepository(ArrayElementEntity as any);
-      
-      // Create array element entities using the saved entity's ID
-      const elementEntities = arrayValue.map((value, index) => {
-        const elementEntity = new (ArrayElementEntity as any)();
-        elementEntity.parentId = (savedEntity as any).id;
-        elementEntity.value = value;
-        elementEntity.index = index;
-        return elementEntity;
-      });
-      
-      // Save all array elements
-      await repository.save(elementEntities);
+
+    if (!ArrayElementEntity) return;
+
+    const repository = typeormDataSource.getRepository(ArrayElementEntity as any);
+
+    // Always remove previous elements for this field, then insert the new snapshot
+    await repository.delete({ parentId: (savedEntity as any).id });
+
+    if (!Array.isArray(arrayValue) || arrayValue.length === 0) {
+      return; // nothing to insert
     }
+
+    const rows = arrayValue.map((value, index) =>
+      repository.create({ parentId: (savedEntity as any).id, value, index })
+    );
+    await repository.insert(rows as any);
   }
 
   /**
@@ -221,20 +199,19 @@ export class ArrayFieldManager {
    * @returns The entity with array fields populated
    */
   async loadArrayFields<T extends object>(entity: T, typeormDataSource: TypeORMDataSource): Promise<T> {
-    const entityCopy = { ...entity };
-    const entityClass = entity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', entityClass) || [];
-    
-    for (const fieldName of fieldNames) {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
-      if (fieldType && fieldType.startsWith('array:')) {
-        const arrayValues = await this.loadArrayField(entity, fieldName, typeormDataSource, entityClass);
-        (entityCopy as any)[fieldName] = arrayValues;
-      }
-    }
-    
-    return entityCopy;
+    const entityCopy: any = { ...(entity as any) };
+    const entityClass = entity.constructor as Function;
+    const fieldNames = this.getArrayFieldNames(entityClass);
+
+    const results = await Promise.all(
+      fieldNames.map((fieldName) => this.loadArrayField(entity, fieldName, typeormDataSource, entityClass))
+    );
+
+    fieldNames.forEach((fieldName, idx) => {
+      entityCopy[fieldName] = results[idx];
+    });
+
+    return entityCopy as T;
   }
 
   /**
@@ -254,20 +231,36 @@ export class ArrayFieldManager {
   ): Promise<any[]> {
     const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
     const ArrayElementEntity = this.arrayElementEntities.get(arrayMetadata.elementEntityKey);
-    
+
     if (ArrayElementEntity) {
       const repository = typeormDataSource.getRepository(ArrayElementEntity as any);
-      
+
       // Load array elements for this entity, ordered by index
       const elements = await repository.find({
         where: { parentId: (entity as any).id },
         order: { index: 'ASC' }
       });
-      
+
       // Extract values into an array
       return elements.map(element => element.value);
     }
-    
+
     return [];
+  }
+
+  /**
+   * Gets the array field names for a given entity class, cached for reuse.
+   */
+  private getArrayFieldNames(entityClass: Function): string[] {
+    const cached = this.arrayFieldNamesCache.get(entityClass);
+    if (cached) return cached;
+
+    const fieldNames: string[] = Reflect.getMetadata('model:fields', entityClass) || [];
+    const arrayFields = fieldNames.filter((fieldName) => {
+      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
+      return typeof fieldType === 'string' && fieldType.startsWith('array:');
+    });
+    this.arrayFieldNamesCache.set(entityClass, arrayFields);
+    return arrayFields;
   }
 }
