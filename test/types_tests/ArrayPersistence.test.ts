@@ -102,7 +102,8 @@ describe("Array Persistence in SQL Databases", () => {
     });
 
     describe("Array Retrieval", () => {
-        let savedPost: BlogPost;
+        let savedPost1: BlogPost;
+        let savedPost2: BlogPost;
 
         beforeEach(async () => {
             // Clean up any existing data
@@ -111,56 +112,195 @@ describe("Array Persistence in SQL Databases", () => {
                 await dataSource.deleteById(BlogPost, post.id);
             }
             
-            // Create a fresh blog post for testing
-            const freshPost = new BlogPost();
-            freshPost.title = "Sample Blog Post";
-            freshPost.content = "<h1>Hello World</h1><p>This is a sample blog post.</p>";
-            freshPost.tags = ["javascript", "typescript", "web-development"];
-            freshPost.notes = [
+            // Create first blog post for testing
+            const freshPost1 = new BlogPost();
+            freshPost1.title = "JavaScript Tutorial";
+            freshPost1.content = "<h1>Learn JavaScript</h1><p>This is a JS tutorial.</p>";
+            freshPost1.tags = ["javascript", "tutorial", "beginner"];
+            freshPost1.notes = [
                 "<h3>Note 1</h3><p>Remember to add examples</p>",
                 "<h3>Note 2</h3><p>Include code snippets</p>"
             ];
-            freshPost.collaboratorEmails = [
+            freshPost1.collaboratorEmails = [
                 "john@example.com",
-                "jane@example.com",
-                "bob@example.com"
+                "jane@example.com"
             ];
             
-            savedPost = await dataSource.save(freshPost);
+            savedPost1 = await dataSource.save(freshPost1);
+
+            // Create second blog post for testing queries
+            const freshPost2 = new BlogPost();
+            freshPost2.title = "TypeScript Advanced";
+            freshPost2.content = "<h1>Advanced TypeScript</h1><p>This is a TS tutorial.</p>";
+            freshPost2.tags = ["typescript", "advanced", "generics"];
+            freshPost2.notes = [
+                "<h3>TS Note 1</h3><p>Generic constraints</p>",
+                "<h3>TS Note 2</h3><p>Conditional types</p>",
+                "<h3>TS Note 3</h3><p>Mapped types</p>"
+            ];
+            freshPost2.collaboratorEmails = [
+                "alice@example.com",
+                "bob@example.com",
+                "charlie@example.com"
+            ];
+            
+            savedPost2 = await dataSource.save(freshPost2);
         });
 
-        it("should retrieve a blog post with all array fields intact", async () => {
-            const retrievedPost = await dataSource.findById(BlogPost, savedPost.id);
+        it("should retrieve a blog post with all array fields intact using findById", async () => {
+            const retrievedPost = await dataSource.findById(BlogPost, savedPost1.id);
             
             expect(retrievedPost).not.toBeNull();
-            expect(retrievedPost!.id).toBe(savedPost.id);
-            expect(retrievedPost!.title).toBe("Sample Blog Post");
-            expect(retrievedPost!.tags).toEqual(["javascript", "typescript", "web-development"]);
+            expect(retrievedPost!.id).toBe(savedPost1.id);
+            expect(retrievedPost!.title).toBe("JavaScript Tutorial");
+            expect(retrievedPost!.tags).toEqual(["javascript", "tutorial", "beginner"]);
             expect(retrievedPost!.notes).toHaveLength(2);
             expect(retrievedPost!.notes[0]).toContain("Note 1");
             expect(retrievedPost!.notes[1]).toContain("Note 2");
             expect(retrievedPost!.collaboratorEmails).toEqual([
                 "john@example.com",
-                "jane@example.com",
-                "bob@example.com"
+                "jane@example.com"
             ]);
         });
 
-        it("should preserve array order when retrieving", async () => {
-            const retrievedPost = await dataSource.findById(BlogPost, savedPost.id);
+        it("should preserve array order when retrieving by ID", async () => {
+            const retrievedPost = await dataSource.findById(BlogPost, savedPost1.id);
             
             expect(retrievedPost!.tags[0]).toBe("javascript");
-            expect(retrievedPost!.tags[1]).toBe("typescript");
-            expect(retrievedPost!.tags[2]).toBe("web-development");
+            expect(retrievedPost!.tags[1]).toBe("tutorial");
+            expect(retrievedPost!.tags[2]).toBe("beginner");
         });
 
-        it("should find blog posts using the find method", async () => {
+        it("should find all blog posts with arrays automatically loaded", async () => {
             const posts = await dataSource.find(BlogPost);
             
+            expect(posts).toHaveLength(2);
+            
+            // Verify first post arrays are loaded
+            const firstPost = posts.find(p => p.id === savedPost1.id);
+            expect(firstPost).toBeDefined();
+            expect(firstPost!.tags).toEqual(["javascript", "tutorial", "beginner"]);
+            expect(firstPost!.notes).toHaveLength(2);
+            expect(firstPost!.collaboratorEmails).toHaveLength(2);
+            
+            // Verify second post arrays are loaded
+            const secondPost = posts.find(p => p.id === savedPost2.id);
+            expect(secondPost).toBeDefined();
+            expect(secondPost!.tags).toEqual(["typescript", "advanced", "generics"]);
+            expect(secondPost!.notes).toHaveLength(3);
+            expect(secondPost!.collaboratorEmails).toHaveLength(3);
+        });
+
+        it("should find blog posts by criteria with arrays automatically loaded", async () => {
+            // Query by title - this should automatically load arrays like compositions
+            const posts = await dataSource.find(BlogPost, { title: "TypeScript Advanced" });
+            
             expect(posts).toHaveLength(1);
-            expect(posts[0]).toBeDefined();
-            expect(posts[0]!.id).toBe(savedPost.id);
-            expect(posts[0]!.tags).toEqual(["javascript", "typescript", "web-development"]);
+            const foundPost = posts[0]!;
+            expect(foundPost).toBeDefined();
+            expect(foundPost.id).toBe(savedPost2.id);
+            expect(foundPost.title).toBe("TypeScript Advanced");
+            
+            // Verify arrays are automatically loaded, not just empty or undefined
+            expect(foundPost.tags).toEqual(["typescript", "advanced", "generics"]);
+            expect(foundPost.notes).toHaveLength(3);
+            expect(foundPost.notes[0]).toContain("TS Note 1");
+            expect(foundPost.notes[1]).toContain("TS Note 2");
+            expect(foundPost.notes[2]).toContain("TS Note 3");
+            expect(foundPost.collaboratorEmails).toEqual([
+                "alice@example.com",
+                "bob@example.com",
+                "charlie@example.com"
+            ]);
+        });
+
+        it("should preserve array order in query results", async () => {
+            const posts = await dataSource.find(BlogPost, { title: "TypeScript Advanced" });
+            
+            expect(posts).toHaveLength(1);
+            const post = posts[0]!;
+            expect(post).toBeDefined();
+            
+            // Verify array order is preserved
+            expect(post.tags[0]).toBe("typescript");
+            expect(post.tags[1]).toBe("advanced");
+            expect(post.tags[2]).toBe("generics");
+            
+            expect(post.collaboratorEmails[0]).toBe("alice@example.com");
+            expect(post.collaboratorEmails[1]).toBe("bob@example.com");
+            expect(post.collaboratorEmails[2]).toBe("charlie@example.com");
+        });
+
+        it("should handle empty query results gracefully", async () => {
+            const posts = await dataSource.find(BlogPost, { title: "Non-existent Post" });
+            
+            expect(posts).toHaveLength(0);
+            expect(Array.isArray(posts)).toBe(true);
+        });
+
+        it("should load arrays for multiple entities in a single query", async () => {
+            // Query without criteria to get all posts
+            const allPosts = await dataSource.find(BlogPost);
+            
+            expect(allPosts).toHaveLength(2);
+            
+            // Verify both posts have their arrays properly loaded
+            allPosts.forEach(post => {
+                expect(Array.isArray(post.tags)).toBe(true);
+                expect(post.tags.length).toBeGreaterThan(0);
+                expect(Array.isArray(post.notes)).toBe(true);
+                expect(post.notes.length).toBeGreaterThan(0);
+                expect(Array.isArray(post.collaboratorEmails)).toBe(true);
+                expect(post.collaboratorEmails.length).toBeGreaterThan(0);
+            });
+            
+            // Verify specific content to ensure arrays aren't just empty arrays
+            const jsPost = allPosts.find(p => p.title === "JavaScript Tutorial");
+            const tsPost = allPosts.find(p => p.title === "TypeScript Advanced");
+            
+            expect(jsPost!.tags).toContain("javascript");
+            expect(tsPost!.tags).toContain("typescript");
+        });
+
+        it("should handle complex queries with automatic array loading", async () => {
+            // Test that arrays are automatically loaded even for more complex query scenarios
+            // First, let's create a third blog post with overlapping content
+            const freshPost3 = new BlogPost();
+            freshPost3.title = "JavaScript Advanced";
+            freshPost3.content = "<h1>Advanced JavaScript</h1><p>This is an advanced JS tutorial.</p>";
+            freshPost3.tags = ["javascript", "advanced", "closures"];
+            freshPost3.notes = [
+                "<h3>JS Advanced Note</h3><p>Closures and scope</p>"
+            ];
+            freshPost3.collaboratorEmails = [
+                "advanced@example.com"
+            ];
+            
+            const savedPost3 = await dataSource.save(freshPost3);
+
+            // Now test that all posts are found and arrays are loaded
+            const allPosts = await dataSource.find(BlogPost);
+            expect(allPosts).toHaveLength(3);
+
+            // Verify each post has its arrays properly loaded
+            for (const post of allPosts) {
+                expect(Array.isArray(post.tags)).toBe(true);
+                expect(Array.isArray(post.notes)).toBe(true);
+                expect(Array.isArray(post.collaboratorEmails)).toBe(true);
+                
+                // Verify arrays are not empty (all our test posts have content)
+                expect(post.tags.length).toBeGreaterThan(0);
+                expect(post.notes.length).toBeGreaterThan(0);
+                expect(post.collaboratorEmails.length).toBeGreaterThan(0);
+            }
+
+            // Test querying by a field that doesn't exist - should return empty with proper arrays structure
+            const nonExistentPosts = await dataSource.find(BlogPost, { title: "Non-existent Title" });
+            expect(nonExistentPosts).toHaveLength(0);
+            expect(Array.isArray(nonExistentPosts)).toBe(true);
+            
+            // Clean up the third post
+            await dataSource.deleteById(BlogPost, savedPost3.id);
         });
     });
 
