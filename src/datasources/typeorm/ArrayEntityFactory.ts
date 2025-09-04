@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { TypeORMTypeMapper } from './TypeORMTypeMapper';
 
 /**
@@ -8,7 +8,7 @@ import { TypeORMTypeMapper } from './TypeORMTypeMapper';
  * and provides a clean interface for entity creation and management.
  */
 export class ArrayEntityFactory {
-  
+
   /**
    * Creates a new entity class for array elements.
    * 
@@ -20,27 +20,30 @@ export class ArrayEntityFactory {
    */
   static createArrayElementEntity(
     parentEntityName: string,
+    parentEntityClass: Function,
     fieldName: string,
     baseFieldType: string,
     fieldOptions?: any
   ): Function {
     const tableName = ArrayEntityFactory.generateTableName(parentEntityName, fieldName);
     const entityName = ArrayEntityFactory.generateEntityName(parentEntityName, fieldName);
-    
+
     // Dynamically create the array element entity class
     const ArrayElementEntity = class {
       id!: string;
       parentId!: string;
+      // relation to parent for FK and cascade
+      parent!: any;
       value!: string;
       index!: number;
     };
-    
+
     // Set the class name for better debugging
     Object.defineProperty(ArrayElementEntity, 'name', { value: entityName });
-    
+
     // Apply TypeORM decorators
-    ArrayEntityFactory.applyEntityDecorators(ArrayElementEntity, tableName, baseFieldType, fieldOptions);
-    
+    ArrayEntityFactory.applyEntityDecorators(ArrayElementEntity, tableName, parentEntityClass, baseFieldType, fieldOptions);
+
     return ArrayElementEntity;
   }
 
@@ -88,22 +91,36 @@ export class ArrayEntityFactory {
   private static applyEntityDecorators(
     entityClass: Function,
     tableName: string,
+    parentEntityClass: Function,
     baseFieldType: string,
     fieldOptions?: any
   ): void {
     // Apply entity decorator
     Entity(tableName)(entityClass);
-    
+
     // Configure the id field
     PrimaryGeneratedColumn('uuid')(entityClass.prototype, 'id');
-    
+
     // Configure the parentId field (foreign key)
     Column({ type: 'uuid', name: 'parent_id' })(entityClass.prototype, 'parentId');
-    
+    // Add an index for faster lookups by parent
+    Index()(entityClass.prototype, 'parentId');
+    // Ensure order uniqueness per parent and index (composite)
+    Index(`IDX_${tableName}_parent_index_unique`, ['parentId', 'index'], { unique: true })(entityClass);
+
+    // Relation to parent with ON DELETE CASCADE
+    ManyToOne(() => parentEntityClass as any, {
+      onDelete: 'CASCADE',
+      onUpdate: 'NO ACTION',
+      eager: false,
+      nullable: false
+    })(entityClass.prototype, 'parent');
+    JoinColumn({ name: 'parent_id' })(entityClass.prototype, 'parent');
+
     // Configure the value field based on the base field type
     const valueColumnConfig = TypeORMTypeMapper.getArrayElementColumnConfig(baseFieldType, fieldOptions);
     Column(valueColumnConfig)(entityClass.prototype, 'value');
-    
+
     // Configure the index field to preserve array order
     Column({ type: 'int', name: 'array_index' })(entityClass.prototype, 'index');
   }

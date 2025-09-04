@@ -43,7 +43,8 @@ export class ArrayFieldManager {
     fieldType: string,
     fieldOptions?: any
   ): void {
-    const parentEntityName = target.constructor.name;
+  const parentEntityName = target.constructor.name;
+  const parentEntityClass = target.constructor as Function;
     const baseFieldType = fieldType.replace('array:', '');
 
     // Create a unique key for this array field
@@ -53,6 +54,7 @@ export class ArrayFieldManager {
     if (!this.arrayElementEntities.has(arrayEntityKey)) {
       const arrayElementEntity = ArrayEntityFactory.createArrayElementEntity(
         parentEntityName,
+        parentEntityClass,
         propertyKey,
         baseFieldType,
         fieldOptions
