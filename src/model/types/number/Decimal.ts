@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { registerDecorator } from 'class-validator';
 import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
 import { Expose, Transform } from 'class-transformer';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * Type alias for the `FinancialNumber` object.
@@ -163,3 +164,24 @@ export function Decimal(options: DecimalOptions) {
         applyDecimalValidations(addOptionalValidator, propName, options);
     };
 }
+
+/**
+ * Configuration object for Decimal field TypeORM mapping.
+ */
+export const DecimalTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: DecimalOptions, nullable: boolean = true): any {
+        return {
+            type: 'decimal',
+            precision: 10,
+            scale: fieldOptions?.decimals || 2,
+            nullable: nullable
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: DecimalOptions): any {
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the decimal type configuration
+FieldTypeRegistry.register('decimal', DecimalTypeConfig);

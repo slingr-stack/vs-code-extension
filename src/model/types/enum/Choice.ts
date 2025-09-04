@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Transform, TransformationType } from 'class-transformer';
 import { validateEnumType } from '../utils';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * Choice type decorator.
@@ -68,3 +69,23 @@ export function Choice() {
         })(target as any, propName);
     };
 }
+
+/**
+ * Configuration object for Choice field TypeORM mapping.
+ */
+export const ChoiceTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: any, nullable: boolean = true): any {
+        return {
+            type: 'varchar',
+            length: 50,
+            nullable: nullable
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: any): any {
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the choice type configuration
+FieldTypeRegistry.register('choice', ChoiceTypeConfig);

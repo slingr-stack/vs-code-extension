@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { registerDecorator } from 'class-validator';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * Options for the Number decorator.
@@ -175,3 +176,24 @@ export function Number(options?: NumberOptions) {
         applyNumberValidations(addOptionalValidator, propName, options);
     };
 }
+
+/**
+ * Configuration object for Number field TypeORM mapping.
+ */
+export const NumberTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: NumberOptions, nullable: boolean = true): any {
+        return {
+            type: 'decimal',
+            precision: 10,
+            scale: 2,
+            nullable: nullable
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: NumberOptions): any {
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the number type configuration
+FieldTypeRegistry.register('number', NumberTypeConfig);

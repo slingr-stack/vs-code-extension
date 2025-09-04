@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { registerDecorator } from 'class-validator';
 import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
 import { Expose, Transform } from 'class-transformer';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * Type alias for the `FinancialNumber` object, representing a monetary value.
@@ -156,3 +157,24 @@ export function Money(options: MoneyOptions) {
         applyMoneyValidations(addOptionalValidator, propName, options);
     };
 }
+
+/**
+ * Configuration object for Money field TypeORM mapping.
+ */
+export const MoneyTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: MoneyOptions, nullable: boolean = true): any {
+        return {
+            type: 'decimal',
+            precision: 19,
+            scale: fieldOptions?.decimals || 2,
+            nullable: nullable
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: MoneyOptions): any {
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the money type configuration
+FieldTypeRegistry.register('money', MoneyTypeConfig);

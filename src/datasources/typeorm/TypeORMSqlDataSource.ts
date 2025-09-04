@@ -5,6 +5,8 @@ import { DataSource, DataSourceOptions } from '../DataSource';
 import { TypeORMTypeMapper } from './TypeORMTypeMapper';
 import { DatabaseConfigBuilder } from './DatabaseConfigBuilder';
 import { ArrayFieldManager } from './ArrayFieldManager';
+// Import to ensure field type registrations happen
+import '../../model/types/TypeRegistry';
 
 /**
  * Configuration options for TypeORM SQL data source.

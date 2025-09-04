@@ -14,3 +14,7 @@ export { Number } from './number/Number';
 export { Decimal } from './number/Decimal';
 export { Relationship } from './relationship/Relationship';
 export type { RelationshipOptions } from './relationship/Relationship';
+
+// Export the field type configuration system
+export { FieldTypeRegistry } from './FieldTypeConfig';
+export type { FieldTypeConfig } from './FieldTypeConfig';

@@ -6,6 +6,7 @@ import {
 } from 'class-validator';
 import { Transform, TransformationType } from 'class-transformer';
 import { validateDateType, dateToISO8601, dateFromJSON } from '../utils';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * Options for the DateTime decorator.
@@ -150,3 +151,22 @@ export function DateTime(options?: DateTimeOptions) {
         })(target as any, propName);
     };
 }
+
+/**
+ * Configuration object for DateTime field TypeORM mapping.
+ */
+export const DateTimeTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: DateTimeOptions, nullable: boolean = true): any {
+        return {
+            type: 'datetime',
+            nullable: nullable
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: DateTimeOptions): any {
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the datetime type configuration
+FieldTypeRegistry.register('datetime', DateTimeTypeConfig);

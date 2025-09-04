@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { IsEmail, IsArray } from 'class-validator';
 import { Transform, TransformationType } from 'class-transformer';
 import { validateStringType } from '../utils';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * Email type decorator.
@@ -102,3 +103,24 @@ export function Email() {
         }
     };
 }
+
+/**
+ * Configuration object for Email field TypeORM mapping.
+ * Email fields are essentially text fields with email validation.
+ */
+export const EmailTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: any, nullable: boolean = true): any {
+        return {
+            type: 'varchar',
+            length: 255, // Standard email length limit
+            nullable: nullable
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: any): any {
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the email type configuration
+FieldTypeRegistry.register('email', EmailTypeConfig);
