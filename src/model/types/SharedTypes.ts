@@ -1,7 +1,7 @@
 /**
  * Validation issue interface for custom validation functions.
  */
-export interface ValidationIssue {
+export type ValidationIssue = {
   /** Error code identifier */
   constraint: string;
   /** Human-readable error message */

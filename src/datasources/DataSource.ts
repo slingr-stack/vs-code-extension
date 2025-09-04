@@ -58,4 +58,47 @@ export abstract class DataSource {
   public getOptions(): DataSourceOptions {
     return this.options;
   }
+
+  /**
+   * Configures a model class with the necessary decorators and metadata
+   * for the specific data source implementation.
+   * 
+   * This method is called by the @Model decorator when a dataSource is specified
+   * in the model options.
+   * 
+   * @param modelClass - The class constructor of the model to configure
+   * @param options - Additional configuration options for the model
+   * 
+   * @example
+   * ```typescript
+   * // Called automatically by @Model decorator
+   * dataSource.configureModel(UserClass, { tableName: 'users' });
+   * ```
+   */
+  abstract configureModel(modelClass: Function, options?: any): void;
+
+  /**
+   * Configures a field with the necessary decorators and metadata
+   * for the specific data source implementation.
+   * 
+   * This method is called by the @Field decorator when it detects
+   * that the field is part of a model that has a configured dataSource.
+   * 
+   * @param target - The prototype of the class containing the field
+   * @param propertyKey - The name of the property/field being configured
+   * @param fieldType - The type of the field (e.g., 'text', 'datetime', 'integer')
+   * @param fieldOptions - Type-specific options for the field
+   * 
+   * @example
+   * ```typescript
+   * // Called automatically by @Field decorator
+   * dataSource.configureField(userPrototype, 'name', 'text', { maxLength: 50 });
+   * ```
+   */
+  abstract configureField(
+    target: any,
+    propertyKey: string,
+    fieldType: string,
+    fieldOptions?: any
+  ): void;
 }

@@ -1,4 +1,5 @@
-import { TypeORMSqlDataSource } from '@/datasources/typeorm/TypeORMSqlDataSource';
+import { TypeORMSqlDataSource } from '../../index';
+import * as fs from 'fs';
 
 describe('TypeORM SQL DataSource - Basic Connection Tests', () => {
   describe('SQLite Connection', () => {
@@ -40,7 +41,6 @@ describe('TypeORM SQL DataSource - Basic Connection Tests', () => {
       await dataSource.disconnect();
       
       // Clean up the file
-      const fs = require('fs');
       if (fs.existsSync('./test-db.sqlite')) {
         fs.unlinkSync('./test-db.sqlite');
       }
