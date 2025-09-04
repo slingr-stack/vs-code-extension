@@ -1,8 +1,5 @@
-// Add vscode.TreeDragAndDropController to the import
 import * as vscode from "vscode";
-import * as path from "path";
-// Add Project from ts-morph for the reordering logic
-import { Project, IndentationText } from "ts-morph";
+import { Project } from "ts-morph";
 import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
 import * as fs from "fs";
@@ -502,13 +499,13 @@ export class ExplorerProvider
             relatedModel,
             element
           );
-
-          // Add navigation command to go to related model definition when clicked
+          
+          // Set command for click handling (single vs double-click detection)
           if (relatedModel) {
             compositionItem.command = {
-              command: "slingr-vscode-extension.navigateToCode",
-              title: "Go to Definition",
-              arguments: [relatedModel.declaration],
+              command: "slingr-vscode-extension.handleTreeItemClick",
+              title: "Handle Click",
+              arguments: [compositionItem],
             };
           }
 
@@ -691,19 +688,13 @@ export class ExplorerProvider
 
       // Only show models that are NOT referenced by composition relationships
       if (!this.isModelReferencedByComposition(model)) {
-        const modelItem = new AppTreeItem(
-          label,
-          vscode.TreeItemCollapsibleState.Collapsed,
-          "model",
-          this.extensionUri,
-          model
-        );
-
-        // Add navigation command to go to model definition when clicked
+        const modelItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "model", this.extensionUri, model);
+        
+        // Set command for click handling (single vs double-click detection)
         modelItem.command = {
-          command: "slingr-vscode-extension.navigateToCode",
-          title: "Go to Definition",
-          arguments: [model.declaration],
+          command: "slingr-vscode-extension.handleTreeItemClick",
+          title: "Handle Click",
+          arguments: [modelItem],
         };
 
         items.push(modelItem);
@@ -724,10 +715,11 @@ export class ExplorerProvider
       propData,
       parent
     );
+    // Set command for click handling (single vs double-click detection)
     item.command = {
-      command: "slingr-vscode-extension.navigateToCode",
-      title: "Go to Definition",
-      arguments: [propData.declaration],
+      command: "slingr-vscode-extension.handleTreeItemClick",
+      title: "Handle Click",
+      arguments: [item],
     };
     return item;
   }
