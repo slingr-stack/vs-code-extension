@@ -5,6 +5,7 @@ import { RefactorController } from './refactor/RefactorController';
 import { registerExplorer } from './explorer/explorerRegistration';
 import { registerInfoPanel } from './quickInfoPanel/infoPanelRegistration';
 import { registerGeneralCommands } from './commands/commandRegistration';
+import { registerInfraStatus } from './infraestucture/infraStatusRegistration';
 
 export let cache: MetadataCache;
 
@@ -24,6 +25,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const treeView = registerExplorer(context, cache, quickInfoProvider);
     registerGeneralCommands(context);
     registerRefactorCommands(refactorController, context); // Pass context if needed for subscriptions
+    registerInfraStatus(context, cache);
 
     // --- 3. Push remaining disposables ---
     context.subscriptions.push(cache);

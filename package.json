@@ -51,6 +51,10 @@
       {
         "command": "slingr-vscode-extension.changeFieldType",
         "title": "Change Field Type"
+      },
+      {
+        "command": "slingr.runInfraUpdate",
+        "title": "Run Infrastructure Update"
       }
     ],
     "submenus": [

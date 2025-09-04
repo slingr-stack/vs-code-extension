@@ -3,6 +3,7 @@ import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, 
 import * as path from 'path';
 import { RefactorController } from '../refactor/RefactorController';
 import { ChangeObject } from '../refactor/refactorInterfaces';
+import * as crypto from 'crypto';
 
 // Represents the type of changes that can occur to a file
 type FileChangeType = 'create' | 'change' | 'delete';
@@ -89,6 +90,10 @@ export class MetadataCache {
     private fileChangeQueue: { uri: vscode.Uri, type: FileChangeType }[] = [];
     private refactorController: RefactorController | null = null;
     private automaticRefactorsEnabled: boolean = true;
+    private dataSourceHashes: Map<string, string> = new Map();
+    private _onInfrastructureChange: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+    public readonly onInfrastructureChange: vscode.Event<void> = this._onInfrastructureChange.event;
+    public isInfrastructureUpdateNeeded: boolean = false;
 
     /**
      * Initializes the cache and the ts-morph project.
@@ -110,7 +115,7 @@ export class MetadataCache {
      */
     public async initialize(): Promise<void> {
         
-        const files = await vscode.workspace.findFiles('{src/data/**/*.ts}');
+        const files = await vscode.workspace.findFiles('{src/data/**/*.ts, src/dataSources/**/*.ts}');
         for (const file of files) {
             this.addSourceFile(file);
         }
@@ -196,6 +201,12 @@ export class MetadataCache {
         this.isProcessingQueue = true;
         const { uri, type } = this.fileChangeQueue.shift()!;
         const filePath = uri.fsPath.replace(/\\/g, '/');
+
+        // Check if the changed file is a data source
+        if (filePath.includes('/src/dataSources/')) {
+            await this.handleDataSourceChange(uri, type);
+        }
+
         try {
             // Get "before" state from cache and "after" state from disk.
             const oldFileMeta = this.cache[filePath];
@@ -254,6 +265,39 @@ export class MetadataCache {
     }
 
     /**
+     * Handles changes to data source files by checking for actual content changes
+     * and updating the infrastructure update flag if necessary.
+     * @param uri The URI of the changed data source file.
+     * @param type The type of change (create, change, delete).
+     */
+    private async handleDataSourceChange(uri: vscode.Uri, type: FileChangeType): Promise<void> {
+        const filePath = uri.fsPath.replace(/\\/g, '/');
+        const oldHash = this.dataSourceHashes.get(filePath);
+
+        if (type === 'delete') {
+            this.dataSourceHashes.delete(filePath);
+            this.isInfrastructureUpdateNeeded = true;
+            this._onInfrastructureChange.fire();
+            return;
+        }
+
+        const newContent = await vscode.workspace.fs.readFile(uri);
+        const newHash = crypto.createHash('md5').update(newContent).digest('hex');
+
+        if (oldHash !== newHash) {
+            this.dataSourceHashes.set(filePath, newHash);
+            this.isInfrastructureUpdateNeeded = true;
+            this._onInfrastructureChange.fire();
+        }
+    }
+
+    // Call this method when the infrastructure has been updated
+    public acknowledgeInfrastructureUpdate(): void {
+        this.isInfrastructureUpdateNeeded = false;
+        this._onInfrastructureChange.fire();
+    }
+
+    /**
      * Helper to get a deep copy of metadata to prevent mutation of the cache state.
      */
     public getMetadataForFile(path: string, isCopy: boolean = false): FileMetadata | undefined {
@@ -269,8 +313,16 @@ export class MetadataCache {
     private addSourceFile(filePath: string | vscode.Uri): void {
         const path = filePath instanceof vscode.Uri ? filePath.fsPath : filePath;
         const normalizedPath = path.replace(/\\/g, '/');
-        const sourceFile = this.tsMorphProject.addSourceFileAtPath(normalizedPath);
-        this.parseFileForMetadata(sourceFile);
+        if (normalizedPath.includes('/src/dataSources/')) {
+            // For data sources, we just care about the content hash for now
+            vscode.workspace.fs.readFile(vscode.Uri.file(normalizedPath)).then(content => {
+                const hash = crypto.createHash('md5').update(content).digest('hex');
+                this.dataSourceHashes.set(normalizedPath, hash);
+            });
+        } else {
+            const sourceFile = this.tsMorphProject.addSourceFileAtPath(normalizedPath);
+            this.parseFileForMetadata(sourceFile);
+        }
     }
 
     /**
@@ -618,9 +670,6 @@ export class MetadataCache {
         const dataModels: DecoratedClass[] = [];
         for (const fileData of Object.values(this.cache)) {
             for (const classData of Object.values(fileData.classes)) {
-                if (classData.isDataModel) {
-                    dataModels.push(classData);
-                }
                 if (classData.isDataModel) {
                     dataModels.push(classData);
                 }

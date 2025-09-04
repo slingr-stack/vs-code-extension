@@ -3,6 +3,7 @@ import { Project } from "ts-morph";
 import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
 import * as fs from "fs";
+import * as path from "path";
 
 
 // Define custom MIME types for our drag-and-drop operations
