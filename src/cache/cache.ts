@@ -162,6 +162,30 @@ export class MetadataCache {
     }
 
     /**
+     * Forces a complete refresh of the cache by re-scanning all workspace files.
+     * This is useful after file system operations that might not trigger proper events.
+     */
+    public async forceRefresh(): Promise<void> {
+        
+        // Clear existing cache
+        this.cache = {};
+        
+        // Remove all source files from ts-morph project
+        this.tsMorphProject.getSourceFiles().forEach(sf => {
+            this.tsMorphProject.removeSourceFile(sf);
+        });
+        
+        // Re-scan all files
+        const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/ui/**/*.ts}', '**/node_modules/**');
+        for (const file of files) {
+            this.addSourceFile(file);
+        }
+
+        this.buildAllReferences();
+        this._onDidUpdate.fire();
+    }
+
+    /**
     * Processes a file change from the queue, performing Phase 1 (Analysis) of the pipeline.
     */
     private async processQueue(): Promise<void> {
