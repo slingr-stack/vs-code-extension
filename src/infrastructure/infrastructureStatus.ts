@@ -12,7 +12,7 @@ export class InfrastructureStatus {
         this.clearHideTimer();
         this.statusBarItem.text = `$(sync~spin) Slingr: Syncing Infra...`;
         this.statusBarItem.tooltip = 'Automatically updating infrastructure based on data source changes.';
-        this.statusBarItem.command = undefined; // Not clickable while syncing
+        this.statusBarItem.command = undefined; 
         this.statusBarItem.backgroundColor = undefined;
         this.statusBarItem.show();
     }
@@ -32,8 +32,8 @@ export class InfrastructureStatus {
     public showError(errorMessage: string): void {
         this.clearHideTimer();
         this.statusBarItem.text = `$(error) Slingr: Infra Sync Failed`;
-        this.statusBarItem.tooltip = `Click to see the error. Last error: ${errorMessage}`;
-        this.statusBarItem.command = 'slingr.showInfraError'; // A new command to show the error
+        this.statusBarItem.tooltip = `Infrastructure sync failed. Click to view error and retry.`;
+        this.statusBarItem.command = 'slingr.showInfraError'; 
         this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
         this.statusBarItem.show();
     }

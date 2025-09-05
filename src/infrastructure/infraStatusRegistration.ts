@@ -1,10 +1,13 @@
 import * as vscode from 'vscode';
+import * as path from 'path'; 
 import { MetadataCache } from '../cache/cache';
 import { InfrastructureStatus } from './infrastructureStatus';
 import { exec } from 'child_process';
 
 /**
- * Registers the automatic infrastructure status checker and updater.
+ * Registers the infrastructure status indicator.
+ * @param context The extension context.
+ * @param cache The metadata cache.
  */
 export function registerInfraStatus(context: vscode.ExtensionContext, cache: MetadataCache) {
     const infraStatus = new InfrastructureStatus();
@@ -12,49 +15,69 @@ export function registerInfraStatus(context: vscode.ExtensionContext, cache: Met
     
     let isUpdating = false;
     let lastError = '';
+    let lastFailedUri: vscode.Uri | undefined;
+    const updateQueue: vscode.Uri[] = []; 
 
-    // The main function to run the update
-    const runUpdate = () => {
-        if (isUpdating) {
-            return; // Prevent concurrent runs
-        }
-
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) {
-            return; // Cannot run without a workspace
+    const processUpdateQueue = () => {
+        if (isUpdating || updateQueue.length === 0) {
+            return; 
         }
 
         isUpdating = true;
+        const uriToUpdate = updateQueue.shift()!; 
+        const fileName = path.basename(uriToUpdate.fsPath);
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(uriToUpdate);
+        if (!workspaceFolder) {
+            isUpdating = false;
+            return; 
+        }
+
         infraStatus.showSyncing();
 
-        exec('slingr infra update', { cwd: workspaceFolder.uri.fsPath }, (error, stdout, stderr) => {
-            isUpdating = false;
-
+        const command = `slingr infra update --file ${fileName}`;
+        exec(command, { cwd: workspaceFolder.uri.fsPath }, (error, stdout, stderr) => {
             if (error) {
-                // Command failed
                 lastError = stderr || stdout || error.message;
+                lastFailedUri = uriToUpdate;
                 infraStatus.showError(lastError);
-                // We do NOT acknowledge the update, so the `isInfrastructureUpdateNeeded` flag remains true,
-                // allowing another attempt on the next file change.
-                return;
+            } else {
+                infraStatus.showSynced();
+                cache.acknowledgeInfrastructureUpdate(uriToUpdate);
+                lastError = '';
+                lastFailedUri = undefined;
             }
 
-            // Command succeeded
-            infraStatus.showSynced();
-            cache.acknowledgeInfrastructureUpdate(); // Reset the state in the cache
+            isUpdating = false;
+            processUpdateQueue();
         });
     };
 
-    // Listen for changes detected by the cache
-    cache.onInfrastructureChange(() => {
-        if (cache.isInfrastructureUpdateNeeded) {
-            runUpdate();
+    cache.onInfrastructureChange((uri: vscode.Uri) => {
+
+        if (!updateQueue.some(item => item.fsPath === uri.fsPath)) {
+            updateQueue.push(uri);
         }
+        processUpdateQueue();
     });
+
     
-    // Command to show the last error when the status bar item is clicked in an error state
     const showInfraErrorCommand = vscode.commands.registerCommand('slingr.showInfraError', () => {
-        vscode.window.showErrorMessage(`Slingr Infra Sync Failed:\n${lastError}`, { modal: true });
+        if (!lastError || !lastFailedUri) {
+            return;
+        }
+
+        vscode.window.showErrorMessage(
+            `Slingr Infra Sync Failed:\n${lastError}`,
+            { modal: true },
+            'Re-run Update' 
+        ).then(selection => {
+            if (selection === 'Re-run Update' && lastFailedUri) {
+                if (!updateQueue.some(item => item.fsPath === lastFailedUri!.fsPath)) {
+                    updateQueue.unshift(lastFailedUri);
+                }
+                processUpdateQueue();
+            }
+        });
     });
     
     context.subscriptions.push(showInfraErrorCommand);

@@ -90,10 +90,11 @@ export class MetadataCache {
     private fileChangeQueue: { uri: vscode.Uri, type: FileChangeType }[] = [];
     private refactorController: RefactorController | null = null;
     private automaticRefactorsEnabled: boolean = true;
-    private dataSourceConfigs: Map<string, Map<string, string>> = new Map();
-    private _onInfrastructureChange: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-    public readonly onInfrastructureChange: vscode.Event<void> = this._onInfrastructureChange.event;
+    private dataSourceHashes: Map<string, string> = new Map();
+    private _onInfrastructureChange: vscode.EventEmitter<vscode.Uri> = new vscode.EventEmitter<vscode.Uri>();
+    public readonly onInfrastructureChange: vscode.Event<vscode.Uri> = this._onInfrastructureChange.event;
     public isInfrastructureUpdateNeeded: boolean = false;
+    private outOfSyncDataSources: Set<string> = new Set();
 
     /**
      * Initializes the cache and the ts-morph project.
@@ -272,35 +273,40 @@ export class MetadataCache {
      */
     private async handleDataSourceChange(uri: vscode.Uri, type: FileChangeType): Promise<void> {
         const filePath = uri.fsPath.replace(/\\/g, '/');
-        const oldConfigs = this.dataSourceConfigs.get(filePath) || new Map<string, string>();
-        let newConfigs = new Map<string, string>();
+        const oldHash = this.dataSourceHashes.get(filePath);
+        let newHash: string | undefined;
 
         if (type === 'create' || type === 'change') {
             let sourceFile = this.tsMorphProject.getSourceFile(filePath);
-            if (sourceFile) {
-                await sourceFile.refreshFromFileSystem();
-            } else {
-                sourceFile = this.tsMorphProject.addSourceFileAtPath(filePath);
-            }
-            newConfigs = this.parseDataSourceFile(sourceFile);
+            if (sourceFile) { await sourceFile.refreshFromFileSystem(); } 
+            else { sourceFile = this.tsMorphProject.addSourceFileAtPath(filePath); }
+            newHash = this.parseDataSourceFile(sourceFile);
         }
 
-        if (this.haveConfigsChanged(oldConfigs, newConfigs)) {
+        if (oldHash !== newHash) {
             this.isInfrastructureUpdateNeeded = true;
-            this._onInfrastructureChange.fire();
+            this.outOfSyncDataSources.add(filePath); // Track the specific file
+            this._onInfrastructureChange.fire(uri); // 2. CHANGE: Pass the URI in the event
         }
 
         if (type === 'delete') {
-            this.dataSourceConfigs.delete(filePath);
-        } else {
-            this.dataSourceConfigs.set(filePath, newConfigs);
+            this.dataSourceHashes.delete(filePath);
+        } else if (newHash) {
+            this.dataSourceHashes.set(filePath, newHash);
         }
     }
 
-    // Call this method when the infrastructure has been updated
-    public acknowledgeInfrastructureUpdate(): void {
-        this.isInfrastructureUpdateNeeded = false;
-        this._onInfrastructureChange.fire();
+    /**
+     * Acknowledges that the infrastructure has been updated for a specific file.
+     * @param uri The URI of the file that has been updated.
+     */
+    public acknowledgeInfrastructureUpdate(uri: vscode.Uri): void {
+        const filePath = uri.fsPath.replace(/\\/g, '/');
+        this.outOfSyncDataSources.delete(filePath);
+
+        if (this.outOfSyncDataSources.size === 0) {
+            this.isInfrastructureUpdateNeeded = false;
+        }
     }
 
     /**
@@ -324,10 +330,11 @@ export class MetadataCache {
         const normalizedPath = path.replace(/\\/g, '/');
         const sourceFile = this.tsMorphProject.addSourceFileAtPath(normalizedPath);
         if (normalizedPath.includes('/src/dataSources/')) {
-            const newConfigs = this.parseDataSourceFile(sourceFile);
-            this.dataSourceConfigs.set(normalizedPath, newConfigs);
+            const configHash = this.parseDataSourceFile(sourceFile);
+            if (configHash) {
+                this.dataSourceHashes.set(normalizedPath, configHash);
+            }
         } else {
-            const sourceFile = this.tsMorphProject.addSourceFileAtPath(normalizedPath);
             this.parseFileForMetadata(sourceFile);
         }
     }
@@ -347,20 +354,17 @@ export class MetadataCache {
     /**
      * Parses a data source file to extract its configuration.
      * @param sourceFile The ts-morph SourceFile object.
-     * @returns A map of variable names to their configuration hashes.
+     * @returns A hash representing the data source configuration, or undefined if not found.
      */
-    private parseDataSourceFile(sourceFile: SourceFile): Map<string, string> {
-        const configs = new Map<string, string>();
+    private parseDataSourceFile(sourceFile: SourceFile): string | undefined {
         const varDeclarations = sourceFile.getVariableDeclarations();
 
         for (const varDecl of varDeclarations) {
             const initializer = varDecl.getInitializer();
             
-            // Check if it's a `new SomeDataSource(...)` expression
             if (initializer && Node.isNewExpression(initializer)) {
                 const className = initializer.getExpression().getText();
 
-                // Convention: We only care about classes ending in 'DataSource'
                 if (className.endsWith('DataSource')) {
                     const varName = varDecl.getName();
                     const constructorArgs = initializer.getArguments();
@@ -370,36 +374,12 @@ export class MetadataCache {
                         configObjectText = constructorArgs[0].getText();
                     }
 
-                    // Create a consistent string to hash from the important parts
                     const stringToHash = `const ${varName} = new ${className}(${configObjectText});`;
-
-                    const hash = crypto.createHash('md5').update(stringToHash).digest('hex');
-                    configs.set(varName, hash);
+                    return crypto.createHash('md5').update(stringToHash).digest('hex');
                 }
             }
         }
-        return configs;
-    }
-
-    /**
-     * Compares two maps of data source configurations to determine if they have changed.
-     * @param oldMap The previous map of data source configurations.
-     * @param newMap The new map of data source configurations.
-     * @returns True if the configurations have changed, false otherwise.
-     */
-    private haveConfigsChanged(oldMap: Map<string, string>, newMap: Map<string, string>): boolean {
-        if (oldMap.size !== newMap.size) {
-            return true; // A data source was added or removed
-        }
-
-        for (const [name, oldHash] of oldMap.entries()) {
-            const newHash = newMap.get(name);
-            if (!newHash || newHash !== oldHash) {
-                return true; // A data source was removed or its config changed
-            }
-        }
-        
-        return false;
+        return undefined; // No data source found in this file
     }
 
     /**
