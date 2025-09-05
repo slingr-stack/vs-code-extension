@@ -8,7 +8,7 @@ export function registerExplorer(
     context: vscode.ExtensionContext, 
     cache: MetadataCache, 
     quickInfoProvider: QuickInfoProvider
-): vscode.TreeView<AppTreeItem> {
+): { treeView: vscode.TreeView<AppTreeItem>, provider: ExplorerProvider } {
     
     const explorerProvider = new ExplorerProvider(cache, context.extensionUri);
 
@@ -62,7 +62,7 @@ export function registerExplorer(
 
     context.subscriptions.push(treeView, selectionDisposable, handleTreeItemClick);
     
-    return treeView;
+    return { treeView, provider: explorerProvider };
 }
 
 /**

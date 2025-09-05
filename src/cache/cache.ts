@@ -85,6 +85,7 @@ export class MetadataCache {
     private tsMorphProject: Project;
     private cache: ProjectMetadataCache = {};
     private fileWatcher: vscode.FileSystemWatcher | null = null;
+    private folderWatcher: vscode.FileSystemWatcher | null = null;
     private isProcessingQueue = false;
     private fileChangeQueue: { uri: vscode.Uri, type: FileChangeType }[] = [];
     private refactorController: RefactorController | null = null;
@@ -136,15 +137,23 @@ export class MetadataCache {
     }
 
     /**
-     * Sets up a file system watcher to detect changes, creations, and deletions
-     * of TypeScript files and updates the cache accordingly.
+     * Sets up file system watchers to detect changes, creations, and deletions
+     * of TypeScript files and folder structure changes in src/data.
      */
     private setupFileWatcher(): void {
+        // Watch for TypeScript file changes
         this.fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.ts');
 
         this.fileWatcher.onDidCreate(uri => this.queueFileChange(uri, 'create'));
         this.fileWatcher.onDidChange(uri => this.queueFileChange(uri, 'change'));
         this.fileWatcher.onDidDelete(uri => this.queueFileChange(uri, 'delete'));
+
+        // Watch for folder structure changes in src/data directory
+        // ignoreCreateEvents: false, ignoreChangeEvents: true, ignoreDeleteEvents: false
+        this.folderWatcher = vscode.workspace.createFileSystemWatcher('**/src/data/**/*', false, true, false);
+
+        this.folderWatcher.onDidCreate(uri => this.handleFolderStructureChange(uri, 'create'));
+        this.folderWatcher.onDidDelete(uri => this.handleFolderStructureChange(uri, 'delete'));
     }
 
     /**
@@ -162,26 +171,65 @@ export class MetadataCache {
     }
 
     /**
-     * Forces a complete refresh of the cache by re-scanning all workspace files.
-     * This is useful after file system operations that might not trigger proper events.
+     * Handles folder structure changes in the src/data directory.
+     * When folders are created, deleted, or renamed, this triggers a cache refresh
+     * to ensure the explorer reflects the updated folder structure.
+     * @param uri The URI of the folder that changed.
+     * @param type The type of change (create, delete).
      */
-    public async forceRefresh(): Promise<void> {
-        
-        // Clear existing cache
-        this.cache = {};
-        
-        // Remove all source files from ts-morph project
-        this.tsMorphProject.getSourceFiles().forEach(sf => {
-            this.tsMorphProject.removeSourceFile(sf);
-        });
-        
-        // Re-scan all files
-        const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/ui/**/*.ts}', '**/node_modules/**');
-        for (const file of files) {
-            this.addSourceFile(file);
+    private async handleFolderStructureChange(uri: vscode.Uri, type: 'create' | 'delete'): Promise<void> {
+        // Only handle changes in src/data directory
+        if (!uri.path.includes('/src/data/')) {
+            return;
         }
 
-        this.buildAllReferences();
+        // For folder changes, we need to refresh the entire cache to ensure
+        // the explorer reflects the new folder structure
+        console.log(`[Cache] Folder structure change detected: ${type} ${uri.path}`);
+        
+        // Force a cache refresh by re-reading all files
+        await this.forceRefresh();
+    }
+
+    /**
+     * Forces a complete refresh of the cache by re-reading all TypeScript files.
+     * This is useful when folder structure changes occur.
+     */
+    public async forceRefresh(): Promise<void> {
+        try {
+            console.log('[Cache] Force refreshing cache due to folder structure change...');
+            
+            // Clear the current cache
+            this.cache = {};
+            
+            // Clear and rebuild the ts-morph project
+            this.tsMorphProject.getSourceFiles().forEach(sf => {
+                this.tsMorphProject.removeSourceFile(sf);
+            });
+            
+            // Re-scan and add all files
+            const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/ui/**/*.ts}', '**/node_modules/**');
+            for (const file of files) {
+                this.addSourceFile(file);
+            }
+
+            // Rebuild all references
+            this.buildAllReferences();
+            
+            // Notify listeners that the cache has been updated
+            this._onDidUpdate.fire();
+            
+            console.log('[Cache] Force refresh completed');
+        } catch (error) {
+            console.error('[Cache] Error during force refresh:', error);
+        }
+    }
+
+    /**
+     * Manually triggers a cache update event.
+     * This can be used by external tools to force explorer refresh.
+     */
+    public triggerUpdate(): void {
         this._onDidUpdate.fire();
     }
 
@@ -547,6 +595,118 @@ export class MetadataCache {
                 }
             }
         }
+
+        this.buildImplicitViewFieldReferences();
+    }
+
+     /**
+     * After a file is changed, this function efficiently updates all affected references.
+     * It avoids a full project-wide reference rebuild by focusing only on the items
+     * within the changed file.
+     * @param changedFilePath The path of the file that was modified.
+     */
+    private updateAffectedReferences(changedFilePath: string): void {
+        const sourceFile = this.tsMorphProject.getSourceFile(changedFilePath);
+        if (!sourceFile) {
+            return;
+        }
+
+        const affectedItems: (DecoratedClass | PropertyMetadata)[] = [];
+        const fileMeta = this.cache[changedFilePath];
+        if (fileMeta) {
+            for (const classData of Object.values(fileMeta.classes)) {
+                affectedItems.push(classData);
+                affectedItems.push(...Object.values(classData.properties));
+            }
+        }
+
+        for (const item of affectedItems) {
+            item.references = [];
+        }
+
+        for (const classData of Object.values(fileMeta.classes)) {
+            const classNode = sourceFile.getClass(classData.name);
+            if (classNode) {
+                this.findAndStoreReferences(classNode, classData);
+
+                for (const propData of Object.values(classData.properties)) {
+                    const propNode = classNode.getProperty(propData.name);
+                    if (propNode) {
+                        this.findAndStoreReferences(propNode, propData);
+                    }
+                }
+            }
+        }
+
+        this.buildImplicitViewFieldReferences();
+    }
+
+    /**
+     * Finds implicit field references within `getFields` methods of `ModelView` classes.
+     * This is necessary because `ts-morph`'s `findReferences` does not detect references
+     * made via string literals (e.g., `{ field: 'fieldName' }`).
+     */
+    private buildImplicitViewFieldReferences(): void {
+        const modelMap = new Map<string, DecoratedClass>();
+        this.findMetadata(item => 'properties' in item && item.decorators.some(d => d.name === 'Model'))
+            .forEach(model => modelMap.set((model as DecoratedClass).name, model as DecoratedClass));
+
+        const viewClasses = this.findMetadata(
+            item => 'properties' in item && item.decorators.some(d => d.name === 'ModelView')
+        ) as DecoratedClass[];
+
+        for (const viewClass of viewClasses) {
+            const modelViewDecorator = viewClass.decorators.find(d => d.name === 'ModelView');
+            const modelName = modelViewDecorator?.arguments[0]?.model;
+
+            if (!modelName || !modelMap.has(modelName)) {
+                continue;
+            }
+
+            const modelClass = modelMap.get(modelName)!;
+            const normalizedViewPath = viewClass.declaration.uri.fsPath.replace(/\\/g, '/');
+            const viewSourceFile = this.tsMorphProject.getSourceFile(normalizedViewPath);
+            const viewClassNode = viewSourceFile?.getClass(viewClass.name);
+            const getFieldsMethodNode = viewClassNode?.getMethod('getFields');
+            const returnStatement = getFieldsMethodNode?.getFirstDescendantByKind(SyntaxKind.ReturnStatement);
+            const returnExpression = returnStatement?.getExpression();
+
+            if (!returnExpression || !Node.isArrayLiteralExpression(returnExpression)) {
+                continue;
+            }
+
+            returnExpression.getElements().forEach((element: Node) => {
+                if (Node.isObjectLiteralExpression(element)) {
+                    const fieldProperty = element.getProperty('field');
+                    if (fieldProperty && Node.isPropertyAssignment(fieldProperty)) {
+                        const initializer = fieldProperty.getInitializer();
+                        if (initializer && Node.isStringLiteral(initializer)) {
+                            const fieldName = initializer.getLiteralValue();
+                            const targetProperty = modelClass.properties[fieldName];
+                            if (targetProperty) {
+
+                                const contentStartPos = initializer.getStart() + 1;
+                                
+                                const contentEndPos = initializer.getEnd() - 1;
+
+                                const start = viewSourceFile!.getLineAndColumnAtPos(contentStartPos);
+                                const end = viewSourceFile!.getLineAndColumnAtPos(contentEndPos);
+
+                                const range = new vscode.Range(
+                                    start.line - 1, start.column - 1,
+                                    end.line - 1, end.column - 1
+                                );
+                                const refLocation = new vscode.Location(
+                                    vscode.Uri.file(viewSourceFile!.getFilePath().replace(/\\/g, '/')),
+                                    range
+                                );
+                                targetProperty.references.push(refLocation);
+                            }
+                        }
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -653,9 +813,10 @@ export class MetadataCache {
     }
 
     /**
-     * Disposes of the file watcher when the extension is deactivated.
+     * Disposes of the file watchers when the extension is deactivated.
      */
     public dispose(): void {
         this.fileWatcher?.dispose();
+        this.folderWatcher?.dispose();
     }
 }
