@@ -5,6 +5,8 @@ import { DefineFieldsTool } from "./defineFields";
 import { AddFieldTool } from "./addField";
 import { MetadataCache } from "../cache/cache";
 import { AIEnhancedTool, FieldInfo, FIELD_TYPE_OPTIONS } from "./interfaces";
+import { AIService } from "../services/aiService";
+import { WorkspaceService } from "../services/workspaceService";
 
 /**
  * Tool for creating new Model classes with the @Model decorator and extending BaseModel.
@@ -36,9 +38,13 @@ import { AIEnhancedTool, FieldInfo, FIELD_TYPE_OPTIONS } from "./interfaces";
 export class NewModelTool implements AIEnhancedTool {
   private defineFieldsTool: DefineFieldsTool;
   private addFieldTool: AddFieldTool;
+  private aiService: AIService;
+  private workspaceService = new WorkspaceService();
 
   constructor() {
-    this.defineFieldsTool = new DefineFieldsTool();
+    this.workspaceService = new WorkspaceService();
+    this.aiService = new AIService(this.workspaceService);
+    this.defineFieldsTool = new DefineFieldsTool(this.aiService);
     this.addFieldTool = new AddFieldTool();
   }
 

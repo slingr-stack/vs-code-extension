@@ -5,6 +5,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { CreateTestTool } from '../commands/createTest';
 import { MetadataCache, DecoratedClass } from '../cache/cache';
+import { AIService } from '../services/aiService';
+import { WorkspaceService } from '../services/workspaceService';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -13,6 +15,8 @@ if (typeof suite !== 'undefined') {
         let testModelFile: string;
         let mockCache: MetadataCache;
         let createTestTool: CreateTestTool;
+        const workspaceService: WorkspaceService = new WorkspaceService();
+        const aiService: AIService = new AIService(workspaceService);
 
         setup(async () => {
             // Create a temporary workspace directory for testing
@@ -79,7 +83,7 @@ if (typeof suite !== 'undefined') {
                 }
             } as any;
             
-            createTestTool = new CreateTestTool();
+            createTestTool = new CreateTestTool(aiService);
         });
 
         teardown(() => {
@@ -90,7 +94,7 @@ if (typeof suite !== 'undefined') {
         });
 
         test('CreateTestTool should create instance successfully', () => {
-            const tool = new CreateTestTool();
+            const tool = new CreateTestTool(aiService);
             assert.ok(tool, 'CreateTestTool should be instantiated');
             assert.ok(typeof tool.createTest === 'function', 'createTest method should exist');
         });

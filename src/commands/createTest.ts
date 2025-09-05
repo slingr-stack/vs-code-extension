@@ -1,9 +1,11 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { MetadataCache, DecoratedClass } from "../cache/cache";
+import { AIService } from "../services/aiService";
 
 export class CreateTestTool {
 
+    constructor(private aiService:AIService) {}
     public async createTest(targetUri: vscode.Uri, cache: MetadataCache): Promise<void> {
         try {
             const { modelClass, document } = await this.validateAndPrepareTarget(targetUri, cache);
@@ -18,11 +20,7 @@ export class CreateTestTool {
                 return;
             }
 
-            const aiPrompt = this.buildAIPrompt(modelClass);
-
-            await this.requestAITestGeneration(aiPrompt, testFileUri);
-
-            vscode.window.showInformationMessage(`Test file for ${modelName} created successfully!`);
+            this.aiService.createTestWithAI(modelClass);
 
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to create test: ${error}`);
@@ -84,80 +82,6 @@ export class CreateTestTool {
             // File doesn't exist
         }
         return 'Overwrite';
-    }
-
-    private buildAIPrompt(modelClass: DecoratedClass): string {
-        const modelName = modelClass.name;
-        const fields = Object.values(modelClass.properties).map(prop => {
-            return `- ${prop.name}: ${prop.type}`;
-        }).join('\n');
-
-        const rawPrompt = `
-        You are an expert TypeScript developer specializing in testing with Jest.
-        I need you to generate a Jest test suite for the following data model.
-
-        ## CONTEXT
-
-        ### Target Model: ${modelName}
-
-        ### Model Fields:
-
-        ${fields}
-
-        ## TASK
-
-        Generate a Jest test suite for the "${modelName}" model.
-
-        ## REQUIREMENTS
-
-        1.  **Use Jest:** The test suite must be written using the Jest testing framework.
-        2.  **File Location:** The test file should be placed in a 'test/${modelName}' directory at the first level.
-        3.  **File Naming:** The test file should be named '${this.toCamelCase(modelName)}.test.ts'.
-        4.  **Test Coverage:** Include tests for:
-            * **Model Instantiation:** Test that the model can be instantiated correctly.
-            * **Field Validation:** For each field, add tests for validation rules (e.g., required fields, data types).
-            * **Relationships:** If there are relationships, test that they are handled correctly.
-            * **Default Values:** Test that default values are set as expected.
-            * **Edge Cases:** Include tests for edge cases and invalid data.
-        5.  **Imports:** Add any necessary import statements for the model and other dependencies.
-
-        ## OUTPUT FORMAT
-
-        Return ONLY valid TypeScript code for the test file. Do not include:
-        - Explanatory text or markdown formatting.
-
-        Example output format:
-        \`\`\`typescript
-        import { ${modelName} } from '../${this.toCamelCase(modelName)}';
-
-        describe('${modelName}', () => {
-            it('should create an instance of ${modelName}', () => {
-            const instance = new ${modelName}();
-            expect(instance).toBeInstanceOf(${modelName});
-        });
-
-        // Add more tests here...
-        });
-        \`\`\`
-
-        Generate the test suite now:
-        `;
-        const prompt = rawPrompt.replace(/^\s+/gm, '');
-
-        return prompt;
-    }
-
-    private async requestAITestGeneration(prompt: string, testFileUri: vscode.Uri): Promise<void> {
-        const action = await vscode.window.showInformationMessage(
-            "AI Test Case Generation: An AI prompt has been prepared. Do you want to execute it in the chat view?",
-            "Execute Prompt"
-        );
-
-        if (action === "Execute Prompt") {
-            await vscode.commands.executeCommand("workbench.action.chat.openAgent", { query: prompt });
-            // In a real implementation, you would get the response from the AI
-            // and write it to the testFileUri. For this example, we'll just open the chat.
-        }
     }
 
     private toCamelCase(str: string): string {

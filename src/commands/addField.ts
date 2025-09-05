@@ -4,6 +4,8 @@ import { MetadataCache, DecoratedClass, PropertyMetadata } from "../cache/cache"
 import { DefineFieldsTool } from "./defineFields";
 import { AIEnhancedTool, FIELD_TYPE_OPTIONS, FieldTypeOption, FieldInfo } from "./interfaces";
 import { detectIndentation, applyIndentation } from "../utils/detectIndentation";
+import { AIService } from "../services/aiService";
+import { WorkspaceService } from "../services/workspaceService";
 
 /**
  * Tool for adding new fields to existing Model classes.
@@ -32,9 +34,12 @@ import { detectIndentation, applyIndentation } from "../utils/detectIndentation"
 export class AddFieldTool implements AIEnhancedTool {
     
     private defineFieldsTool: DefineFieldsTool;
+    private aiService: AIService;
+    private workspaceService = new WorkspaceService();
     
     constructor() {
-        this.defineFieldsTool = new DefineFieldsTool();
+        this.aiService = new AIService(this.workspaceService);
+        this.defineFieldsTool = new DefineFieldsTool(this.aiService);
     }
     
     /**
