@@ -17,6 +17,8 @@ import { DataSource, DataSourceOptions } from '../DataSource';
 import { TypeORMTypeMapper } from './TypeORMTypeMapper';
 import { DatabaseConfigBuilder } from './DatabaseConfigBuilder';
 import { ArrayFieldManager } from './ArrayFieldManager';
+// Import to ensure field type registrations happen
+import '../../model/types/TypeRegistry';
 
 /**
  * Configuration options for TypeORM SQL data source.
@@ -146,6 +148,15 @@ export class TypeORMSqlDataSource extends DataSource {
   }
 
   /**
+   * Get all array element entities for cleanup operations.
+   * 
+   * @returns Array of array element entity classes
+   */
+  getArrayElementEntities(): Function[] {
+    return this.arrayFieldManager.getArrayElementEntities();
+  }
+
+  /**
    * Gracefully disconnect from the database.
    * Closes all connections and cleans up resources.
    * 
@@ -263,12 +274,7 @@ export class TypeORMSqlDataSource extends DataSource {
 
     // If entity has an id, we need to handle updates differently
     const isUpdate = !!(entity as any).id;
-
-    if (isUpdate) {
-      // For updates, first handle array field deletion using the array field manager
-      await this.arrayFieldManager.handleArrayFieldsForUpdate(entity, this.typeormDataSource);
-    }
-
+    
     // Preserve array values before extracting main entity fields
     const arrayValues = this.arrayFieldManager.extractArrayValues(entity);
 
@@ -285,8 +291,8 @@ export class TypeORMSqlDataSource extends DataSource {
   }
 
   /**
-   * Find entities by simple criteria (deprecated in favor of findBy or findWithOptions).
-   * Handles array field conversion after loading using the array field manager.
+   * Find entities by criteria.
+   * Array fields are automatically transformed via @AfterLoad hooks.
    * 
    * @param entityClass - The entity class to search for
    * @param criteria - Search criteria (optional)
@@ -306,11 +312,9 @@ export class TypeORMSqlDataSource extends DataSource {
     } else {
       entities = await repository.find() as T[];
     }
-
-    // Load array data for each entity using the array field manager
-    return await Promise.all(entities.map(entity =>
-      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
-    ));
+    
+    // Array fields are automatically transformed via @AfterLoad hooks
+    return entities;
   }
 
   /**
@@ -328,12 +332,72 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
+    
+    // Handle SQLite select issue by using query builder when select is specified
+    if (options?.select && (this.options as TypeORMSqlDataSourceOptions).type === 'sqlite') {
+      return this.findWithSelectWorkaround(repository, options);
+    }
+    
     const entities = await repository.find(options) as T[];
 
     // Load array data for each entity using the array field manager
-    return await Promise.all(entities.map(entity =>
-      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
-    ));
+    return entities;
+  }
+
+  /**
+   * Workaround for SQLite select issue with TypeORM.
+   * Uses query builder instead of repository.find() when select is specified.
+   */
+  private async findWithSelectWorkaround<T extends object>(
+    repository: any, 
+    options: FindManyOptions<T>
+  ): Promise<T[]> {
+    const queryBuilder = repository.createQueryBuilder('entity');
+    
+    // Apply select
+    if (options.select) {
+      const selectFields = Array.isArray(options.select) ? options.select : Object.keys(options.select);
+      queryBuilder.select(selectFields.map(field => `entity.${String(field)}`));
+    }
+    
+    // Apply where conditions
+    if (options.where) {
+      if (Array.isArray(options.where)) {
+        // Handle array of where conditions (OR logic)
+        options.where.forEach((whereCondition, index) => {
+          Object.entries(whereCondition).forEach(([key, value]) => {
+            const paramName = `${key}_${index}`;
+            if (index === 0) {
+              queryBuilder.where(`entity.${key} = :${paramName}`, { [paramName]: value });
+            } else {
+              queryBuilder.orWhere(`entity.${key} = :${paramName}`, { [paramName]: value });
+            }
+          });
+        });
+      } else {
+        // Handle single where condition
+        Object.entries(options.where).forEach(([key, value]) => {
+          queryBuilder.andWhere(`entity.${key} = :${key}`, { [key]: value });
+        });
+      }
+    }
+    
+    // Apply order
+    if (options.order) {
+      Object.entries(options.order).forEach(([key, direction]) => {
+        queryBuilder.addOrderBy(`entity.${key}`, direction as 'ASC' | 'DESC');
+      });
+    }
+    
+    // Apply pagination
+    if (options.skip !== undefined) {
+      queryBuilder.offset(options.skip);
+    }
+    if (options.take !== undefined) {
+      queryBuilder.limit(options.take);
+    }
+    
+    return await queryBuilder.getMany() as T[];
   }
 
   /**
@@ -353,9 +417,7 @@ export class TypeORMSqlDataSource extends DataSource {
     const entities = await repository.findBy(where) as T[];
 
     // Load array data for each entity using the array field manager
-    return await Promise.all(entities.map(entity =>
-      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
-    ));
+    return entities;
   }
 
   /**
@@ -379,7 +441,7 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     // Load array data for the entity using the array field manager
-    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
+    return entity;
   }
 
   /**
@@ -396,6 +458,13 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
+    
+    // Handle SQLite select issue by using query builder when select is specified
+    if (options?.select && (this.options as TypeORMSqlDataSourceOptions).type === 'sqlite') {
+      const results = await this.findWithSelectWorkaround(repository, { ...options, take: 1 });
+      return results.length > 0 ? (results[0] as T) : null;
+    }
+    
     const entity = await repository.findOne(options) as T | null;
 
     if (!entity) {
@@ -403,7 +472,7 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     // Load array data for the entity using the array field manager
-    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
+    return entity;
   }
 
   /**
@@ -424,7 +493,7 @@ export class TypeORMSqlDataSource extends DataSource {
     const entity = await repository.findOneByOrFail(where) as T;
 
     // Load array data for the entity using the array field manager
-    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
+    return entity;
   }
 
   /**
@@ -445,7 +514,7 @@ export class TypeORMSqlDataSource extends DataSource {
     const entity = await repository.findOneOrFail(options) as T;
 
     // Load array data for the entity using the array field manager
-    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
+    return entity;
   }
 
   /**
@@ -464,12 +533,7 @@ export class TypeORMSqlDataSource extends DataSource {
     const repository = this.typeormDataSource.getRepository(entityClass);
     const [entities, count] = await repository.findAndCount(options) as [T[], number];
 
-    // Load array data for each entity using the array field manager
-    const entitiesWithArrays = await Promise.all(entities.map(entity =>
-      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
-    ));
-
-    return [entitiesWithArrays, count];
+    return [entities, count];
   }
 
   /**
@@ -488,12 +552,7 @@ export class TypeORMSqlDataSource extends DataSource {
     const repository = this.typeormDataSource.getRepository(entityClass);
     const [entities, count] = await repository.findAndCountBy(where) as [T[], number];
 
-    // Load array data for each entity using the array field manager
-    const entitiesWithArrays = await Promise.all(entities.map(entity =>
-      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
-    ));
-
-    return [entitiesWithArrays, count];
+    return [entities, count];
   }
 
   /**
@@ -666,9 +725,9 @@ export class TypeORMSqlDataSource extends DataSource {
     if (!entity) {
       return null;
     }
-
-    // Load array data for the entity using the array field manager
-    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
+    
+    // Array fields are automatically transformed via @AfterLoad hooks
+    return entity;
   }
 
   /**
@@ -693,9 +752,7 @@ export class TypeORMSqlDataSource extends DataSource {
     const entities = await repository.findByIds(ids) as T[];
 
     // Load array data for each entity using the array field manager
-    return await Promise.all(entities.map(entity =>
-      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
-    ));
+    return entities
   }
 
   /**

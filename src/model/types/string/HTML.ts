@@ -3,6 +3,7 @@ import { validateStringType } from '../utils';
 import { Text } from './Text';
 import { IsArray, IsString } from 'class-validator';
 import { Transform, TransformationType } from 'class-transformer';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * HTML type decorator.
@@ -101,3 +102,23 @@ export function HTML() {
         }
     };
 }
+
+/**
+ * Configuration object for HTML field TypeORM mapping.
+ * HTML fields typically contain longer content, so they use TEXT type.
+ */
+export const HTMLTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: any, nullable: boolean = true): any {
+        return {
+            type: 'text',
+            nullable: nullable
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: any): any {
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the HTML type configuration
+FieldTypeRegistry.register('html', HTMLTypeConfig);

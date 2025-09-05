@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { Transform, TransformationType } from 'class-transformer';
 import { validateStringType } from '../utils';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * Options for the Text decorator.
@@ -179,3 +180,26 @@ export function Text(options?: TextOptions) {
         }
     };
 }
+
+/**
+ * Configuration object for Text field TypeORM mapping.
+ */
+export const TextTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: TextOptions, nullable: boolean = true): any {
+        const maxLength = fieldOptions?.maxLength;
+        const useVarchar = maxLength !== undefined && maxLength <= 255;
+        
+        return {
+            type: useVarchar ? 'varchar' : 'text',
+            length: useVarchar ? maxLength : undefined,
+            nullable: nullable
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: TextOptions): any {
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the text type configuration
+FieldTypeRegistry.register('text', TextTypeConfig);

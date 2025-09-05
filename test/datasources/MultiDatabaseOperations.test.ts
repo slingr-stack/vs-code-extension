@@ -313,11 +313,44 @@ class DatabaseTestOperations {
     
     // Clean up all test data - only if the entity is registered
     try {
+      console.debug(`Attempting to get BlogPost repository...`);
       const repository = typeormInstance.getRepository(BlogPost);
-      await repository.clear();
+      console.debug(`BlogPost repository found, clearing data...`);
+      
+      // First, manually clear all array element tables (they should cascade, but let's be explicit)
+      const arrayElementEntities = dataSource.getArrayElementEntities();
+      console.debug(`Found ${arrayElementEntities.length} array element entities`);
+      for (const ArrayElementEntity of arrayElementEntities) {
+        try {
+          const arrayRepository = typeormInstance.getRepository(ArrayElementEntity as any);
+          const count = await arrayRepository.count();
+          console.debug(`Clearing ${count} records from array element table: ${arrayRepository.metadata.tableName}`);
+          if (count > 0) {
+            // Use DELETE instead of clear() to avoid foreign key constraint issues
+            await arrayRepository.query(`DELETE FROM ${arrayRepository.metadata.tableName}`);
+            console.debug(`Successfully cleared ${count} records from ${arrayRepository.metadata.tableName}`);
+          }
+        } catch (error) {
+          console.debug(`Could not clear array element entity:`, error);
+        }
+      }
+      
+      // Then clear the main BlogPost table
+      const count = await repository.count();
+      console.debug(`Clearing ${count} BlogPost records`);
+      if (count > 0) {
+        // Use DELETE instead of clear() to avoid foreign key constraint issues
+        await repository.query(`DELETE FROM ${repository.metadata.tableName}`);
+        console.debug(`Successfully cleared ${count} BlogPost records`);
+      }
+      
+      // Verify cleanup worked
+      const remainingCount = await repository.count();
+      console.debug(`Cleanup verification: ${remainingCount} BlogPost records remaining`);
+      
     } catch (error) {
       // Entity might not be registered yet, which is fine during setup
-      console.debug('Could not clear BlogPost data (entity may not be configured yet)');
+      console.debug('Could not clear BlogPost data (entity may not be configured yet)', error);
     }
   }
 }
@@ -409,6 +442,8 @@ describe('Multi-Database Operations Test Suite', () => {
           console.log(`Skipping ${dbConfig.name} CRUD test`);
           return;
         }
+        // Clean up any existing data before running the test
+        await DatabaseTestOperations.cleanupTestData(dataSource);
         await DatabaseTestOperations.testCRUDOperations(dataSource);
       });
 
@@ -417,6 +452,8 @@ describe('Multi-Database Operations Test Suite', () => {
           console.log(`Skipping ${dbConfig.name} query test`);
           return;
         }
+        // Clean up any existing data before running the test
+        await DatabaseTestOperations.cleanupTestData(dataSource);
         await DatabaseTestOperations.testQueryOperations(dataSource);
       });
 
@@ -425,6 +462,8 @@ describe('Multi-Database Operations Test Suite', () => {
           console.log(`Skipping ${dbConfig.name} transaction test`);
           return;
         }
+        // Clean up any existing data before running the test
+        await DatabaseTestOperations.cleanupTestData(dataSource);
         await DatabaseTestOperations.testTransactions(dataSource);
       });
 

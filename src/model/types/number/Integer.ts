@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { registerDecorator } from 'class-validator';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * Options for the Integer decorator.
@@ -136,3 +137,22 @@ export function Integer(options?: IntegerOptions) {
         applyIntegerValidations(addOptionalValidator, propName, options);
     };
 }
+
+/**
+ * Configuration object for Integer field TypeORM mapping.
+ */
+export const IntegerTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: IntegerOptions, nullable: boolean = true): any {
+        return {
+            type: 'int',
+            nullable: nullable
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: IntegerOptions): any {
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the integer type configuration
+FieldTypeRegistry.register('integer', IntegerTypeConfig);

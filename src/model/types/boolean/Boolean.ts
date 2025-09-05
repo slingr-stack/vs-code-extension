@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { validateBooleanType } from '../utils';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * Boolean type decorator.
@@ -50,3 +51,22 @@ export function Boolean() {
         Reflect.defineMetadata('field:type', 'boolean', proto, propName);
     };
 }
+
+/**
+ * Configuration object for Boolean field TypeORM mapping.
+ */
+export const BooleanTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: any, nullable: boolean = true): any {
+        return {
+            type: 'boolean',
+            nullable: nullable
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: any): any {
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the boolean type configuration
+FieldTypeRegistry.register('boolean', BooleanTypeConfig);
