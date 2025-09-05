@@ -11,14 +11,40 @@ export interface RelationshipOptions {
      * The type of relationship between models.
      * - 'reference': Independent models that are related (customer <-> order)
      * - 'composition': One model cannot exist without the other (order -> line items)
+     * - 'sharedComposition': Composition that can be shared across models but treated as part of the whole
+     * - 'parent': Reverse side of composition relationship (used in component models)
      */
-    type: 'reference' | 'composition';
+    type: 'reference' | 'composition' | 'sharedComposition' | 'parent';
     
     /**
      * For array relationships, specify the element type explicitly.
      * This is needed because TypeScript doesn't emit array element type metadata.
      */
     elementType?: () => any;
+    
+    /**
+     * Whether to eagerly load the relationship data by default.
+     * - true: Data is loaded automatically when parent is loaded
+     * - false: Data is only loaded when explicitly requested
+     * 
+     * Defaults:
+     * - reference: false
+     * - composition: true
+     * - sharedComposition: true
+     * - parent: true
+     */
+    load?: boolean;
+    
+    /**
+     * For reference relationships, defines what happens when the referenced entity is deleted.
+     * - 'delete': Delete this entity when the referenced entity is deleted
+     * - 'removeReference': Set the reference to null when the referenced entity is deleted
+     * - 'nothing': Do nothing when the referenced entity is deleted
+     * 
+     * Default: 'removeReference'
+     * Only applies to reference relationships.
+     */
+    onDelete?: 'delete' | 'removeReference' | 'nothing';
 }
 
 /**
@@ -30,6 +56,11 @@ function validateRelationshipType(proto: Object, propertyKey: string): void {
     // Check if it's an Array (for arrays of models)
     if (designType === Array) {
         return; // Arrays are valid for relationships
+    }
+    
+    // For Object type (generic types), skip validation as we can't check at runtime
+    if (designType === Object) {
+        return; // Allow Object type (generics are often compiled to Object)
     }
     
     // Check if it's a class that extends BaseModel
@@ -104,11 +135,21 @@ export function Relationship(options: RelationshipOptions) {
         const propName = propertyKey as unknown as string;
         const proto = target as unknown as Object;
 
-        validateRelationshipType(proto, propName);
+        // Skip validation for parent relationships as they use generic types
+        if (options.type !== 'parent') {
+            validateRelationshipType(proto, propName);
+        }
         
         // Store metadata about the relationship
         Reflect.defineMetadata('field:type', 'relationship', proto, propName);
         Reflect.defineMetadata('field:relationship:type', options.type, proto, propName);
+        Reflect.defineMetadata('field:relationship:load', options.load, proto, propName);
+        Reflect.defineMetadata('field:relationship:onDelete', options.onDelete, proto, propName);
+        
+        // Store the elementType in field type options for access in the data source
+        if (options.elementType) {
+            Reflect.defineMetadata('field:type:options', { elementType: options.elementType }, proto, propName);
+        }
 
         const designType = Reflect.getMetadata('design:type', proto, propName);
         
@@ -169,4 +210,169 @@ export function Relationship(options: RelationshipOptions) {
             return value;
         })(target as any, propName);
     };
+}
+
+/**
+ * Reference options for the @Reference decorator.
+ */
+export interface ReferenceOptions {
+    /**
+     * Whether to eagerly load the relationship data by default.
+     * Default: false
+     */
+    load?: boolean;
+    
+    /**
+     * For reference relationships, defines what happens when the referenced entity is deleted.
+     * - 'delete': Delete this entity when the referenced entity is deleted
+     * - 'removeReference': Set the reference to null when the referenced entity is deleted  
+     * - 'nothing': Do nothing when the referenced entity is deleted
+     * 
+     * Default: 'removeReference'
+     */
+    onDelete?: 'delete' | 'removeReference' | 'nothing';
+    
+    /**
+     * For array relationships, specify the element type explicitly.
+     */
+    elementType?: () => any;
+}
+
+/**
+ * Composition options for the @Composition decorator.
+ */
+export interface CompositionOptions {
+    /**
+     * Whether to eagerly load the relationship data by default.
+     * Default: true
+     */
+    load?: boolean;
+    
+    /**
+     * For array relationships, specify the element type explicitly.
+     */
+    elementType?: () => any;
+}
+
+/**
+ * SharedComposition options for the @SharedComposition decorator.
+ */
+export interface SharedCompositionOptions {
+    /**
+     * Whether to eagerly load the relationship data by default.
+     * Default: true
+     */
+    load?: boolean;
+    
+    /**
+     * For array relationships, specify the element type explicitly.
+     */
+    elementType?: () => any;
+}
+
+/**
+ * Reference relationship decorator.
+ * 
+ * A shortcut for @Relationship({ type: 'reference' }) with additional options.
+ * Use this for weak associations between independent models.
+ * 
+ * @param options - Reference-specific options
+ * 
+ * @example
+ * ```typescript
+ * @Model()
+ * class Task extends PersistentModel {
+ *   @Field()
+ *   @Reference({ onDelete: 'delete' })
+ *   project: Project;
+ *   
+ *   @Field()
+ *   @Reference()
+ *   assignees: User[];
+ * }
+ * ```
+ */
+export function Reference(options: ReferenceOptions = {}) {
+    const relationshipOptions: RelationshipOptions = {
+        type: 'reference',
+        load: options.load ?? true,  // Default to true for eager loading
+        onDelete: options.onDelete ?? 'removeReference'
+    };
+    
+    if (options.elementType) {
+        relationshipOptions.elementType = options.elementType;
+    }
+    
+    return Relationship(relationshipOptions);
+}
+
+/**
+ * Composition relationship decorator.
+ * 
+ * A shortcut for @Relationship({ type: 'composition' }) with additional options.
+ * Use this when the referenced record is part of the whole and cannot be separated.
+ * All operations are cascaded.
+ * 
+ * @param options - Composition-specific options
+ * 
+ * @example
+ * ```typescript
+ * @Model()
+ * class Task extends PersistentModel {
+ *   @Field()
+ *   @Composition()
+ *   notes: TaskNote[];
+ * }
+ * ```
+ */
+export function Composition(options: CompositionOptions = {}) {
+    const relationshipOptions: RelationshipOptions = {
+        type: 'composition',
+        load: options.load ?? true
+    };
+    
+    if (options.elementType) {
+        relationshipOptions.elementType = options.elementType;
+    }
+    
+    return Relationship(relationshipOptions);
+}
+
+/**
+ * SharedComposition relationship decorator.
+ * 
+ * A shortcut for @Relationship({ type: 'sharedComposition' }) with additional options.
+ * Use this for composition that is shared across several models but still treated 
+ * as part of the whole.
+ * 
+ * @param options - SharedComposition-specific options
+ * 
+ * @example
+ * ```typescript
+ * @Model()
+ * class Epic extends PersistentModel {
+ *   @Field()
+ *   @SharedComposition()
+ *   notes: Note[];
+ * }
+ * 
+ * @Model()
+ * class Story extends PersistentModel {
+ *   @Field()
+ *   @SharedComposition()
+ *   notes: Note[];
+ * }
+ * ```
+ */
+export function SharedComposition(options: SharedCompositionOptions = {}) {
+    const relationshipOptions: RelationshipOptions = {
+        type: 'sharedComposition',
+        load: options.load ?? true
+    };
+    
+    if (options.elementType) {
+        relationshipOptions.elementType = options.elementType;
+    }
+    
+    return Relationship(relationshipOptions);
 }

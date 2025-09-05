@@ -1,6 +1,7 @@
 // Base Models
 export { BaseModel } from './BaseModel';
 export { PersistentModel } from './PersistentModel';
+export { PersistentComponentModel } from './PersistentComponentModel';
 
 // Decorators
 export { Model } from './Model';

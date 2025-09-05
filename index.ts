@@ -21,6 +21,6 @@ export { Integer } from './src/model/types/number/Integer';
 export { Money } from './src/model/types/number/Money';
 export { Number } from './src/model/types/number/Number';
 export { Decimal } from './src/model/types/number/Decimal';
-export { PersistentModel } from './src/model';
+export { PersistentModel, PersistentComponentModel } from './src/model';
 export { TypeORMSqlDataSource } from './src/datasources';
-export { Relationship } from './src/model/types';
+export { Relationship, Reference, Composition, SharedComposition } from './src/model/types';
