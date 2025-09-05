@@ -115,7 +115,7 @@ export class MetadataCache {
      */
     public async initialize(): Promise<void> {
         
-        const files = await vscode.workspace.findFiles('{src/data/**/*.ts, src/config/**/*.ts}');
+        const files = await vscode.workspace.findFiles('{src/data/**/*.ts, src/dataSources/**/*.ts}');
         for (const file of files) {
             this.addSourceFile(file);
         }
@@ -203,7 +203,7 @@ export class MetadataCache {
         const filePath = uri.fsPath.replace(/\\/g, '/');
 
         // Check if the changed file is a data source
-        if (filePath.includes('/src/config/')) {
+        if (filePath.includes('/src/dataSources/')) {
             await this.handleDataSourceChange(uri, type);
         }
 
@@ -323,7 +323,7 @@ export class MetadataCache {
         const path = filePath instanceof vscode.Uri ? filePath.fsPath : filePath;
         const normalizedPath = path.replace(/\\/g, '/');
         const sourceFile = this.tsMorphProject.addSourceFileAtPath(normalizedPath);
-        if (normalizedPath.includes('/src/config/')) {
+        if (normalizedPath.includes('/src/dataSources/')) {
             const newConfigs = this.parseDataSourceFile(sourceFile);
             this.dataSourceConfigs.set(normalizedPath, newConfigs);
         } else {

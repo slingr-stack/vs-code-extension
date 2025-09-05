@@ -5,7 +5,7 @@ import { RefactorController } from './refactor/RefactorController';
 import { registerExplorer } from './explorer/explorerRegistration';
 import { registerInfoPanel } from './quickInfoPanel/infoPanelRegistration';
 import { registerGeneralCommands } from './commands/commandRegistration';
-import { registerInfraStatus } from './infraestucture/infraStatusRegistration';
+import { registerInfraStatus } from './infrastructure/infraStatusRegistration';
 
 export let cache: MetadataCache;
 
