@@ -87,6 +87,22 @@
       {
         "command": "slingr-vscode-extension.modifyModel",
         "title": "Modify Model"
+      },
+      {
+        "command": "slingr-vscode-extension.newDataSource",
+        "title": "New Data Source"
+      },
+      {
+        "command": "slingr-vscode-extension.newDataset",
+        "title": "New Dataset"
+      },
+      {
+        "command": "slingr-vscode-extension.renameDataSource",
+        "title": "Rename Data Source"
+      },
+      {
+        "command": "slingr-vscode-extension.deleteDataSource",
+        "title": "Delete Data Source"
       }
     ],
     "submenus": [
@@ -188,6 +204,26 @@
           "command": "slingr-vscode-extension.modifyModel",
           "when": "view == slingrExplorer && viewItem == 'model'",
           "group": "3_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.newDataSource",
+          "when": "view == slingrExplorer && viewItem == 'dataSourcesRoot'",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.newDataset",
+          "when": "view == slingrExplorer && viewItem == 'dataSource'",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.renameDataSource",
+          "when": "view == slingrExplorer && viewItem == 'dataSource'",
+          "group": "1_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteDataSource",
+          "when": "view == slingrExplorer && viewItem == 'dataSource'",
+          "group": "2_modification"
         }
       ],
       "slingr-vscode-extension.actions": [

@@ -111,6 +111,22 @@ export interface AddDecoratorPayload {
     isManual: boolean;
 }
 
+export interface NewDataSourcePayload {
+    dataSourceName: string;
+    isManual: boolean;
+}
+
+export interface RenameDataSourcePayload {
+    oldName: string;
+    newName: string;
+    isManual: boolean;
+}
+
+export interface DeleteDataSourcePayload {
+    dataSourceName: string;
+    isManual: boolean;
+}
+
 
 /**
  * Represents the specific type of refactoring change being applied.
@@ -123,7 +139,7 @@ export interface AddDecoratorPayload {
  * - `CHANGE_FIELD_TYPE`: A change that modifies the data type of a field.
  * - `ADD_DECORATOR`: A change that adds a decorator to a field.
  */
-export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR';
+export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR' | 'NEW_DATA_SOURCE' | 'RENAME_DATA_SOURCE' | 'DELETE_DATA_SOURCE';
 
 /**
  * Represents a single, atomic change to be applied as part of a refactoring operation.
@@ -145,7 +161,10 @@ export interface ChangeObject {
         | RenameFieldPayload
         | DeleteFieldPayload
         | ChangeFieldTypePayload
-        | AddDecoratorPayload;
+        | AddDecoratorPayload
+        | NewDataSourcePayload
+        | RenameDataSourcePayload
+        | DeleteDataSourcePayload
 }
 
 

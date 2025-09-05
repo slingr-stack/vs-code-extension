@@ -13,6 +13,8 @@ import { AddDecoratorTool } from './tools/addDecorator';
 import { isModelFile } from '../utils/metadata';
 import { PropertyMetadata } from '../cache/cache';
 import { fieldTypeConfig } from '../utils/fieldTypes';
+import { RenameDataSourceTool } from './tools/renameDataSource';
+import { DeleteDataSourceTool } from './tools/deleteDataSource';
 
 /**
  * Returns an array of all available refactor tools for the application.
@@ -36,6 +38,8 @@ export function getAllRefactorTools(): IRefactorTool[] {
         new DeleteFieldTool(),
         new ChangeFieldTypeTool(),
         new AddDecoratorTool(),
+        new RenameDataSourceTool(),
+        new DeleteDataSourceTool(),
     ];
 }
 
