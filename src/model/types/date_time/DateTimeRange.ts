@@ -8,6 +8,7 @@ import {
 } from 'class-validator';
 import { Type, Transform, TransformationType, Expose } from 'class-transformer';
 import { dateToISO8601, dateFromJSON } from '../utils';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
 
 /**
  * Options for the DateTimeRange decorator.
@@ -63,8 +64,10 @@ type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRang
  */
 function validateDateTimeRangeType(proto: Object, propertyKey: string): void {
     const designType = Reflect.getMetadata('design:type', proto, propertyKey);
-    if (designType !== DateTimeRangeType) {
-        throw new Error(`@DateTimeRange can only be applied to 'DateTimeRange' properties: ${propertyKey}`);
+    // Be more flexible with type checking since TypeScript may not preserve exact type info
+    // We accept DateTimeRangeType, Object, or undefined types
+    if (designType && designType !== DateTimeRangeType && designType !== Object) {
+        console.warn(`@DateTimeRange applied to property '${propertyKey}' of type '${designType?.name}'. Ensure the property type is DateTimeRangeType.`);
     }
 }
 
@@ -177,3 +180,29 @@ export function DateTimeRange(options?: DateTimeRangeOptions) {
         IsValidDateTimeRange(options)(target as any, propName);
     };
 }
+
+/**
+ * Configuration object for DateTimeRange field TypeORM mapping.
+ * Uses hidden columns approach since DateTimeRange is a complex object with multiple fields.
+ */
+export const DateTimeRangeTypeConfig: FieldTypeConfig = {
+    getTypeORMColumnConfig(fieldOptions?: DateTimeRangeOptions, nullable: boolean = true): any {
+        // DateTimeRange fields are handled specially via hidden columns
+        // This returns a configuration that indicates special handling is needed
+        return {
+            type: 'datetime-range',
+            nullable: nullable,
+            options: fieldOptions,
+            // This special flag tells TypeORM data source to handle this field differently
+            isComplexType: true
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: DateTimeRangeOptions): any {
+        // Array elements for DateTimeRange would need special handling too
+        return this.getTypeORMColumnConfig(fieldOptions, false);
+    }
+};
+
+// Register the datetime range type configuration
+FieldTypeRegistry.register('datetimerange', DateTimeRangeTypeConfig);

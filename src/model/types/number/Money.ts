@@ -3,6 +3,7 @@ import { registerDecorator } from 'class-validator';
 import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
 import { Expose, Transform } from 'class-transformer';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { createFinancialNumberTransformer } from '../../../datasources/typeorm/ValueTransformers';
 
 /**
  * Type alias for the `FinancialNumber` object, representing a monetary value.
@@ -163,11 +164,17 @@ export function Money(options: MoneyOptions) {
  */
 export const MoneyTypeConfig: FieldTypeConfig = {
     getTypeORMColumnConfig(fieldOptions?: MoneyOptions, nullable: boolean = true): any {
+        const transformer = createFinancialNumberTransformer(
+            fieldOptions?.decimals || 2, 
+            fieldOptions?.roundingType || 'truncate'
+        );
+        
         return {
             type: 'decimal',
             precision: 19,
             scale: fieldOptions?.decimals || 2,
-            nullable: nullable
+            nullable: nullable,
+            transformer: transformer
         };
     },
 
