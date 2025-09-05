@@ -112,7 +112,7 @@ export class ArrayEntityFactory {
     ManyToOne(() => parentEntityClass as any, {
       onDelete: 'CASCADE',
       onUpdate: 'NO ACTION',
-      eager: false,
+      cascade: true,
       nullable: false
     })(entityClass.prototype, 'parent');
     JoinColumn({ name: 'parent_id' })(entityClass.prototype, 'parent');

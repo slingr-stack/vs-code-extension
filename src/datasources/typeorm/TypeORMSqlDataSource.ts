@@ -254,11 +254,6 @@ export class TypeORMSqlDataSource extends DataSource {
     // If entity has an id, we need to handle updates differently
     const isUpdate = !!(entity as any).id;
     
-    if (isUpdate) {
-      // For updates, first handle array field deletion using the array field manager
-      await this.arrayFieldManager.handleArrayFieldsForUpdate(entity, this.typeormDataSource);
-    }
-    
     // Preserve array values before extracting main entity fields
     const arrayValues = this.arrayFieldManager.extractArrayValues(entity);
     
@@ -276,7 +271,7 @@ export class TypeORMSqlDataSource extends DataSource {
 
   /**
    * Find entities by criteria.
-   * Handles array field conversion after loading using the array field manager.
+   * Array fields are automatically transformed via @AfterLoad hooks.
    * 
    * @param entityClass - The entity class to search for
    * @param criteria - Search criteria (optional)
@@ -296,15 +291,13 @@ export class TypeORMSqlDataSource extends DataSource {
       entities = await repository.find() as T[];
     }
     
-    // Load array data for each entity using the array field manager
-    return await Promise.all(entities.map(entity => 
-      this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource!)
-    ));
+    // Array fields are automatically transformed via @AfterLoad hooks
+    return entities;
   }
 
   /**
    * Find a single entity by id.
-   * Handles array field conversion after loading using the array field manager.
+   * Array fields are automatically transformed via @AfterLoad hooks.
    * 
    * @param entityClass - The entity class to search for
    * @param id - The id of the entity to find
@@ -322,8 +315,8 @@ export class TypeORMSqlDataSource extends DataSource {
       return null;
     }
     
-    // Load array data for the entity using the array field manager
-    return await this.arrayFieldManager.loadArrayFields(entity, this.typeormDataSource);
+    // Array fields are automatically transformed via @AfterLoad hooks
+    return entity;
   }
 
   /**
