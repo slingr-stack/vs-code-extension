@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration, ArrowFunction, FunctionExpression } from 'ts-morph';
+import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration, ArrowFunction, FunctionExpression, VariableDeclaration } from 'ts-morph';
 import * as path from 'path';
 import { RefactorController } from '../refactor/RefactorController';
 import { ChangeObject } from '../refactor/refactorInterfaces';
@@ -22,6 +22,7 @@ export interface ProjectMetadataCache {
 export interface FileMetadata {
     uri: vscode.Uri;
     classes: { [className: string]: DecoratedClass };
+    dataSources: { [dataSourceName: string]: DataSourceMetadata };
 }
 
 /**
@@ -35,6 +36,15 @@ export interface DecoratedClass {
     references: vscode.Location[];
     declaration: vscode.Location;
     isDataModel: boolean;
+}
+
+/**
+ * Contains metadata about a single data source definition.
+ */
+export interface DataSourceMetadata {
+    name: string;
+    type: string; // e.g., 'TypeOrmSqlDataSource'
+    declaration: vscode.Location;
 }
 
 /**
@@ -383,8 +393,7 @@ export class MetadataCache {
     }
 
     /**
-     * Parses a single source file to extract metadata about its classes,
-     * properties, and decorators.
+     * Parses a single source file to extract its metadata, properties, and decorators.
      * @param sourceFile The ts-morph SourceFile object.
      * @param commitToCache If true, the generated metadata will be stored in the cache. Defaults to true.
      * @returns The generated `FileMetadata` for the source file.
@@ -395,8 +404,10 @@ export class MetadataCache {
         const fileMetadata: FileMetadata = {
             uri: vscode.Uri.file(normalizedFilePath),
             classes: {},
+            dataSources: {},
         };
 
+        // Class parsing logic
         sourceFile.getClasses().forEach((classDeclaration: ClassDeclaration) => {
             const className = classDeclaration.getName() ?? '[Anonymous]';
             const isDataModel = filePath.includes('/src/data/');
@@ -434,6 +445,28 @@ export class MetadataCache {
 
             fileMetadata.classes[className] = decoratedClass;
         });
+
+        // Data source parsing logic
+        if (normalizedFilePath.includes('/src/dataSources/')) {
+            sourceFile.getVariableDeclarations().forEach((varDecl: VariableDeclaration) => {
+                if (varDecl.isExported()) {
+                    const initializer = varDecl.getInitializer();
+                    if (initializer && Node.isNewExpression(initializer)) {
+                        const dataSourceName = varDecl.getName();
+                        const dataSourceType = initializer.getExpression().getText();
+
+                        fileMetadata.dataSources[dataSourceName] = {
+                            name: dataSourceName,
+                            type: dataSourceType,
+                            declaration: new vscode.Location(
+                                vscode.Uri.file(normalizedFilePath),
+                                this.tsNodeToVscodeRange(varDecl.getNameNode())
+                            ),
+                        };
+                    }
+                }
+            });
+        }
 
         if (commitToCache) {
             this.cache[normalizedFilePath] = fileMetadata;
@@ -734,6 +767,21 @@ export class MetadataCache {
             classData.decorators.some(decorator => decorator.name === 'Model')
         );
     }
+
+    /**
+     * Returns all data sources found in the cache.
+     * @returns An array of DataSourceMetadata objects.
+     */
+    public getDataSources(): DataSourceMetadata[] {
+        const dataSources: DataSourceMetadata[] = [];
+        for (const fileData of Object.values(this.cache)) {
+            if (fileData.dataSources) {
+                dataSources.push(...Object.values(fileData.dataSources));
+            }
+        }
+        return dataSources.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
 
     /**
      * Utility to convert a ts-morph Node's position to a VS Code Range.

@@ -461,6 +461,7 @@ export class ExplorerProvider
     if (!element) {
       // Root level: Data
       return [new AppTreeItem("Data", vscode.TreeItemCollapsibleState.Expanded, "dataRoot", this.extensionUri)];
+      new AppTreeItem("Data Sources", vscode.TreeItemCollapsibleState.Collapsed, "dataSourcesRoot", this.extensionUri);
     }
 
     // --- DATA ROOT ---
@@ -471,6 +472,20 @@ export class ExplorerProvider
     // --- FOLDER ---
     if (element.itemType === "folder") {
       return this.getFolderChildren(element);
+    }
+
+    // --- DATA SOURCES ROOT ---
+    if (element.itemType === "dataSourcesRoot") {
+        const dataSources = this.cache.getDataSources();
+        return dataSources.map(ds => {
+            const item = new AppTreeItem(ds.name, vscode.TreeItemCollapsibleState.None, "dataSource", this.extensionUri, ds as any);
+            item.command = {
+                command: 'slingr-vscode-extension.handleTreeItemClick',
+                title: 'Handle Click',
+                arguments: [item]
+            };
+            return item;
+        });
     }
 
     // --- Children of a specific Model ---

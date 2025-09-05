@@ -268,8 +268,8 @@ if (typeof suite !== 'undefined') {
                     properties: { 'fullName': newField }
                 });
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
-                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel }, dataSources: {} };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 const payload = changes[0]?.payload as RenameFieldPayload;
@@ -314,8 +314,8 @@ if (typeof suite !== 'undefined') {
                     properties: { 'name': newField }
                 });
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
-                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel }, dataSources: {} };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 assert.strictEqual(changes.length, 0);
@@ -359,8 +359,8 @@ if (typeof suite !== 'undefined') {
                     properties: { 'first': newField1, 'last': newField2 }
                 });
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
-                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel }, dataSources: {} };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 
@@ -389,8 +389,8 @@ if (typeof suite !== 'undefined') {
                 const newNonModel = TestMetadataFactory.createNonModel('Helper', nonModelUri, new vscode.Range(5, 0, 5, 6));
                 newNonModel.properties = { 'fullName': newField };
                 
-                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': oldNonModel } };
-                const newFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': newNonModel } };
+                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': oldNonModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': newNonModel }, dataSources: {} };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 assert.strictEqual(changes.length, 0);
@@ -398,7 +398,7 @@ if (typeof suite !== 'undefined') {
 
             test('should handle empty or undefined metadata', () => {
                 const uri = vscode.Uri.file('/test/src/data/models/User.ts');
-                const emptyFileMeta: FileMetadata = { uri, classes: {} };
+                const emptyFileMeta: FileMetadata = { uri, classes: {}, dataSources: {} };
                 
                 // Test with empty files
                 assert.strictEqual(tool.analyze(emptyFileMeta, undefined).length, 0);
@@ -408,7 +408,7 @@ if (typeof suite !== 'undefined') {
                 
                 // Test with non-model files
                 const nonModelUri = vscode.Uri.file('/test/src/utils/helper.ts');
-                const nonModelMeta: FileMetadata = { uri: nonModelUri, classes: {} };
+                const nonModelMeta: FileMetadata = { uri: nonModelUri, classes: {}, dataSources: {} };
                 assert.strictEqual(tool.analyze(nonModelMeta, undefined).length, 0);
             });
         });
