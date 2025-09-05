@@ -116,7 +116,7 @@ export class MetadataCache {
      */
     public async initialize(): Promise<void> {
         
-        const files = await vscode.workspace.findFiles('{src/data/**/*.ts, src/dataSources/**/*.ts}');
+        const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/dataSources/**/*.ts}');
         for (const file of files) {
             this.addSourceFile(file);
         }
@@ -182,7 +182,7 @@ export class MetadataCache {
         });
         
         // Re-scan all files
-        const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/ui/**/*.ts}', '**/node_modules/**');
+        const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/dataSources/**/*.ts}');
         for (const file of files) {
             this.addSourceFile(file);
         }
@@ -286,7 +286,7 @@ export class MetadataCache {
         if (oldHash !== newHash) {
             this.isInfrastructureUpdateNeeded = true;
             this.outOfSyncDataSources.add(filePath); // Track the specific file
-            this._onInfrastructureChange.fire(uri); // 2. CHANGE: Pass the URI in the event
+            this._onInfrastructureChange.fire(uri);
         }
 
         if (type === 'delete') {

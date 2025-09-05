@@ -34,7 +34,7 @@ export function registerInfraStatus(context: vscode.ExtensionContext, cache: Met
 
         infraStatus.showSyncing();
 
-        const command = `slingr infra update --file ${fileName}`;
+        const command = `slingr infra update -a`;
         exec(command, { cwd: workspaceFolder.uri.fsPath }, (error, stdout, stderr) => {
             if (error) {
                 lastError = stderr || stdout || error.message;
