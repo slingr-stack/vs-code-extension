@@ -251,15 +251,15 @@ export class TypeORMSqlDataSource extends DataSource {
 
     const repository = this.typeormDataSource.getRepository(entity.constructor as any);
 
-    // Populate OneToMany relation arrays from primitive array fields so TypeORM can cascade
-    this.arrayFieldManager.attachArrayRelations(entity);
+    // Ensure relation arrays are prepared before save so cascading can persist children
+    if (typeof (entity as any)._prepareArrayRelations === 'function') {
+      (entity as any)._prepareArrayRelations();
+    }
 
-    // Single save with cascades will insert/update parent and children
+    // Single save with cascades will insert/update parent and children.
     const saved = await repository.save(entity as any) as T;
 
-    // Reload to return entity with array primitives via @AfterLoad transformation
-    const result = await this.findById(entity.constructor as any, (saved as any).id);
-    return result as T; // We know it exists since we just saved it
+    return saved as T;
   }
 
   /**
@@ -283,8 +283,7 @@ export class TypeORMSqlDataSource extends DataSource {
     } else {
       entities = await repository.find() as T[];
     }
-
-    // Array fields are automatically transformed via @AfterLoad hooks
+    
     return entities;
   }
 
@@ -308,7 +307,6 @@ export class TypeORMSqlDataSource extends DataSource {
       return null;
     }
 
-    // Array fields are automatically transformed via @AfterLoad hooks
     return entity;
   }
 

@@ -1,5 +1,4 @@
-import { DataSource as TypeORMDataSource } from 'typeorm';
-import { OneToMany, AfterLoad } from 'typeorm';
+import { OneToMany, AfterLoad, BeforeInsert, BeforeUpdate } from 'typeorm';
 import { ArrayEntityFactory } from './ArrayEntityFactory';
 
 /**
@@ -7,6 +6,7 @@ import { ArrayEntityFactory } from './ArrayEntityFactory';
  */
 export interface ArrayFieldMetadata {
   elementEntityKey: string;
+  elementEntityClass?: Function;
   baseFieldType: string;
   options?: any;
   relationPropertyName?: string;
@@ -66,7 +66,7 @@ export class ArrayFieldManager {
     }
 
     // Get the array element entity for the OneToMany relationship
-    const ArrayElementEntity = this.arrayElementEntities.get(arrayEntityKey);
+  const ArrayElementEntity = this.arrayElementEntities.get(arrayEntityKey)!;
 
     // Add OneToMany relationship to parent entity for eager loading
     // Use a different property name to avoid conflicts with the original array field
@@ -78,7 +78,7 @@ export class ArrayFieldManager {
       orphanedRowAction: 'delete'     // remove missing children when saving parent
     })(target, relationPropertyName);
 
-    // Add @AfterLoad hook to automatically transform array element entities to arrays
+  // Add @AfterLoad hook to automatically transform array element entities to arrays
     const afterLoadMethodName = `_afterLoad_${propertyKey}`;
 
     // Create the afterLoad method if it doesn't exist
@@ -116,6 +116,56 @@ export class ArrayFieldManager {
       };
     }
 
+    // Add hooks to populate relation arrays from primitive arrays before insert/update
+    const beforeInsertMethodName = `_beforeInsert_${propertyKey}`;
+    const beforeUpdateMethodName = `_beforeUpdate_${propertyKey}`;
+
+    if (!target[beforeInsertMethodName]) {
+      target[beforeInsertMethodName] = function () {
+        this._prepareArrayRelations();
+      };
+      BeforeInsert()(target, beforeInsertMethodName);
+    }
+
+    if (!target[beforeUpdateMethodName]) {
+      target[beforeUpdateMethodName] = function () {
+        this._prepareArrayRelations();
+      };
+      BeforeUpdate()(target, beforeUpdateMethodName);
+    }
+
+    // Main preparation method to build relation children from primitive arrays
+    if (!target._prepareArrayRelations) {
+      target._prepareArrayRelations = function () {
+        const entityClass = this.constructor as Function;
+        const arrayFieldNames: string[] = Reflect.getMetadata('array:field:names', entityClass) || [];
+
+        for (const fieldName of arrayFieldNames) {
+          const meta: ArrayFieldMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
+          if (!meta || !meta.relationPropertyName) continue;
+
+          const relationProp = meta.relationPropertyName as string;
+          const values = this[fieldName];
+
+          if (!Array.isArray(values)) {
+            this[relationProp] = [];
+            continue;
+          }
+
+          const ElementClass = meta.elementEntityClass as any;
+          const children = values.map((value: any, index: number) => {
+            const child = new ElementClass();
+            child.value = value;
+            child.index = index;
+            child.parent = this;
+            return child;
+          });
+
+          this[relationProp] = children;
+        }
+      };
+    }
+
     // Keep track of array field names for this entity class
     const existingArrayFields = Reflect.getMetadata('array:field:names', target.constructor) || [];
     if (!existingArrayFields.includes(propertyKey)) {
@@ -125,6 +175,7 @@ export class ArrayFieldManager {
     // Store metadata about this array field
     const metadata: ArrayFieldMetadata = {
       elementEntityKey: arrayEntityKey,
+      elementEntityClass: ArrayElementEntity as Function,
       baseFieldType: baseFieldType,
       options: fieldOptions,
       relationPropertyName: relationPropertyName
@@ -137,62 +188,4 @@ export class ArrayFieldManager {
     this.arrayFieldNamesCache.delete(target.constructor);
   }
 
-  /**
-   * Populates OneToMany relation properties from primitive array fields so that
-   * TypeORM's repository.save() can cascade-insert/update/delete children.
-   * If an array field is undefined/null, we set the relation array to [] so
-   * orphaned children are deleted (via orphanedRowAction: 'delete').
-   */
-  attachArrayRelations<T extends object>(entity: T): void {
-    const entityClass = (entity as any).constructor as Function;
-    const fieldNames = this.getArrayFieldNames(entityClass);
-
-    for (const fieldName of fieldNames) {
-      const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata(
-        'typeorm:array-field',
-        entityClass.prototype,
-        fieldName
-      );
-      if (!arrayMetadata) continue;
-
-      const ArrayElementEntity = this.arrayElementEntities.get(arrayMetadata.elementEntityKey) as any;
-      const relationPropertyName = arrayMetadata.relationPropertyName as string;
-
-      const values = (entity as any)[fieldName];
-
-      if (!Array.isArray(values)) {
-        // Ensure relation is an empty array to trigger orphan removal when needed
-        (entity as any)[relationPropertyName] = [];
-        continue;
-      }
-
-      // Map primitives to relation entity instances, preserving order/index
-      const children = values.map((value: any, index: number) => {
-        const child = new ArrayElementEntity();
-        child.value = value;
-        child.index = index;
-        // Link back to parent; TypeORM will handle FK via JoinColumn
-        child.parent = entity;
-        return child;
-      });
-
-      (entity as any)[relationPropertyName] = children;
-    }
-  }
-
-  /**
-   * Gets the array field names for a given entity class, cached for reuse.
-   */
-  private getArrayFieldNames(entityClass: Function): string[] {
-    const cached = this.arrayFieldNamesCache.get(entityClass);
-    if (cached) return cached;
-
-    const fieldNames: string[] = Reflect.getMetadata('model:fields', entityClass) || [];
-    const arrayFields = fieldNames.filter((fieldName) => {
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      return typeof fieldType === 'string' && fieldType.startsWith('array:');
-    });
-    this.arrayFieldNamesCache.set(entityClass, arrayFields);
-    return arrayFields;
-  }
 }
