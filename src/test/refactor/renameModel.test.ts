@@ -115,8 +115,8 @@ if (typeof suite !== 'undefined') {
                 const oldModel = createMockModel('User', uri, range);
                 const newModel = createMockModel('Customer', uri, range);
                 
-                const oldFileMeta: FileMetadata = { uri, classes: { 'User': oldModel } };
-                const newFileMeta: FileMetadata = { uri, classes: { 'Customer': newModel } };
+                const oldFileMeta: FileMetadata = { uri, classes: { 'User': oldModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri, classes: { 'Customer': newModel }, dataSources: {} };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 const payload = changes[0].payload as RenameModelPayload;
@@ -141,11 +141,13 @@ if (typeof suite !== 'undefined') {
                 
                 const oldFileMeta: FileMetadata = { 
                     uri, 
-                    classes: { 'User': oldModel1, 'Product': oldModel2 } 
+                    classes: { 'User': oldModel1, 'Product': oldModel2 }, 
+                    dataSources: {} 
                 };
                 const newFileMeta: FileMetadata = { 
                     uri, 
-                    classes: { 'Customer': newModel } 
+                    classes: { 'Customer': newModel }, 
+                    dataSources: {}
                 };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
@@ -159,8 +161,8 @@ if (typeof suite !== 'undefined') {
                 const oldClass = createMockNonModel('Helper', nonModelUri, range);
                 const newClass = createMockNonModel('Utility', nonModelUri, range);
                 
-                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': oldClass } };
-                const newFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Utility': newClass } };
+                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': oldClass }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Utility': newClass }, dataSources: {} };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 assert.strictEqual(changes.length, 0);
@@ -176,11 +178,13 @@ if (typeof suite !== 'undefined') {
                 
                 const oldFileMeta: FileMetadata = { 
                     uri, 
-                    classes: { 'User': oldModel1, 'Product': oldModel2 } 
+                    classes: { 'User': oldModel1, 'Product': oldModel2 }, 
+                    dataSources: {}
                 };
                 const newFileMeta: FileMetadata = { 
                     uri, 
-                    classes: { 'Customer': newModel } 
+                    classes: { 'Customer': newModel }, 
+                    dataSources: {}
                 };
 
                 // Simulate that Product was deleted by another tool
@@ -204,9 +208,9 @@ if (typeof suite !== 'undefined') {
 
             test('should handle empty or undefined metadata', () => {
                 const uri = vscode.Uri.file('/test/src/data/models/User.ts');
-                
-                const emptyFileMeta: FileMetadata = { uri, classes: {} };
-                
+
+                const emptyFileMeta: FileMetadata = { uri, classes: {}, dataSources: {} };
+
                 // Test with empty files
                 assert.strictEqual(tool.analyze(emptyFileMeta, emptyFileMeta).length, 0);
                 

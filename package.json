@@ -53,6 +53,10 @@
         "title": "Change Field Type"
       },
       {
+        "command": "slingr.runInfraUpdate",
+        "title": "Run Infrastructure Update"
+      },
+      {
         "command": "slingr-vscode-extension.newModel",
         "title": "New Model"
       },

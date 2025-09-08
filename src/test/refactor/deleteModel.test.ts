@@ -129,7 +129,7 @@ if (typeof suite !== 'undefined') {
                 const range = new vscode.Range(5, 0, 5, 4);
                 const model = createMockModel('User', modelUri, range);
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': model } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': model }, dataSources: {} };
                 
                 // newFileMeta is undefined (file deleted)
                 const changes = tool.analyze(oldFileMeta, undefined);
@@ -146,9 +146,9 @@ if (typeof suite !== 'undefined') {
                 const range = new vscode.Range(5, 0, 5, 4);
                 const model = createMockModel('User', modelUri, range);
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': model } };
-                const newFileMeta: FileMetadata = { uri: modelUri, classes: {} }; // Model removed from file
-                
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': model }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: {}, dataSources: {} }; // Model removed from file
+
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 const payload = changes[0].payload as DeleteModelPayload;
                 assert.strictEqual(changes.length, 1);
@@ -161,7 +161,7 @@ if (typeof suite !== 'undefined') {
                 const range = new vscode.Range(5, 0, 5, 4);
                 const nonModel = createMockNonModel('Helper', nonModelUri, range);
                 
-                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': nonModel } };
+                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': nonModel }, dataSources: {} };
                 
                 const changes = tool.analyze(oldFileMeta, undefined);
                 assert.strictEqual(changes.length, 0);
@@ -172,7 +172,7 @@ if (typeof suite !== 'undefined') {
                 const range = new vscode.Range(5, 0, 5, 4);
                 const model = createMockModel('User', modelUri, range);
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': model } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': model }, dataSources: {} };
                 
                 const changes = tool.analyze(oldFileMeta, undefined);
                 
@@ -193,8 +193,8 @@ if (typeof suite !== 'undefined') {
 
             test('should handle empty or undefined metadata', () => {
                 const uri = vscode.Uri.file('/test/src/data/models/User.ts');
-                const emptyFileMeta: FileMetadata = { uri, classes: {} };
-                
+                const emptyFileMeta: FileMetadata = { uri, classes: {}, dataSources: {} };
+
                 // Test with empty files
                 assert.strictEqual(tool.analyze(emptyFileMeta, undefined).length, 0);
                 
@@ -203,7 +203,7 @@ if (typeof suite !== 'undefined') {
                 
                 // Test with non-model files
                 const nonModelUri = vscode.Uri.file('/test/src/utils/helper.ts');
-                const nonModelMeta: FileMetadata = { uri: nonModelUri, classes: {} };
+                const nonModelMeta: FileMetadata = { uri: nonModelUri, classes: {}, dataSources: {} };
                 assert.strictEqual(tool.analyze(nonModelMeta, undefined).length, 0);
             });
         });

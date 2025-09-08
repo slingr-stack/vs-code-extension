@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
-import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration, ArrowFunction, FunctionExpression } from 'ts-morph';
+import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration, ArrowFunction, FunctionExpression, VariableDeclaration } from 'ts-morph';
 import * as path from 'path';
 import { RefactorController } from '../refactor/RefactorController';
 import { ChangeObject } from '../refactor/refactorInterfaces';
+import * as crypto from 'crypto';
 
 // Represents the type of changes that can occur to a file
 type FileChangeType = 'create' | 'change' | 'delete';
@@ -21,6 +22,7 @@ export interface ProjectMetadataCache {
 export interface FileMetadata {
     uri: vscode.Uri;
     classes: { [className: string]: DecoratedClass };
+    dataSources: { [dataSourceName: string]: DataSourceMetadata };
 }
 
 /**
@@ -34,6 +36,15 @@ export interface DecoratedClass {
     references: vscode.Location[];
     declaration: vscode.Location;
     isDataModel: boolean;
+}
+
+/**
+ * Contains metadata about a single data source definition.
+ */
+export interface DataSourceMetadata {
+    name: string;
+    type: string; // e.g., 'TypeOrmSqlDataSource'
+    declaration: vscode.Location;
 }
 
 /**
@@ -90,6 +101,11 @@ export class MetadataCache {
     private fileChangeQueue: { uri: vscode.Uri, type: FileChangeType }[] = [];
     private refactorController: RefactorController | null = null;
     private automaticRefactorsEnabled: boolean = true;
+    private dataSourceHashes: Map<string, string> = new Map();
+    private _onInfrastructureChange: vscode.EventEmitter<vscode.Uri> = new vscode.EventEmitter<vscode.Uri>();
+    public readonly onInfrastructureChange: vscode.Event<vscode.Uri> = this._onInfrastructureChange.event;
+    public isInfrastructureUpdateNeeded: boolean = false;
+    private outOfSyncDataSources: Set<string> = new Set();
 
     /**
      * Initializes the cache and the ts-morph project.
@@ -111,7 +127,7 @@ export class MetadataCache {
      */
     public async initialize(): Promise<void> {
         
-        const files = await vscode.workspace.findFiles('{src/data/**/*.ts}');
+        const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/dataSources/**/*.ts}');
         for (const file of files) {
             this.addSourceFile(file);
         }
@@ -197,29 +213,24 @@ export class MetadataCache {
      */
     public async forceRefresh(): Promise<void> {
         try {
-            console.log('[Cache] Force refreshing cache due to folder structure change...');
-            
-            // Clear the current cache
+            // Clear existing cache
             this.cache = {};
-            
-            // Clear and rebuild the ts-morph project
+        
+            // Remove all source files from ts-morph project
             this.tsMorphProject.getSourceFiles().forEach(sf => {
                 this.tsMorphProject.removeSourceFile(sf);
             });
-            
-            // Re-scan and add all files
-            const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/ui/**/*.ts}', '**/node_modules/**');
+        
+            // Re-scan all files
+            const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/dataSources/**/*.ts}');
             for (const file of files) {
                 this.addSourceFile(file);
             }
 
             // Rebuild all references
             this.buildAllReferences();
-            
             // Notify listeners that the cache has been updated
             this._onDidUpdate.fire();
-            
-            console.log('[Cache] Force refresh completed');
         } catch (error) {
             console.error('[Cache] Error during force refresh:', error);
         }
@@ -244,6 +255,12 @@ export class MetadataCache {
         this.isProcessingQueue = true;
         const { uri, type } = this.fileChangeQueue.shift()!;
         const filePath = uri.fsPath.replace(/\\/g, '/');
+
+        // Check if the changed file is a data source
+        if (filePath.includes('/src/dataSources/')) {
+            await this.handleDataSourceChange(uri, type);
+        }
+
         try {
             // Get "before" state from cache and "after" state from disk.
             const oldFileMeta = this.cache[filePath];
@@ -302,7 +319,54 @@ export class MetadataCache {
     }
 
     /**
-     * Helper to get a deep copy of metadata to prevent mutation of the cache state.
+     * Handles changes to data source files by checking for actual content changes
+     * and updating the infrastructure update flag if necessary.
+     * @param uri The URI of the changed data source file.
+     * @param type The type of change (create, change, delete).
+     */
+    private async handleDataSourceChange(uri: vscode.Uri, type: FileChangeType): Promise<void> {
+        const filePath = uri.fsPath.replace(/\\/g, '/');
+        const oldHash = this.dataSourceHashes.get(filePath);
+        let newHash: string | undefined;
+
+        if (type === 'create' || type === 'change') {
+            let sourceFile = this.tsMorphProject.getSourceFile(filePath);
+            if (sourceFile) { await sourceFile.refreshFromFileSystem(); } 
+            else { sourceFile = this.tsMorphProject.addSourceFileAtPath(filePath); }
+            newHash = this.parseDataSourceFile(sourceFile);
+        }
+
+        if (oldHash !== newHash) {
+            this.isInfrastructureUpdateNeeded = true;
+            this.outOfSyncDataSources.add(filePath); // Track the specific file
+            this._onInfrastructureChange.fire(uri);
+        }
+
+        if (type === 'delete') {
+            this.dataSourceHashes.delete(filePath);
+        } else if (newHash) {
+            this.dataSourceHashes.set(filePath, newHash);
+        }
+    }
+
+    /**
+     * Acknowledges that the infrastructure has been updated for a specific file.
+     * @param uri The URI of the file that has been updated.
+     */
+    public acknowledgeInfrastructureUpdate(uri: vscode.Uri): void {
+        const filePath = uri.fsPath.replace(/\\/g, '/');
+        this.outOfSyncDataSources.delete(filePath);
+
+        if (this.outOfSyncDataSources.size === 0) {
+            this.isInfrastructureUpdateNeeded = false;
+        }
+    }
+
+    /**
+     * Gets metadata for a specific file.
+     * @param path The file path to get metadata for.
+     * @param isCopy Whether to return a copy of the metadata.
+     * @returns The file metadata or undefined if not found.
      */
     public getMetadataForFile(path: string, isCopy: boolean = false): FileMetadata | undefined {
         const normalizedPath = path.replace(/\\/g, '/');
@@ -318,7 +382,14 @@ export class MetadataCache {
         const path = filePath instanceof vscode.Uri ? filePath.fsPath : filePath;
         const normalizedPath = path.replace(/\\/g, '/');
         const sourceFile = this.tsMorphProject.addSourceFileAtPath(normalizedPath);
-        this.parseFileForMetadata(sourceFile);
+        if (normalizedPath.includes('/src/dataSources/')) {
+            const configHash = this.parseDataSourceFile(sourceFile);
+            if (configHash) {
+                this.dataSourceHashes.set(normalizedPath, configHash);
+            }
+        } else {
+            this.parseFileForMetadata(sourceFile);
+        }
     }
 
     /**
@@ -334,8 +405,38 @@ export class MetadataCache {
     }
 
     /**
-     * Parses a single source file to extract metadata about its classes,
-     * properties, and decorators.
+     * Parses a data source file to extract its configuration.
+     * @param sourceFile The ts-morph SourceFile object.
+     * @returns A hash representing the data source configuration, or undefined if not found.
+     */
+    private parseDataSourceFile(sourceFile: SourceFile): string | undefined {
+        const varDeclarations = sourceFile.getVariableDeclarations();
+
+        for (const varDecl of varDeclarations) {
+            const initializer = varDecl.getInitializer();
+            
+            if (initializer && Node.isNewExpression(initializer)) {
+                const className = initializer.getExpression().getText();
+
+                if (className.endsWith('DataSource')) {
+                    const varName = varDecl.getName();
+                    const constructorArgs = initializer.getArguments();
+                    
+                    let configObjectText = '';
+                    if (constructorArgs.length > 0 && Node.isObjectLiteralExpression(constructorArgs[0])) {
+                        configObjectText = constructorArgs[0].getText();
+                    }
+
+                    const stringToHash = `const ${varName} = new ${className}(${configObjectText});`;
+                    return crypto.createHash('md5').update(stringToHash).digest('hex');
+                }
+            }
+        }
+        return undefined; // No data source found in this file
+    }
+
+    /**
+     * Parses a single source file to extract its metadata, properties, and decorators.
      * @param sourceFile The ts-morph SourceFile object.
      * @param commitToCache If true, the generated metadata will be stored in the cache. Defaults to true.
      * @returns The generated `FileMetadata` for the source file.
@@ -346,8 +447,10 @@ export class MetadataCache {
         const fileMetadata: FileMetadata = {
             uri: vscode.Uri.file(normalizedFilePath),
             classes: {},
+            dataSources: {},
         };
 
+        // Class parsing logic
         sourceFile.getClasses().forEach((classDeclaration: ClassDeclaration) => {
             const className = classDeclaration.getName() ?? '[Anonymous]';
             const isDataModel = filePath.includes('/src/data/');
@@ -385,6 +488,28 @@ export class MetadataCache {
 
             fileMetadata.classes[className] = decoratedClass;
         });
+
+        // Data source parsing logic
+        if (normalizedFilePath.includes('/src/dataSources/')) {
+            sourceFile.getVariableDeclarations().forEach((varDecl: VariableDeclaration) => {
+                if (varDecl.isExported()) {
+                    const initializer = varDecl.getInitializer();
+                    if (initializer && Node.isNewExpression(initializer)) {
+                        const dataSourceName = varDecl.getName();
+                        const dataSourceType = initializer.getExpression().getText();
+
+                        fileMetadata.dataSources[dataSourceName] = {
+                            name: dataSourceName,
+                            type: dataSourceType,
+                            declaration: new vscode.Location(
+                                vscode.Uri.file(normalizedFilePath),
+                                this.tsNodeToVscodeRange(varDecl.getNameNode())
+                            ),
+                        };
+                    }
+                }
+            });
+        }
 
         if (commitToCache) {
             this.cache[normalizedFilePath] = fileMetadata;
@@ -797,6 +922,21 @@ export class MetadataCache {
             classData.decorators.some(decorator => decorator.name === 'Model')
         );
     }
+
+    /**
+     * Returns all data sources found in the cache.
+     * @returns An array of DataSourceMetadata objects.
+     */
+    public getDataSources(): DataSourceMetadata[] {
+        const dataSources: DataSourceMetadata[] = [];
+        for (const fileData of Object.values(this.cache)) {
+            if (fileData.dataSources) {
+                dataSources.push(...Object.values(fileData.dataSources));
+            }
+        }
+        return dataSources.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
 
     /**
      * Utility to convert a ts-morph Node's position to a VS Code Range.
