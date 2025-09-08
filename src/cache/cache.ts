@@ -464,12 +464,11 @@ export class MetadataCache {
         const varDeclarations = sourceFile.getVariableDeclarations();
 
         for (const varDecl of varDeclarations) {
-            const initializer = varDecl.getInitializer();
-            
-            if (initializer && Node.isNewExpression(initializer)) {
-                const className = initializer.getExpression().getText();
-
-                if (className.endsWith('DataSource')) {
+            if (varDecl.isExported()) {
+                const initializer = varDecl.getInitializer();
+                
+                if (initializer && Node.isNewExpression(initializer)) {
+                    const className = initializer.getExpression().getText();
                     const varName = varDecl.getName();
                     const constructorArgs = initializer.getArguments();
                     

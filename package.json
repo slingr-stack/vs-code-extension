@@ -211,11 +211,6 @@
           "group": "0_creation"
         },
         {
-          "command": "slingr-vscode-extension.newDataset",
-          "when": "view == slingrExplorer && viewItem == 'dataSource'",
-          "group": "0_creation"
-        },
-        {
           "command": "slingr-vscode-extension.renameDataSource",
           "when": "view == slingrExplorer && viewItem == 'dataSource'",
           "group": "1_modification"
