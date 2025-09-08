@@ -71,37 +71,38 @@ export class ArrayFieldManager {
     // Add OneToMany relationship to parent entity for eager loading
     // Use a different property name to avoid conflicts with the original array field
     const relationPropertyName = `_${propertyKey}_elements`;
-    
+
     OneToMany(() => ArrayElementEntity as any, (element: any) => element.parent, {
       eager: true,
-      cascade: ['insert', 'update']  // Only cascade insert/update, not remove (ManyToOne handles remove)
+      cascade: true,                  // insert/update/remove through parent
+      orphanedRowAction: 'delete'     // remove missing children when saving parent
     })(target, relationPropertyName);
 
     // Add @AfterLoad hook to automatically transform array element entities to arrays
     const afterLoadMethodName = `_afterLoad_${propertyKey}`;
-    
+
     // Create the afterLoad method if it doesn't exist
     if (!target[afterLoadMethodName]) {
-      target[afterLoadMethodName] = function() {
+      target[afterLoadMethodName] = function () {
         this._transformArrayFields();
       };
-      
+
       // Apply @AfterLoad decorator to the method
       AfterLoad()(target, afterLoadMethodName);
     }
 
     // Add or update the main transformation method
     if (!target._transformArrayFields) {
-      target._transformArrayFields = function() {
+      target._transformArrayFields = function () {
         const entityClass = this.constructor as Function;
         const arrayFieldNames = Reflect.getMetadata('array:field:names', entityClass) || [];
-        
+
         for (const fieldName of arrayFieldNames) {
           const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
           if (arrayMetadata?.relationPropertyName) {
             const relationPropertyName = arrayMetadata.relationPropertyName;
             const arrayElements = this[relationPropertyName];
-            
+
             if (Array.isArray(arrayElements)) {
               // Sort by index and extract values
               this[fieldName] = arrayElements
@@ -137,116 +138,46 @@ export class ArrayFieldManager {
   }
 
   /**
-   * Extracts array values from an entity before processing.
-   * 
-   * @param entity - The entity to extract array values from
-   * @returns Object containing array field names and their values
+   * Populates OneToMany relation properties from primitive array fields so that
+   * TypeORM's repository.save() can cascade-insert/update/delete children.
+   * If an array field is undefined/null, we set the relation array to [] so
+   * orphaned children are deleted (via orphanedRowAction: 'delete').
    */
-  extractArrayValues<T extends object>(entity: T): Record<string, any[]> {
-    const arrayValues: Record<string, any[]> = {};
-    const entityClass = entity.constructor as Function;
-    const arrayFieldNames = this.getArrayFieldNames(entityClass);
-
-    for (const fieldName of arrayFieldNames) {
-      const value = (entity as any)[fieldName];
-      if (Array.isArray(value)) {
-        arrayValues[fieldName] = value;
-      } else if (value == null) {
-        // Normalize missing arrays to empty arrays to simplify downstream logic
-        arrayValues[fieldName] = [];
-      }
-    }
-    return arrayValues;
-  }
-
-  /**
-   * Extracts main entity fields (excluding arrays and their relationships) for saving.
-   * 
-   * @param entity - The entity to extract main fields from
-   * @returns Entity copy without array fields and relationship properties
-   */
-  extractMainEntityFields<T extends object>(entity: T): T {
-    // Keep it simple: shallow clone and strip only array fields and relationship properties
-    const entityCopy: any = { ...(entity as any) };
-    const entityClass = entity.constructor as Function;
-    
-    for (const fieldName of this.getArrayFieldNames(entityClass)) {
-      // Remove the array field
-      delete entityCopy[fieldName];
-      
-      // Remove the relationship property used for eager loading
-      const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
-      if (arrayMetadata?.relationPropertyName) {
-        delete entityCopy[arrayMetadata.relationPropertyName];
-      }
-    }
-    
-    return entityCopy as T;
-  }
-
-  /**
-   * Saves array fields as separate entities.
-   * 
-   * @param originalEntity - The original entity with array values
-   * @param arrayValues - Pre-extracted array values
-   * @param savedEntity - The saved main entity (with generated ID)
-   * @param typeormDataSource - TypeORM data source for database operations
-   */
-  async saveArrayFields<T extends object>(
-    originalEntity: T,
-    arrayValues: Record<string, any[]>,
-    savedEntity: T,
-    typeormDataSource: TypeORMDataSource
-  ): Promise<void> {
-    const entityClass = originalEntity.constructor as Function;
+  attachArrayRelations<T extends object>(entity: T): void {
+    const entityClass = (entity as any).constructor as Function;
     const fieldNames = this.getArrayFieldNames(entityClass);
 
-    await Promise.all(
-      fieldNames.map(async (fieldName) => {
-        const values = arrayValues[fieldName] ?? [];
-        await this.persistArrayField(fieldName, values, savedEntity, typeormDataSource, entityClass);
-      })
-    );
-  }
+    for (const fieldName of fieldNames) {
+      const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata(
+        'typeorm:array-field',
+        entityClass.prototype,
+        fieldName
+      );
+      if (!arrayMetadata) continue;
 
-  /**
-   * Saves a single array field as separate entities.
-   * 
-   * @param fieldName - Name of the array field
-   * @param arrayValue - Array values to save
-   * @param savedEntity - The saved main entity
-   * @param typeormDataSource - TypeORM data source for database operations
-   * @param entityClass - The entity class
-   */
-  private async persistArrayField<T extends object>(
-    fieldName: string,
-    arrayValue: any[],
-    savedEntity: T,
-    typeormDataSource: TypeORMDataSource,
-    entityClass: Function
-  ): Promise<void> {
-    const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata(
-      'typeorm:array-field',
-      entityClass.prototype,
-      fieldName
-    );
-    const ArrayElementEntity = this.arrayElementEntities.get(arrayMetadata.elementEntityKey);
+      const ArrayElementEntity = this.arrayElementEntities.get(arrayMetadata.elementEntityKey) as any;
+      const relationPropertyName = arrayMetadata.relationPropertyName as string;
 
-    if (!ArrayElementEntity) return;
+      const values = (entity as any)[fieldName];
 
-    const repository = typeormDataSource.getRepository(ArrayElementEntity as any);
+      if (!Array.isArray(values)) {
+        // Ensure relation is an empty array to trigger orphan removal when needed
+        (entity as any)[relationPropertyName] = [];
+        continue;
+      }
 
-    // Always remove previous elements for this field, then insert the new snapshot
-    await repository.delete({ parentId: (savedEntity as any).id });
+      // Map primitives to relation entity instances, preserving order/index
+      const children = values.map((value: any, index: number) => {
+        const child = new ArrayElementEntity();
+        child.value = value;
+        child.index = index;
+        // Link back to parent; TypeORM will handle FK via JoinColumn
+        child.parent = entity;
+        return child;
+      });
 
-    if (!Array.isArray(arrayValue) || arrayValue.length === 0) {
-      return; // nothing to insert
+      (entity as any)[relationPropertyName] = children;
     }
-
-    const rows = arrayValue.map((value, index) =>
-      repository.create({ parentId: (savedEntity as any).id, value, index })
-    );
-    await repository.insert(rows as any);
   }
 
   /**

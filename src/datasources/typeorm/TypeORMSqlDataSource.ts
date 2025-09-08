@@ -100,7 +100,7 @@ export class TypeORMSqlDataSource extends DataSource {
 
     // Get all entities (models + array element entities)
     const allEntities = [
-      ...Array.from(this.registeredModels), 
+      ...Array.from(this.registeredModels),
       ...this.arrayFieldManager.getArrayElementEntities()
     ];
 
@@ -180,7 +180,7 @@ export class TypeORMSqlDataSource extends DataSource {
   configureModel(modelClass: Function, options?: any): void {
     // Register this model for inclusion in TypeORM entities
     this.registeredModels.add(modelClass);
-    
+
     // Apply the TypeORM @Entity decorator
     const tableName = options?.tableName || modelClass.name.toLowerCase();
     Entity(tableName)(modelClass as any);
@@ -193,7 +193,7 @@ export class TypeORMSqlDataSource extends DataSource {
 
     // Store that this model is configured for TypeORM
     Reflect.defineMetadata('datasource:type', 'typeorm-sql', modelClass);
-    
+
     // Store the dataSource instance in the model metadata for later access
     Reflect.defineMetadata('model:dataSource', this, modelClass);
   }
@@ -250,22 +250,15 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     const repository = this.typeormDataSource.getRepository(entity.constructor as any);
-    
-    // If entity has an id, we need to handle updates differently
-    const isUpdate = !!(entity as any).id;
-    
-    // Preserve array values before extracting main entity fields
-    const arrayValues = this.arrayFieldManager.extractArrayValues(entity);
-    
-    // Save the main entity first (without arrays converted)
-    const mainEntityToSave = this.arrayFieldManager.extractMainEntityFields(entity);
-    const savedMainEntity = await repository.save(mainEntityToSave as any) as T;
-    
-    // Now save array fields using the preserved values
-    await this.arrayFieldManager.saveArrayFields(entity, arrayValues, savedMainEntity, this.typeormDataSource);
-    
-    // Return the entity with arrays loaded
-    const result = await this.findById(entity.constructor as any, (savedMainEntity as any).id);
+
+    // Populate OneToMany relation arrays from primitive array fields so TypeORM can cascade
+    this.arrayFieldManager.attachArrayRelations(entity);
+
+    // Single save with cascades will insert/update parent and children
+    const saved = await repository.save(entity as any) as T;
+
+    // Reload to return entity with array primitives via @AfterLoad transformation
+    const result = await this.findById(entity.constructor as any, (saved as any).id);
     return result as T; // We know it exists since we just saved it
   }
 
@@ -277,20 +270,20 @@ export class TypeORMSqlDataSource extends DataSource {
    * @param criteria - Search criteria (optional)
    * @returns Promise resolving to array of found entities
    */
-  async find<T extends object>(entityClass: new() => T, criteria?: any): Promise<T[]> {
+  async find<T extends object>(entityClass: new () => T, criteria?: any): Promise<T[]> {
     if (!this.typeormDataSource) {
       throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
     let entities: T[];
-    
+
     if (criteria) {
       entities = await repository.find({ where: criteria }) as T[];
     } else {
       entities = await repository.find() as T[];
     }
-    
+
     // Array fields are automatically transformed via @AfterLoad hooks
     return entities;
   }
@@ -303,18 +296,18 @@ export class TypeORMSqlDataSource extends DataSource {
    * @param id - The id of the entity to find
    * @returns Promise resolving to the found entity or null
    */
-  async findById<T extends object>(entityClass: new() => T, id: string): Promise<T | null> {
+  async findById<T extends object>(entityClass: new () => T, id: string): Promise<T | null> {
     if (!this.typeormDataSource) {
       throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
     const entity = await repository.findOne({ where: { id } as any }) as T | null;
-    
+
     if (!entity) {
       return null;
     }
-    
+
     // Array fields are automatically transformed via @AfterLoad hooks
     return entity;
   }
@@ -326,7 +319,7 @@ export class TypeORMSqlDataSource extends DataSource {
    * @param id - The id of the entity to delete
    * @returns Promise resolving to delete result
    */
-  async deleteById<T extends object>(entityClass: new() => T, id: string): Promise<void> {
+  async deleteById<T extends object>(entityClass: new () => T, id: string): Promise<void> {
     if (!this.typeormDataSource) {
       throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
     }
@@ -342,7 +335,7 @@ export class TypeORMSqlDataSource extends DataSource {
    * @param criteria - Search criteria (optional)
    * @returns Promise resolving to count of entities
    */
-  async count<T extends object>(entityClass: new() => T, criteria?: any): Promise<number> {
+  async count<T extends object>(entityClass: new () => T, criteria?: any): Promise<number> {
     if (!this.typeormDataSource) {
       throw new Error('TypeORM DataSource not initialized. Call initialize() first.');
     }

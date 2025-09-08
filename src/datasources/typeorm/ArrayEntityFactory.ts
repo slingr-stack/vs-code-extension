@@ -31,7 +31,6 @@ export class ArrayEntityFactory {
     // Dynamically create the array element entity class
     const ArrayElementEntity = class {
       id!: string;
-      parentId!: string;
       // relation to parent for FK and cascade
       parent!: any;
       value!: string;
@@ -101,21 +100,20 @@ export class ArrayEntityFactory {
     // Configure the id field
     PrimaryGeneratedColumn('uuid')(entityClass.prototype, 'id');
 
-    // Configure the parentId field (foreign key)
-    Column({ type: 'uuid', name: 'parent_id' })(entityClass.prototype, 'parentId');
-    // Add an index for faster lookups by parent
-    Index()(entityClass.prototype, 'parentId');
-    // Ensure order uniqueness per parent and index (composite)
-    Index(`IDX_${tableName}_parent_index_unique`, ['parentId', 'index'], { unique: true })(entityClass);
+
 
     // Relation to parent with ON DELETE CASCADE
     ManyToOne(() => parentEntityClass as any, {
       onDelete: 'CASCADE',
       onUpdate: 'NO ACTION',
-      cascade: true,
-      nullable: false
+      cascade: ['insert', 'update'], // allow setting FK on child inserts/updates
+      nullable: true // allow transient null during orphan removal
     })(entityClass.prototype, 'parent');
+    // FK column created via the relation JoinColumn below
     JoinColumn({ name: 'parent_id' })(entityClass.prototype, 'parent');
+
+    // Index on (parent_id, array_index) for ordering; reference relation column by name
+    Index(`IDX_${tableName}_parent_index`, ['parent', 'index'])(entityClass);
 
     // Configure the value field based on the base field type
     const valueColumnConfig = TypeORMTypeMapper.getArrayElementColumnConfig(baseFieldType, fieldOptions);
