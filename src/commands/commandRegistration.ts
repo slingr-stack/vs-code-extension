@@ -69,7 +69,7 @@ export function registerGeneralCommands(
         const content = document.getText();
         
         // Check if this is a model file
-        if (!content.includes('@Model') || !content.includes('extends BaseModel')) {
+        if (!content.includes('@Model')) {
             vscode.window.showErrorMessage('The current file does not appear to be a model file.');
             return;
         }
@@ -120,7 +120,7 @@ export function registerGeneralCommands(
         const content = document.getText();
         
         // Check if this is a model file
-        if (!content.includes('@Model') || !content.includes('extends BaseModel')) {
+        if (!content.includes('@Model')) {
             vscode.window.showErrorMessage('The current file does not appear to be a model file.');
             return;
         }

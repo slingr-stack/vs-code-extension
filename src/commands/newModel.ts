@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 import { AppTreeItem } from "../explorer/appTreeItem";
 import { DefineFieldsTool } from "./defineFields";
 import { AddFieldTool } from "./addField";
@@ -78,39 +77,14 @@ export class NewModelTool implements AIEnhancedTool {
     let finalTargetUri: vscode.Uri;
     let parentModelInfo: { name: string; filePath: string } | null = null;
 
-    // Handle different types of input
+    // Handle different types of input using WorkspaceService
     if (targetUri instanceof AppTreeItem) {
       // Detect if we're coming from a model context
       parentModelInfo = this.detectParentModel(targetUri, cache);
-
-      // Handle AppTreeItem case
-      if (targetUri.folderPath) {
-        if (targetUri.itemType === "dataRoot") {
-          finalTargetUri = vscode.Uri.file(targetUri.folderPath);
-        } else {
-          // Construct the full path: workspace + src/data + folderPath
-          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-          if (!workspaceFolder) {
-            throw new Error("No workspace folder found");
-          }
-          const fullFolderPath = path.join(workspaceFolder.uri.fsPath, "src", "data", targetUri.folderPath);
-          finalTargetUri = vscode.Uri.file(fullFolderPath);
-        }
-      } else {
-        // Fallback to src/data if folderPath is not available
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) {
-          throw new Error("No workspace folder found");
-        }
-        finalTargetUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, "src", "data"));
-      }
+      finalTargetUri = this.workspaceService.resolveTargetUri(targetUri);
     } else {
       // Handle vscode.Uri case
-      finalTargetUri = targetUri;
-      if (path.extname(finalTargetUri.fsPath)) {
-        // If it's a file, use its directory
-        finalTargetUri = vscode.Uri.file(path.dirname(finalTargetUri.fsPath));
-      }
+      finalTargetUri = this.workspaceService.resolveTargetUri(targetUri);
     }
     try {
       // Step 1: Get model name from user
@@ -163,40 +137,20 @@ export class NewModelTool implements AIEnhancedTool {
         return; // User pressed Esc
       }
 
-      // Step 4: Determine target file path
-      let targetDirectory = finalTargetUri.fsPath;
+      // Step 4: Determine target directory using WorkspaceService
+      let targetDirectory = this.workspaceService.determineTargetDirectory(finalTargetUri);
 
-      // If the context URI is a file, get its directory
-      if (path.extname(finalTargetUri.fsPath)) {
-        targetDirectory = path.dirname(finalTargetUri.fsPath);
-      }
-
-      // If we're not in src/data, default to src/data
-      if (!targetDirectory.includes("/src/data/")) {
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(finalTargetUri);
-        if (workspaceFolder) {
-          targetDirectory = path.join(workspaceFolder.uri.fsPath, "src", "data");
-        }
-      }
-
-      const fileName = modelName + ".ts";
-      const targetFilePath = path.join(targetDirectory, fileName);
-      const targetFileUri = vscode.Uri.file(targetFilePath);
-
-      // Step 5: Check if file already exists
-      try {
-        await vscode.workspace.fs.stat(targetFileUri);
-        // If we reach here, the file exists
+      // Step 5: Check if file already exists and handle overwrite
+      const fileExists = await this.workspaceService.fileExists(targetDirectory, modelName);
+      if (fileExists) {
         const overwrite = await vscode.window.showWarningMessage(
-          `File ${fileName} already exists. Do you want to overwrite it?`,
+          `File ${modelName}.ts already exists. Do you want to overwrite it?`,
           "Overwrite",
           "Cancel"
         );
         if (overwrite !== "Overwrite") {
           return;
         }
-      } catch {
-        // File doesn't exist, which is what we want
       }
 
       // Step 6: Generate model content
@@ -207,9 +161,8 @@ export class NewModelTool implements AIEnhancedTool {
         targetDirectory
       );
 
-      // Step 7: Create the file
-      const encoder = new TextEncoder();
-      await vscode.workspace.fs.writeFile(targetFileUri, encoder.encode(modelContent));
+      // Step 7: Create the file using WorkspaceService (without handling overwrite since we already did)
+      const targetFileUri = await this.workspaceService.createModelFile(targetDirectory, modelName, modelContent, false);
 
       // Step 8: Open the new file
       const document = await vscode.workspace.openTextDocument(targetFileUri);
@@ -302,16 +255,13 @@ export class NewModelTool implements AIEnhancedTool {
 
   /**
    * Converts PascalCase to camelCase for filename generation.
+   * Uses the WorkspaceService utility method.
    *
    * @param str - PascalCase string
    * @returns camelCase string
-   *
-   * @example
-   * toCamelCase("UserProfile") // returns "userProfile"
-   * toCamelCase("Task") // returns "task"
    */
   private toCamelCase(str: string): string {
-    return str.charAt(0).toLowerCase() + str.slice(1);
+    return this.workspaceService.toCamelCase(str);
   }
 
   /**
@@ -396,8 +346,8 @@ export class NewModelTool implements AIEnhancedTool {
     newModelName: string,
     cache: MetadataCache
   ): Promise<void> {
-    // Generate field name from the new model name (convert to camelCase and make it plural)
-    const fieldName = this.generateCompositionFieldName(newModelName);
+    // Generate field name using WorkspaceService
+    const fieldName = this.workspaceService.generateCompositionFieldName(newModelName);
 
     // Create the parent model URI
     const parentModelUri = vscode.Uri.file(parentModelInfo.filePath);
@@ -428,28 +378,4 @@ export class NewModelTool implements AIEnhancedTool {
     );
   }
 
-  /**
-   * Generates a field name for the composition relationship.
-   * Converts the model name to camelCase and makes it plural.
-   * @param modelName - The name of the target model
-   * @returns The generated field name
-   */
-  private generateCompositionFieldName(modelName: string): string {
-    // Convert to camelCase
-    const camelCase = this.toCamelCase(modelName);
-
-    // Make it plural (simple pluralization)
-    if (camelCase.endsWith("y")) {
-      return camelCase.slice(0, -1) + "ies";
-    } else if (
-      camelCase.endsWith("s") ||
-      camelCase.endsWith("x") ||
-      camelCase.endsWith("ch") ||
-      camelCase.endsWith("sh")
-    ) {
-      return camelCase + "es";
-    } else {
-      return camelCase + "s";
-    }
-  }
 }

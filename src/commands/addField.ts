@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../cache/cache";
 import { DefineFieldsTool } from "./defineFields";
 import { AIEnhancedTool, FIELD_TYPE_OPTIONS, FieldTypeOption, FieldInfo } from "./interfaces";
@@ -193,53 +192,7 @@ export class AddFieldTool implements AIEnhancedTool {
         targetUri: vscode.Uri, 
         cache?: MetadataCache
     ): Promise<{ modelClass: DecoratedClass, document: vscode.TextDocument }> {
-        // Ensure the file is a TypeScript file
-        if (!targetUri.fsPath.endsWith('.ts')) {
-            throw new Error('Target file must be a TypeScript file (.ts)');
-        }
-        
-        // Open the document
-        const document = await vscode.workspace.openTextDocument(targetUri);
-        
-        // Get model information from cache
-        if (!cache) {
-            throw new Error('Metadata cache is required for field addition');
-        }
-        
-        const fileMetadata = cache.getMetadataForFile(targetUri.fsPath);
-        if (!fileMetadata) {
-            throw new Error('No metadata found for this file. Make sure it contains a valid model class.');
-        }
-        
-        // Find the model class (class with @Model decorator)
-        const modelClasses = Object.values(fileMetadata.classes).filter(
-            (cls: DecoratedClass) => cls.decorators.some(d => d.name === 'Model')
-        );
-        
-        if (modelClasses.length === 0) {
-            throw new Error('No model class found in this file. Make sure the class has a @Model decorator.');
-        }
-        
-        if (modelClasses.length > 1) {
-            // If multiple model classes, ask user to choose
-            const choices = modelClasses.map((cls: DecoratedClass) => cls.name);
-            const selectedModel = await vscode.window.showQuickPick(choices, {
-                placeHolder: "Multiple model classes found. Select the target model:"
-            });
-            
-            if (!selectedModel) {
-                throw new Error('No model selected');
-            }
-            
-            const modelClass = modelClasses.find((cls: DecoratedClass) => cls.name === selectedModel);
-            if (!modelClass) {
-                throw new Error('Selected model not found');
-            }
-            
-            return { modelClass, document };
-        }
-        
-        return { modelClass: modelClasses[0], document };
+        return await this.workspaceService.validateAndPrepareTargetForFieldAddition(targetUri, cache);
     }
     
     /**
@@ -404,127 +357,6 @@ export class AddFieldTool implements AIEnhancedTool {
             relationshipType: relationshipType.value
         };
     }
-    
-    /**
-     * Adds an import for a target model type.
-     */
-    private async addModelImport(
-        document: vscode.TextDocument,
-        targetModel: string,
-        edit: vscode.WorkspaceEdit,
-        cache?: MetadataCache
-    ): Promise<void> {
-        const content = document.getText();
-        const lines = content.split('\n');
-        
-        // Check if the model is already imported
-        const existingImport = lines.find(line => 
-            line.includes('import') && 
-            line.includes(targetModel) && 
-            !line.includes('slingr-framework')
-        );
-        
-        if (existingImport) {
-            return; // Already imported
-        }
-        
-        // Find the best place to insert the import (after existing imports)
-        let insertLine = 0;
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].startsWith('import ')) {
-                insertLine = i + 1;
-            } else if (lines[i].trim() === '' && insertLine > 0) {
-                // Stop after imports section
-                break;
-            }
-        }
-        
-        // Determine the import path
-        let importPath = `./${targetModel}`;
-        
-        if (cache) {
-            // Find the file path for the target model
-            const targetModelFilePath = this.findModelFilePath(cache, targetModel);
-            
-            if (targetModelFilePath) {
-                // Calculate relative path from current document to target model file
-                const currentDir = path.dirname(document.uri.fsPath);
-                const targetDir = path.dirname(targetModelFilePath);
-                const relativePath = path.relative(currentDir, targetDir);
-                
-                // Remove .ts extension from target file
-                const targetFileName = path.basename(targetModelFilePath, '.ts');
-                
-                if (relativePath) {
-                    importPath = `./${relativePath}/${targetFileName}`;
-                } else {
-                    importPath = `./${targetFileName}`;
-                }
-                
-                // Normalize path separators for consistency
-                importPath = importPath.replace(/\\/g, '/');
-            }
-        }
-        
-        // Create the import statement
-        const importStatement = `import { ${targetModel} } from '${importPath}';`;
-        
-        edit.insert(document.uri, new vscode.Position(insertLine, 0), importStatement + '\n');
-    }
-    
-    /**
-     * Finds the file path for a given model name in the cache.
-     */
-    private findModelFilePath(cache: MetadataCache, modelName: string): string | undefined {
-        // Get all data models and check their locations
-        const modelClasses = cache.getDataModelClasses();
-        const targetModel = modelClasses.find(model => model.name === modelName);
-        
-        if (!targetModel) {
-            return undefined;
-        }
-        
-        // Since we can't get the file path directly from DecoratedClass,
-        // we need to search through all files to find where this model is defined
-        // We'll use workspace.findFiles to get all TypeScript files and check each one
-        return this.searchForModelInFiles(cache, modelName);
-    }
-    
-    /**
-     * Searches for a model in all cached files.
-     */
-    private searchForModelInFiles(cache: MetadataCache, modelName: string): string | undefined {
-        // Get all data models and find the one we're looking for
-        const modelClasses = cache.getDataModelClasses();
-        const targetModel = modelClasses.find(model => model.name === modelName);
-        
-        if (!targetModel) {
-            return undefined;
-        }
-        
-        // Get the model's declaration location to determine the file path
-        if (targetModel.declaration && targetModel.declaration.uri) {
-            return targetModel.declaration.uri.fsPath;
-        }
-        
-        // Fallback: check common patterns for model file locations
-        const commonPaths = [
-            `src/data/${modelName}.ts`,
-            `src/data/models/${modelName}.ts`,
-            `src/models/${modelName}.ts`
-        ];
-        
-        for (const possiblePath of commonPaths) {
-            const fileMetadata = cache.getMetadataForFile(possiblePath);
-            if (fileMetadata?.classes[modelName]) {
-                return possiblePath;
-            }
-        }
-        
-        // If not found, return undefined (will use default relative import)
-        return undefined;
-    }
-    
     /**
      * Gets available models from the cache.
      */
@@ -532,7 +364,7 @@ export class AddFieldTool implements AIEnhancedTool {
         if (!cache) {
             return [];
         }
-        
+
         const dataModels = cache.getDataModelClasses();
         return dataModels.map(model => model.name).sort();
     }
@@ -590,136 +422,13 @@ export class AddFieldTool implements AIEnhancedTool {
         fieldInfo: FieldInfo,
         cache?: MetadataCache
     ): Promise<void> {
-        const edit = new vscode.WorkspaceEdit();
-        const content = document.getText();
-        const lines = content.split('\n');
-
-        // Find import statements to ensure decorators are imported
-        const decoratorImports = new Set<string>();
-        decoratorImports.add('Field');
-        decoratorImports.add(fieldInfo.type.decorator);
-        
-        // Handle model imports for Relationship fields
-        if (fieldInfo.type.decorator === 'Relationship' && fieldInfo.additionalConfig?.targetModel) {
-            await this.addModelImport(document, fieldInfo.additionalConfig.targetModel, edit, cache);
-        }
-        
-        // Add imports if missing or update existing import
-        const slingrFrameworkImportLine = lines.findIndex(line => 
-            line.includes('from') && line.includes('slingr-framework')
+        await this.workspaceService.insertFieldIntoModelAdvanced(
+            document,
+            modelClassName,
+            fieldCode,
+            fieldInfo,
+            cache
         );
-        
-        if (slingrFrameworkImportLine !== -1) {
-            // Update existing import
-            const currentImport = lines[slingrFrameworkImportLine];
-            const importMatch = currentImport.match(/import\s+\{([^}]+)\}\s+from\s+['"]slingr-framework['"];?/);
-            
-            if (importMatch) {
-                const currentImports = importMatch[1]
-                    .split(',')
-                    .map(imp => imp.trim())
-                    .filter(imp => imp.length > 0);
-                
-                // Add new imports that aren't already present
-                const allImports = new Set([...currentImports, ...decoratorImports]);
-                const newImportString = `import { ${Array.from(allImports).sort().join(', ')} } from 'slingr-framework';`;
-                
-                edit.replace(
-                    document.uri,
-                    new vscode.Range(slingrFrameworkImportLine, 0, slingrFrameworkImportLine, currentImport.length),
-                    newImportString
-                );
-            }
-        } else {
-            // Add new import if no slingr-framework import exists
-            const newImportString = `import { ${Array.from(decoratorImports).sort().join(', ')} } from 'slingr-framework';\n`;
-            edit.insert(document.uri, new vscode.Position(0, 0), newImportString);
-        } 
-        
-        // Find the model class and its closing brace
-        let classStartLine = -1;
-        let classEndLine = -1;
-        let braceCount = 0;
-        let inClass = false;
-        
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            
-            // Look for class declaration
-            if (line.includes(`class ${modelClassName}`) && line.includes('extends')) {
-                classStartLine = i;
-                inClass = true;
-                if (line.includes('{')) {
-                    braceCount = 1;
-                }
-                continue;
-            }
-            
-            if (inClass) {
-                // Count braces to find class end
-                const openBraces = (line.match(/\{/g) || []).length;
-                const closeBraces = (line.match(/\}/g) || []).length;
-                braceCount += openBraces - closeBraces;
-                
-                if (braceCount === 0) {
-                    classEndLine = i;
-                    break;
-                }
-            }
-        }
-        
-        if (classStartLine === -1 || classEndLine === -1) {
-            throw new Error(`Could not find class ${modelClassName} boundaries`);
-        }
-        
-        // Detect existing indentation pattern from field declarations
-        const detectedIndentation = detectIndentation(lines, classStartLine, classEndLine);
-        
-        // Find the best insertion point (before the closing brace, after existing fields)
-        let insertionLine = classEndLine; // This will be the closing brace line
-        
-        // Look for existing fields to insert after them
-        let foundExistingContent = false;
-        for (let i = classEndLine - 1; i > classStartLine; i--) {
-            const line = lines[i].trim();
-            if (line && !line.startsWith('}') && !line.startsWith('//') && !line.startsWith('*')) {
-                insertionLine = i + 1;
-                foundExistingContent = true;
-                break;
-            }
-        }
-        
-        // If no existing content found, insert right before the closing brace
-        // but ensure we're not on the same line as the closing brace
-        if (!foundExistingContent) {
-            insertionLine = classEndLine; // Insert at the closing brace line, content will push it down
-        }
-        
-        // Apply detected indentation to the field code
-        const indentedFieldCode = applyIndentation(fieldCode, detectedIndentation);
-        
-        // Prepare the insertion
-        const insertPosition = new vscode.Position(insertionLine, 0);
-        
-        // Add spacing if needed
-        let codeToInsert = indentedFieldCode;
-        
-        // Always add a newline before the field if we're inserting at the closing brace
-        // or if there's existing content above
-        if (insertionLine === classEndLine || foundExistingContent) {
-            codeToInsert = "\n" + codeToInsert;
-        }
-        
-        // Always add a newline after the field to separate it from the closing brace
-        codeToInsert = codeToInsert + "\n";
-        
-        edit.insert(document.uri, insertPosition, codeToInsert);
-        
-        // Apply the edit
-        await vscode.workspace.applyEdit(edit);
-        
-        // Save the document
-        await document.save();
     }
     
     /**
