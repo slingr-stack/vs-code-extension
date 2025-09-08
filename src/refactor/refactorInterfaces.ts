@@ -119,11 +119,13 @@ export interface NewDataSourcePayload {
 export interface RenameDataSourcePayload {
     oldName: string;
     newName: string;
+    newUri: vscode.Uri | undefined;
     isManual: boolean;
 }
 
 export interface DeleteDataSourcePayload {
     dataSourceName: string;
+    urisToDelete: vscode.Uri[];
     isManual: boolean;
 }
 

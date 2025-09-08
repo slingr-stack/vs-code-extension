@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteDataSourcePayload } from '../refactorInterfaces';
-import { MetadataCache } from '../../cache/cache';
+import { FileMetadata, MetadataCache } from '../../cache/cache';
 
 export class DeleteDataSourceTool implements IRefactorTool {
     getCommandId(): string {
@@ -16,18 +16,43 @@ export class DeleteDataSourceTool implements IRefactorTool {
     }
 
     async canHandleManualTrigger(context: ManualRefactorContext): Promise<boolean> {
-        return true;
+        // Now we can check if the file actually contains a data source
+        const fileMeta = context.cache.getMetadataForFile(context.uri.fsPath);
+        return !!fileMeta && Object.keys(fileMeta.dataSources).length > 0;
     }
 
-    analyze(): ChangeObject[] {
+    analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata): ChangeObject[] {
+        if (!oldFileMeta || newFileMeta) {
+            return [];
+        }
+
+        const oldDataSourceNames = Object.keys(oldFileMeta.dataSources);
+        if (oldDataSourceNames.length > 0) {
+            const dataSourceName = oldDataSourceNames[0];
+            const payload: DeleteDataSourcePayload = {
+                dataSourceName,
+                urisToDelete: [oldFileMeta.uri],
+                isManual: false,
+            };
+            return [{
+                type: 'DELETE_DATA_SOURCE',
+                uri: oldFileMeta.uri,
+                description: `Delete data source '${dataSourceName}'`,
+                payload,
+            }];
+        }
+
         return [];
     }
 
     async initiateManualRefactor(context: ManualRefactorContext): Promise<ChangeObject | undefined> {
-        const dataSourceName = context.uri.path.split('/').pop()?.replace('.ts', '');
-        if (!dataSourceName) {
+        const fileMeta = context.cache.getMetadataForFile(context.uri.fsPath);
+        if (!fileMeta || Object.keys(fileMeta.dataSources).length === 0) {
+            vscode.window.showErrorMessage('No data source found in this file.');
             return;
         }
+
+        const dataSourceName = Object.keys(fileMeta.dataSources)[0];
 
         const confirmation = await vscode.window.showWarningMessage(
             `Are you sure you want to delete the data source '${dataSourceName}'? This action cannot be undone.`,
@@ -40,6 +65,7 @@ export class DeleteDataSourceTool implements IRefactorTool {
 
         const payload: DeleteDataSourcePayload = {
             dataSourceName,
+            urisToDelete: [context.uri],
             isManual: true,
         };
 

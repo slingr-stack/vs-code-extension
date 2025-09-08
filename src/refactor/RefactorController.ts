@@ -95,19 +95,29 @@ export class RefactorController {
         metadata: context.metadata,
       };
     } else if (context instanceof vscode.Uri) {
-      const fileMeta = this.cache.getMetadataForFile(context.fsPath);
-      if (!fileMeta || Object.keys(fileMeta.classes).length === 0) {
-        vscode.window.showInformationMessage("No class found in the selected file to refactor.");
-        return;
-      }
-      // When triggered from file explorer, we assume the target is the first class in the file.
-      const targetClass = Object.values(fileMeta.classes)[0];
-      refactorContext = {
-        cache: this.cache,
-        uri: context,
-        range: targetClass.declaration.range,
-        metadata: targetClass,
-      };
+        const fileMeta = this.cache.getMetadataForFile(context.fsPath);
+        if (!fileMeta || (Object.keys(fileMeta.classes).length === 0 && Object.keys(fileMeta.dataSources).length === 0)) {
+            vscode.window.showInformationMessage("No class or data source found in the selected file to refactor.");
+            return;
+        }
+
+        if (Object.keys(fileMeta.classes).length > 0) {
+            const targetClass = Object.values(fileMeta.classes)[0];
+            refactorContext = {
+                cache: this.cache,
+                uri: context,
+                range: targetClass.declaration.range,
+                metadata: targetClass, 
+            };
+        } else {
+            const targetDataSource = Object.values(fileMeta.dataSources)[0];
+            refactorContext = {
+                cache: this.cache,
+                uri: context,
+                range: targetDataSource.declaration.range,
+                metadata: undefined, 
+            };
+        }
     } else if (context && 'cache' in context && 'uri' in context) {
       refactorContext = context as ManualRefactorContext;
     } else {
@@ -136,13 +146,10 @@ export class RefactorController {
         return;
       }
 
-      const hasTextEdits = workspaceEdit.size > 0;
-      let hasFileDeletions = false;
-      if (changeObject.type === 'DELETE_MODEL') {
-        const deletePayload = changeObject.payload as DeleteModelPayload;
-        hasFileDeletions = Array.isArray(deletePayload.urisToDelete) && deletePayload.urisToDelete.length > 0;
-      }
-      if (!hasTextEdits && !hasFileDeletions) {
+      const hasFileOps = ('urisToDelete' in changeObject.payload && (changeObject.payload as any).urisToDelete?.length > 0) ||
+                         ('newUri' in changeObject.payload && !!(changeObject.payload as any).newUri);
+
+      if (workspaceEdit.size === 0 && !hasFileOps) {
         vscode.window.showInformationMessage("No changes were needed for this refactoring.");
         return;
       }
@@ -176,7 +183,7 @@ export class RefactorController {
     allChanges?: ChangeObject[] 
   ): Promise<void> {
     const anchorUri = changeObject.uri;
-    const isDelete = changeObject.type === "DELETE_MODEL";
+    const isDelete = changeObject.type.startsWith('DELETE_');
 
     let uriForDummyChange = anchorUri;
 
@@ -194,79 +201,62 @@ export class RefactorController {
       }
     }
 
-    // Try to mark one real edit with confirmation metadata instead of adding a dummy edit.
-    // We will copy all existing edits into a new WorkspaceEdit and annotate the first suitable
-    // text edit (preferably on the same URI as the anchor change) with `needsConfirmation`.
-    const metadata: vscode.WorkspaceEditEntryMetadata = {
-      needsConfirmation: true,
-      label: "Review All Refactoring Changes",
-    };
-
     let editToApply: vscode.WorkspaceEdit = workspaceEdit;
     try {
-      // Find a candidate edit to annotate
-      let chosenUri: vscode.Uri | undefined;
-      let chosenIndex = -1;
+      const metadata: vscode.WorkspaceEditEntryMetadata = {
+        needsConfirmation: true,
+        label: "Review All Refactoring Changes",
+      };
 
-      // Prefer an edit on the anchorUri
+      const annotatedEdit = new vscode.WorkspaceEdit();
+      let isMetadataApplied = false;
+
       for (const [uri, textEdits] of workspaceEdit.entries()) {
-        if (textEdits.length > 0 && uri.toString() === anchorUri.toString()) {
-          chosenUri = uri;
-          chosenIndex = 0;
-          break;
-        }
-      }
-
-      // Otherwise pick the first available edit
-      if (!chosenUri) {
-        for (const [uri, textEdits] of workspaceEdit.entries()) {
-          if (textEdits.length > 0) {
-            chosenUri = uri;
-            chosenIndex = 0;
-            break;
+        textEdits.forEach(te => {
+          if (!isMetadataApplied && uri.toString() === anchorUri.toString()) {
+            annotatedEdit.replace(uri, te.range, te.newText, metadata);
+            isMetadataApplied = true;
+          } else {
+            annotatedEdit.replace(uri, te.range, te.newText);
           }
-        }
+        });
       }
-
-      if (chosenUri) {
-        // Build a new WorkspaceEdit copying all edits, but annotate the chosen edit
-        const annotated = new vscode.WorkspaceEdit();
-        for (const [uri, textEdits] of workspaceEdit.entries()) {
-          for (let i = 0; i < textEdits.length; i++) {
-            const te = textEdits[i];
-            const isChosen = uri.toString() === chosenUri!.toString() && i === chosenIndex;
-            if (isChosen) {
-              annotated.replace(uri, te.range, te.newText, metadata);
-              // remember which uri we annotated so we can use it if needed (for logging/fallback)
-              uriForDummyChange = uri;
-            } else {
-              annotated.replace(uri, te.range, te.newText);
-            }
-          }
-        }
+      
         // We have to add the file renames and deletions from the original changes
-        const changesToProcess = allChanges || [changeObject];
+      const changesToProcess = allChanges || [changeObject];
         for (const change of changesToProcess) {
-          if (change.type === 'DELETE_MODEL') {
-            const deletePayload = change.payload as DeleteModelPayload;
-            if (Array.isArray(deletePayload.urisToDelete)) {
-              for (const uri of deletePayload.urisToDelete) {
-                annotated.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
+          const payload = change.payload as any;
+          if ('urisToDelete' in payload && Array.isArray(payload.urisToDelete)) {
+            for (const uri of payload.urisToDelete) {
+              const options = { recursive: true, ignoreIfNotExists: true };
+              if (!isMetadataApplied) {
+                annotatedEdit.deleteFile(uri, options, metadata);
+                isMetadataApplied = true;
+              } else {
+                annotatedEdit.deleteFile(uri, options);
               }
             }
           }
-          
-          if (change.type === 'RENAME_MODEL') {
-            const renamePayload = change.payload as RenameModelPayload;
-            if (renamePayload.newUri) {
-              annotated.renameFile(change.uri, renamePayload.newUri);
+          if ('newUri' in payload && payload.newUri) {
+            if (!isMetadataApplied) {
+              annotatedEdit.renameFile(change.uri, payload.newUri, undefined, metadata);
+              isMetadataApplied = true;
+            } else {
+              annotatedEdit.renameFile(change.uri, payload.newUri);
             }
           }
         }
-        editToApply = annotated;
-      } 
+        
+        // If there are still no text or file edits to apply metadata to (an unlikely edge case),
+        // we add a dummy edit as a final fallback to ensure the UI appears.
+        if (!isMetadataApplied && changesToProcess.length > 0) {
+          annotatedEdit.insert(uriForDummyChange, new vscode.Position(0, 0), '', metadata);
+        }
+
+        editToApply = annotatedEdit;
     } catch (e) {
       console.error("Error while annotating workspace edits for review:", e);
+      editToApply = workspaceEdit; // Fallback to original edit
     }
 
     this.isApplyingEdit = true;
@@ -394,20 +384,14 @@ export class RefactorController {
 
           }
 
-          if (change.type === 'DELETE_MODEL') {
-            const deletePayload = change.payload as DeleteModelPayload;
-            if (Array.isArray(deletePayload.urisToDelete)) {
-              for (const uri of deletePayload.urisToDelete) {
-                mergedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
-              }
+          if ('urisToDelete' in change.payload && Array.isArray((change.payload as any).urisToDelete)) {
+            for (const uri of (change.payload as any).urisToDelete) {
+              mergedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
             }
           }
 
-          if (change.type === 'RENAME_MODEL') {
-            const renamePayload = change.payload as RenameModelPayload;
-            if (renamePayload.newUri) {
-              mergedEdit.renameFile(change.uri, renamePayload.newUri);
-            }
+          if ('newUri' in change.payload && (change.payload as any).newUri) {
+            mergedEdit.renameFile(change.uri, (change.payload as any).newUri);
           }
 
         } catch (error) {

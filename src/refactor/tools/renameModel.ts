@@ -43,7 +43,7 @@ export class RenameModelTool implements IRefactorTool {
      * @returns True if the context metadata represents a valid model class.
      */
     public async canHandleManualTrigger(context: ManualRefactorContext): Promise<boolean> {
-        return !!context.metadata && context.metadata instanceof Object && 'decorators' in context.metadata && isModel(context.metadata);
+        return !!context.metadata && 'decorators' in context.metadata && isModel(context.metadata);
     }
 
     /**
