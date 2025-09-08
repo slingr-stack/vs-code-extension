@@ -2,12 +2,20 @@ import * as vscode from "vscode";
 import { MetadataCache, DecoratedClass } from "../cache/cache";
 import { FieldInfo } from "../commands/interfaces";
 import { AppTreeItem } from "../explorer/appTreeItem";
-import { WorkspaceService } from "./workspaceService";
 import { fieldTypeConfig } from "../utils/fieldTypes";
-import { ApplicationContext, ModelContext } from "./workspaceService";
+import { ApplicationContext, ModelContext } from "./projectAnalysisService";
+import { FileSystemService } from "./fileSystemService";
+import { ProjectAnalysisService } from "./projectAnalysisService";
 
 export class AIService {
-  constructor(private workspaceService: WorkspaceService) {}
+
+  private fileSSystemService: FileSystemService;
+  private projectAnalysisService: ProjectAnalysisService;
+
+  constructor() {
+    this.fileSSystemService = new FileSystemService();
+    this.projectAnalysisService = new ProjectAnalysisService();
+  }
 
   public async createModelWithAI(cache: MetadataCache, context?: vscode.Uri | AppTreeItem): Promise<void> {
     const userInput = await vscode.window.showInputBox({
@@ -71,10 +79,10 @@ export class AIService {
   ): Promise<void> {
     try {
       // Step 1: Gather application context
-      const appContext = await this.workspaceService.gatherApplicationContext(cache, targetModelUri);
+      const appContext = await this.projectAnalysisService.gatherApplicationContext(cache, targetModelUri);
 
       // Step 2: Analyze existing model context
-      const modelContext = await this.workspaceService.analyzeModelContext(targetModelUri, modelName, cache);
+      const modelContext = await this.projectAnalysisService.analyzeModelContext(targetModelUri, modelName, cache);
 
       // Step 3: Build AI prompt with context
       const prompt = this.generateDefineFieldsPrompt(fieldsDescription, appContext, modelContext);
@@ -326,7 +334,7 @@ Generate a Jest test suite for the "${modelName}" model.
 
 1.  **Use Jest:** The test suite must be written using the Jest testing framework.
 2.  **File Location:** The test file should be placed in a 'test/${modelName}' directory at the first level.
-3.  **File Naming:** The test file should be named '${this.workspaceService.toCamelCase(modelName)}.test.ts'.
+3.  **File Naming:** The test file should be named '${this.toCamelCase(modelName)}.test.ts'.
 4.  **Test Coverage:** Include tests for:
     * **Model Instantiation:** Test that the model can be instantiated correctly.
     * **Field Validation:** For each field, add tests for validation rules (e.g., required fields, data types).
@@ -342,7 +350,7 @@ Return ONLY valid TypeScript code for the test file. Do not include:
 
 Example output format:
 \`\`\`typescript
-import { ${modelName} } from '../${this.workspaceService.toCamelCase(modelName)}';
+import { ${modelName} } from '../${this.toCamelCase(modelName)}';
 
 describe('${modelName}', () => {
     it('should create an instance of ${modelName}', () => {
@@ -478,5 +486,9 @@ Generate the test suite now:
     }
 
     return null;
+  }
+
+    public toCamelCase(str: string): string {
+    return str.charAt(0).toLowerCase() + str.slice(1);
   }
 }

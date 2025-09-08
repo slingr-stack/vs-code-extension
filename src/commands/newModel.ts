@@ -4,8 +4,8 @@ import { DefineFieldsTool } from "./defineFields";
 import { AddFieldTool } from "./addField";
 import { MetadataCache } from "../cache/cache";
 import { AIEnhancedTool, FieldInfo, FIELD_TYPE_OPTIONS } from "./interfaces";
-import { AIService } from "../services/aiService";
-import { WorkspaceService } from "../services/workspaceService";
+import { FileSystemService } from "../services/fileSystemService";
+import path from "path";
 
 /**
  * Tool for creating new Model classes with the @Model decorator and extending BaseModel.
@@ -35,16 +35,15 @@ import { WorkspaceService } from "../services/workspaceService";
  * ```
  */
 export class NewModelTool implements AIEnhancedTool {
+  private fileSystemService: FileSystemService;
   private defineFieldsTool: DefineFieldsTool;
   private addFieldTool: AddFieldTool;
-  private aiService: AIService;
-  private workspaceService = new WorkspaceService();
 
   constructor() {
-    this.workspaceService = new WorkspaceService();
-    this.aiService = new AIService(this.workspaceService);
-    this.defineFieldsTool = new DefineFieldsTool(this.aiService);
+    this.fileSystemService = new FileSystemService();
+    this.defineFieldsTool = new DefineFieldsTool();
     this.addFieldTool = new AddFieldTool();
+
   }
 
   /**
@@ -77,14 +76,14 @@ export class NewModelTool implements AIEnhancedTool {
     let finalTargetUri: vscode.Uri;
     let parentModelInfo: { name: string; filePath: string } | null = null;
 
-    // Handle different types of input using WorkspaceService
+    // Handle different types of input 
     if (targetUri instanceof AppTreeItem) {
       // Detect if we're coming from a model context
       parentModelInfo = this.detectParentModel(targetUri, cache);
-      finalTargetUri = this.workspaceService.resolveTargetUri(targetUri);
+      finalTargetUri = this.fileSystemService.resolveTargetUri(targetUri);
     } else {
       // Handle vscode.Uri case
-      finalTargetUri = this.workspaceService.resolveTargetUri(targetUri);
+      finalTargetUri = this.fileSystemService.resolveTargetUri(targetUri);
     }
     try {
       // Step 1: Get model name from user
@@ -137,11 +136,13 @@ export class NewModelTool implements AIEnhancedTool {
         return; // User pressed Esc
       }
 
-      // Step 4: Determine target directory using WorkspaceService
-      let targetDirectory = this.workspaceService.determineTargetDirectory(finalTargetUri);
+      // Step 4: Determine target directory 
+      let targetDirectory = this.fileSystemService.determineTargetDirectory(finalTargetUri);
 
       // Step 5: Check if file already exists and handle overwrite
-      const fileExists = await this.workspaceService.fileExists(targetDirectory, modelName);
+      const filePath = path.join(targetDirectory, `${modelName}.ts`);
+      const fileUri = vscode.Uri.file(filePath);
+      const fileExists = await this.fileSystemService.fileExists(fileUri);
       if (fileExists) {
         const overwrite = await vscode.window.showWarningMessage(
           `File ${modelName}.ts already exists. Do you want to overwrite it?`,
@@ -161,8 +162,8 @@ export class NewModelTool implements AIEnhancedTool {
         targetDirectory
       );
 
-      // Step 7: Create the file using WorkspaceService (without handling overwrite since we already did)
-      const targetFileUri = await this.workspaceService.createModelFile(targetDirectory, modelName, modelContent, false);
+      // Step 7: Create the file  (without handling overwrite since we already did)
+      const targetFileUri = await this.fileSystemService.createFile(modelName, filePath, modelContent, false);
 
       // Step 8: Open the new file
       const document = await vscode.workspace.openTextDocument(targetFileUri);
@@ -254,17 +255,6 @@ export class NewModelTool implements AIEnhancedTool {
   }
 
   /**
-   * Converts PascalCase to camelCase for filename generation.
-   * Uses the WorkspaceService utility method.
-   *
-   * @param str - PascalCase string
-   * @returns camelCase string
-   */
-  private toCamelCase(str: string): string {
-    return this.workspaceService.toCamelCase(str);
-  }
-
-  /**
    * Detects if the command is being executed from a model context.
    * @param targetUri - The AppTreeItem where the command was triggered
    * @param cache - The metadata cache for model lookup
@@ -346,8 +336,8 @@ export class NewModelTool implements AIEnhancedTool {
     newModelName: string,
     cache: MetadataCache
   ): Promise<void> {
-    // Generate field name using WorkspaceService
-    const fieldName = this.workspaceService.generateCompositionFieldName(newModelName);
+    // Generate field name 
+    const fieldName = this.generateCompositionFieldName(newModelName);
 
     // Create the parent model URI
     const parentModelUri = vscode.Uri.file(parentModelInfo.filePath);
@@ -378,4 +368,32 @@ export class NewModelTool implements AIEnhancedTool {
     );
   }
 
+  public toCamelCase(str: string): string {
+    return str.charAt(0).toLowerCase() + str.slice(1);
+  }
+
+    /**
+   * Generates a field name for composition relationships.
+   * Converts the model name to camelCase and makes it plural.
+   * @param modelName - The name of the target model
+   * @returns The generated field name
+   */
+  public generateCompositionFieldName(modelName: string): string {
+    // Convert to camelCase
+    const camelCase = this.toCamelCase(modelName);
+
+    // Make it plural (simple pluralization)
+    if (camelCase.endsWith("y")) {
+      return camelCase.slice(0, -1) + "ies";
+    } else if (
+      camelCase.endsWith("s") ||
+      camelCase.endsWith("x") ||
+      camelCase.endsWith("ch") ||
+      camelCase.endsWith("sh")
+    ) {
+      return camelCase + "es";
+    } else {
+      return camelCase + "s";
+    }
+  }
 }

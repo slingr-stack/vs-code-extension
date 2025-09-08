@@ -3,7 +3,6 @@ import * as path from "path";
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../cache/cache";
 import { fieldTypeConfig } from "../utils/fieldTypes";
 import { AIService } from "../services/aiService";
-
 /**
  * Tool for defining fields using AI assistance.
  * 
@@ -15,7 +14,11 @@ import { AIService } from "../services/aiService";
  */
 export class DefineFieldsTool {
 
-    constructor(private aiService:AIService) {}
+    private aiService: AIService;
+
+    constructor() {
+        this.aiService = new AIService();
+    }
     
     /**
      * Processes field descriptions and generates field definitions with AI assistance.

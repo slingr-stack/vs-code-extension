@@ -6,7 +6,6 @@ import * as os from 'os';
 import { NewModelTool } from '../commands/newModel';
 import { MetadataCache } from '../cache/cache';
 import { AppTreeItem } from '../explorer/appTreeItem';
-import { WorkspaceService } from '../services/workspaceService';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -518,18 +517,6 @@ export class ParentModel extends BaseModel {
             assert.ok(testContent.includes('* Test documentation'), 'Should include documentation');
             assert.ok(testContent.includes('@Model()'), 'Should include @Model decorator');
             assert.ok(testContent.includes('export class TestModel extends BaseModel'), 'Should create proper class declaration');
-        });
-
-        test('Should generate correct composition field names', () => {
-            const workspaceService = new WorkspaceService();
-            
-            // Test the pluralization logic
-            assert.strictEqual(workspaceService.generateCompositionFieldName('Task'), 'tasks', 'Simple plural should add s');
-            assert.strictEqual(workspaceService.generateCompositionFieldName('Category'), 'categories', 'Word ending in y should become ies');
-            assert.strictEqual(workspaceService.generateCompositionFieldName('Address'), 'addresses', 'Word ending in s should add es');
-            assert.strictEqual(workspaceService.generateCompositionFieldName('Box'), 'boxes', 'Word ending in x should add es');
-            assert.strictEqual(workspaceService.generateCompositionFieldName('Branch'), 'branches', 'Word ending in ch should add es');
-            assert.strictEqual(workspaceService.generateCompositionFieldName('Wish'), 'wishes', 'Word ending in sh should add es');
         });
 
         test('Should handle errors gracefully', async () => {

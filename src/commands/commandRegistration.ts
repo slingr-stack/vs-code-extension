@@ -11,9 +11,7 @@ import { CreateTestTool } from './createTest';
 import { AppTreeItem } from '../explorer/appTreeItem';
 import { CreateModelFromDescriptionTool } from './createModelFromDesc';
 import { ModifyModelTool } from './modifyModel';
-import { ExplorerService } from '../explorer/explorerService';
 import { AIService } from '../services/aiService';
-import { WorkspaceService } from '../services/workspaceService';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -21,9 +19,7 @@ export function registerGeneralCommands(
     explorerProvider: ExplorerProvider
 ): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
-    const explorerService = new ExplorerService();
-    const workspaceService = new WorkspaceService();
-    const aiService = new AIService(workspaceService);
+    const aiService = new AIService();
 
     // Navigation command
     const navigateToCodeCommand = vscode.commands.registerCommand('slingr-vscode-extension.navigateToCode', (location: vscode.Location) => {
@@ -57,7 +53,7 @@ export function registerGeneralCommands(
     disposables.push(newModelCommand);
 
     // Define Fields Tool
-    const defineFieldsTool = new DefineFieldsTool(aiService);
+    const defineFieldsTool = new DefineFieldsTool();
     const defineFieldsCommand = vscode.commands.registerCommand('slingr-vscode-extension.defineFields', async () => {
         const activeEditor = vscode.window.activeTextEditor;
         if (!activeEditor) {
@@ -134,21 +130,21 @@ export function registerGeneralCommands(
     disposables.push(addFieldCommand);
 
     // New Folder Tool
-    const newFolderTool = new NewFolderTool(explorerService);
+    const newFolderTool = new NewFolderTool();
     const newFolderCommand = vscode.commands.registerCommand('slingr-vscode-extension.newFolder', (uri?: vscode.Uri | AppTreeItem) => {
         return newFolderTool.createFolder(explorerProvider, uri);
     });
     disposables.push(newFolderCommand);
 
     // Delete Folder Tool
-    const deleteFolderTool = new DeleteFolderTool(explorerService);
+    const deleteFolderTool = new DeleteFolderTool();
     const deleteFolderCommand = vscode.commands.registerCommand('slingr-vscode-extension.deleteFolder', (uri?: vscode.Uri | AppTreeItem) => {
         return deleteFolderTool.deleteFolder(explorerProvider, cache, uri);
     });
     disposables.push(deleteFolderCommand);
 
     // Rename Folder Tool
-    const renameFolderTool = new RenameFolderTool(explorerService);
+    const renameFolderTool = new RenameFolderTool();
     const renameFolderCommand = vscode.commands.registerCommand('slingr-vscode-extension.renameFolder', (uri?: vscode.Uri | AppTreeItem) => {
         return renameFolderTool.renameFolder(explorerProvider, cache, uri);
     });

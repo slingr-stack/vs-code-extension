@@ -6,7 +6,6 @@ import * as os from 'os';
 import { CreateTestTool } from '../commands/createTest';
 import { MetadataCache, DecoratedClass } from '../cache/cache';
 import { AIService } from '../services/aiService';
-import { WorkspaceService } from '../services/workspaceService';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -15,8 +14,7 @@ if (typeof suite !== 'undefined') {
         let testModelFile: string;
         let mockCache: MetadataCache;
         let createTestTool: CreateTestTool;
-        const workspaceService: WorkspaceService = new WorkspaceService();
-        const aiService: AIService = new AIService(workspaceService);
+        const aiService: AIService = new AIService();
 
         setup(async () => {
             // Create a temporary workspace directory for testing

@@ -7,7 +7,6 @@ import { RenameFolderTool } from '../commands/renameFolder';
 import { ExplorerProvider } from '../explorer/explorerProvider';
 import { MetadataCache } from '../cache/cache';
 import { AppTreeItem } from '../explorer/appTreeItem';
-import { ExplorerService } from '../explorer/explorerService';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {
@@ -16,7 +15,6 @@ if (typeof suite !== 'undefined') {
         let testDataDir: string;
         let mockExplorerProvider: ExplorerProvider;
         let mockCache: MetadataCache;
-        const explorerService = new ExplorerService();
 
         setup(async () => {
             // Create a temporary workspace directory for testing
@@ -58,7 +56,7 @@ if (typeof suite !== 'undefined') {
         });
 
         test('Should validate input parameters correctly', async () => {
-            const tool = new RenameFolderTool(explorerService);
+            const tool = new RenameFolderTool();
             
             // Test with invalid target (not a folder AppTreeItem)
             const showErrorMessageSpy: string[] = [];
@@ -98,7 +96,7 @@ if (typeof suite !== 'undefined') {
                 return;
             }
 
-            const tool = new RenameFolderTool(explorerService);
+            const tool = new RenameFolderTool();
             
             // Create test folder structure in the actual workspace
             const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -183,7 +181,7 @@ if (typeof suite !== 'undefined') {
         });
 
         test('Should handle folder path construction correctly', async () => {
-            const tool = new RenameFolderTool(explorerService);
+            const tool = new RenameFolderTool();
             
             // Test the private getFolderPathFromParent method indirectly
             // by checking the expected behavior when renaming nested folders
