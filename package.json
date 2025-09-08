@@ -97,10 +97,6 @@
         "title": "New Data Source"
       },
       {
-        "command": "slingr-vscode-extension.newDataset",
-        "title": "New Dataset"
-      },
-      {
         "command": "slingr-vscode-extension.renameDataSource",
         "title": "Rename Data Source"
       },

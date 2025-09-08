@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DecoratedClass, DecoratorMetadata, FileMetadata, MetadataCache, PropertyMetadata } from '../cache/cache';
+import { DataSourceMetadata, DecoratedClass, DecoratorMetadata, FileMetadata, MetadataCache, PropertyMetadata } from '../cache/cache';
 
 /**
  * Context object containing all necessary information for performing refactoring operations.
@@ -183,7 +183,7 @@ export interface ManualRefactorContext {
     cache: MetadataCache;
     uri: vscode.Uri;
     range: vscode.Range;
-    metadata?: DecoratedClass | PropertyMetadata;
+    metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata;
 }
 
 /**
