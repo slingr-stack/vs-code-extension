@@ -1,4 +1,4 @@
-import { TypeORMSqlDataSource, TypeORMSqlDataSourceOptions } from '../../src/datasources/typeorm/TypeORMSqlDataSource';
+import { TypeORMSqlDataSource, TypeORMSqlDataSourceOptions } from '../../index';
 import { BlogPost } from '../model/BlogPost';
 import * as fs from 'fs';
 
@@ -86,6 +86,7 @@ PostgreSQL Setup Instructions:
       database: process.env.MYSQL_DB || 'slingr_test',
       logging: false,
       synchronize: true,
+      dropSchema: true,
       connectTimeout: 5000,
     },
     skipCondition: () => process.env.SKIP_MYSQL === 'true',

@@ -61,6 +61,12 @@ export interface TypeORMSqlDataSourceOptions extends DataSourceOptions {
 
   /** Minimum number of connections in pool */
   minConnections?: number;
+
+  /**
+   * Drop the database schema on every initialization.
+   * Test-only helper to ensure a pristine schema (maps to TypeORM dropSchema option).
+   */
+  dropSchema?: boolean;
 }
 
 /**
@@ -283,25 +289,27 @@ export class TypeORMSqlDataSource extends DataSource {
 
     const repository = this.typeormDataSource.getRepository(entity.constructor as any);
 
-    // If entity has an id, we need to handle updates differently
-    const isUpdate = !!(entity as any).id;
-    
-    // Preserve array values before extracting main entity fields
-    const arrayValues = this.arrayFieldManager.extractArrayValues(entity);
+    // Ensure relation arrays are prepared before save so cascading can persist children
+    if (typeof (entity as any)._prepareArrayRelations === 'function') {
+      (entity as any)._prepareArrayRelations();
+    }
 
-    // Handle DateTimeRange fields - extract to hidden columns
     this.dateTimeRangeFieldManager.extractDateTimeRangeValues(entity);
 
-    // Save the main entity first (without arrays converted)
-    const mainEntityToSave = this.arrayFieldManager.extractMainEntityFields(entity);
-    const savedMainEntity = await repository.save(mainEntityToSave as any) as T;
+    // Single save with cascades will insert/update parent and children.
+    const saved = await repository.save(entity as any) as T;
 
-    // Now save array fields using the preserved values
-    await this.arrayFieldManager.saveArrayFields(entity, arrayValues, savedMainEntity, this.typeormDataSource);
+    // Reload the entity from the database to ensure all transformers are applied correctly.
+    // This is necessary because TypeORM's save() method returns the original entity object,
+    // not one that has been loaded back with transformers applied.
+    if ((saved as any).id) {
+      const reloaded = await repository.findOneBy({ id: (saved as any).id } as any) as T | null;
+      if (reloaded) {
+        return reloaded;
+      }
+    }
 
-    // Return the entity with arrays loaded
-    const result = await this.findOneById(entity.constructor as any, (savedMainEntity as any).id);
-    return result as T; // We know it exists since we just saved it
+    return saved as T;
   }
 
   /**
@@ -327,7 +335,6 @@ export class TypeORMSqlDataSource extends DataSource {
       entities = await repository.find() as T[];
     }
     
-    // Array fields are automatically transformed via @AfterLoad hooks
     return entities;
   }
 
@@ -739,8 +746,7 @@ export class TypeORMSqlDataSource extends DataSource {
     if (!entity) {
       return null;
     }
-    
-    // Array fields are automatically transformed via @AfterLoad hooks
+
     return entity;
   }
 

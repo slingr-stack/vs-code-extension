@@ -1,8 +1,5 @@
-import { Field } from "../../src/model/Field";
-import { Model } from "../../src/model/Model";
-import { BaseModel } from "../../src/model/BaseModel";
-import { Choice, Text, Relationship, HTML } from "../../src/model/types";
-import { Project } from "./Project";
+import { BaseModel, Field, Model, Choice, Text, Relationship, HTML } from '../../index';
+import { Project } from './Project';
 
 export enum TaskStatus {
     ToDo = 'toDo',
