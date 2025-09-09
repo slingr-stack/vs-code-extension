@@ -1,22 +1,34 @@
 /**
- * Represents a single validation error from a custom validation function.
+ * Validation issue interface for custom validation functions.
  */
-export type ValidationIssue = { constraint: string; message: string };
+export type ValidationIssue = {
+  /** Error code identifier */
+  constraint: string;
+  /** Human-readable error message */
+  message: string;
+}
 
 /**
- * A function that performs custom validation on a field's value.
- * @param TValue The type of the field's value.
- * @param TObject The type of the object being validated.
- * @returns An array of ValidationIssue objects. Returns an empty array if validation passes.
+ * Type for a custom validation function.
+ * @param value - The value of the field being validated.
+ * @param object - The entire object containing the field.
+ * @returns An array of validation issues, or an empty array if valid.
  */
-export type CustomValidationFunction<TValue, TObject> = (
+export type CustomValidationFunction<TValue = unknown, TObject = object> = (
   value: TValue,
   object: TObject
 ) => ValidationIssue[];
 
 /**
- * A function that conditionally determines if a field is required.
- * @param TObject The type of the object being validated.
- * @returns `true` if the field is required, `false` otherwise.
+ * Type for a function that dynamically determines if a field is required.
+ * @param object - The entire object containing the field.
+ * @returns `true` if the field is required, otherwise `false`.
  */
-export type CustomRequiredFunction<TObject> = (object: TObject) => boolean;
+export type CustomRequiredFunction<TObject = object> = (object: TObject) => boolean;
+
+/**
+ * Type for a function that dynamically determines if a field is available.
+ * @param object - The entire object containing the field.
+ * @returns `true` if the field is available, otherwise `false`.
+ */
+export type CustomAvailableFunction<TObject = object> = (object: TObject) => boolean;
