@@ -86,6 +86,7 @@ PostgreSQL Setup Instructions:
       database: process.env.MYSQL_DB || 'slingr_test',
       logging: false,
       synchronize: true,
+      dropSchema: true,
       connectTimeout: 5000,
     },
     skipCondition: () => process.env.SKIP_MYSQL === 'true',
