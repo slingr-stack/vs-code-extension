@@ -126,6 +126,10 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
             return;
         }
 
+        if (this._currentState?.itemType === itemType && this._currentState?.metadata === metadata) {
+            return;
+        }
+
         if (!isNavigatingBack && this._currentState) {
             this._navigationHistory.push(this._currentState);
         }
