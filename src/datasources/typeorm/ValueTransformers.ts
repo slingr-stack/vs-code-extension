@@ -23,16 +23,17 @@ export class FinancialNumberTransformer implements ValueTransformer {
         if (value === null || value === undefined) {
             return null;
         }
-        
+
         if (typeof value === 'object' && value !== null && 'toString' in value) {
             return value.toString(this.decimals, this.roundingStrategy);
         }
-        
+
         // Fallback for edge cases - create a new FinancialNumber and format it
         try {
             const fn = number(String(value));
             return fn.toString(this.decimals, this.roundingStrategy);
         } catch (error) {
+            console.warn(`Failed to convert FinancialNumber to string for value: ${value}`, error);
             return String(value);
         }
     }
@@ -46,7 +47,7 @@ export class FinancialNumberTransformer implements ValueTransformer {
         if (value === null || value === undefined) {
             return undefined;
         }
-        
+
         try {
             const fn = number(String(value));
             // Apply the configured precision and rounding
@@ -66,7 +67,7 @@ export class FinancialNumberTransformer implements ValueTransformer {
  * @returns Configured transformer instance
  */
 export function createFinancialNumberTransformer(
-    decimals: number = 2, 
+    decimals: number = 2,
     roundingType: 'truncate' | 'roundHalfToEven' = 'truncate'
 ): FinancialNumberTransformer {
     return new FinancialNumberTransformer(decimals, roundingType);
