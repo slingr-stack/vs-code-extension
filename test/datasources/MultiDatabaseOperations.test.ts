@@ -1,4 +1,4 @@
-import { TypeORMSqlDataSource, TypeORMSqlDataSourceOptions } from '../../src/datasources/typeorm/TypeORMSqlDataSource';
+import { TypeORMSqlDataSource, TypeORMSqlDataSourceOptions } from '../../index';
 import { BlogPost } from '../model/BlogPost';
 import * as fs from 'fs';
 

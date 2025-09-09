@@ -23,4 +23,5 @@ export { Number } from './src/model/types/number/Number';
 export { Decimal } from './src/model/types/number/Decimal';
 export { PersistentModel } from './src/model';
 export { TypeORMSqlDataSource } from './src/datasources';
+export type { TypeORMSqlDataSourceOptions } from './src/datasources';
 export { Relationship } from './src/model/types';

@@ -1,7 +1,7 @@
 import { 
   TypeORMSqlDataSource, 
   TypeORMSqlDataSourceOptions 
-} from '../../src/datasources/typeorm/TypeORMSqlDataSource';
+} from '../../index';
 import { BlogPost } from '../model/BlogPost';
 import { FindOptionsWhere, FindManyOptions, FindOneOptions } from 'typeorm';
 
