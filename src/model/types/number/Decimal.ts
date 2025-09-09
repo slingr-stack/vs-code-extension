@@ -176,9 +176,16 @@ export const DecimalTypeConfig: FieldTypeConfig = {
             fieldOptions?.roundingType || 'truncate'
         );
         
+        let precision = 10;
+        if (fieldOptions?.max) {
+            // Remove decimal point and count total digits
+            const maxDigits = fieldOptions.max.replace('.', '').length;
+            precision = maxDigits;
+        }
+        
         return {
             type: 'decimal',
-            precision: 10,
+            precision: precision,
             scale: fieldOptions?.decimals || 2,
             nullable: nullable,
             transformer: transformer
