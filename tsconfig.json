@@ -6,7 +6,7 @@
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-    "noUncheckedIndexedAccess": true,
+    "noUncheckedIndexedAccess": false,
     "exactOptionalPropertyTypes": true,
     "strict": true,
     "jsx": "react-jsx",

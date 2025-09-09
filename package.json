@@ -2,8 +2,9 @@
   "name": "slingr-framework",
   "version": "1.0.0",
   "description": "Slingr Framework - Smart Business Apps",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./index.js" 
+    ".": "./dist/index.js" 
   },
   "scripts": {
     "test": "jest --verbose",
@@ -16,7 +17,6 @@
   },
   "author": "Slingr",
   "license": "Apache-2.0",
-  "type": "module",
   "bugs": {
     "url": "https://github.com/slingr-stack/framework/issues"
   },
