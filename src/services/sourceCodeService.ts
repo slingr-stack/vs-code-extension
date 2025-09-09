@@ -26,8 +26,13 @@ export class SourceCodeService {
 
     await this.ensureSlingrFrameworkImports(document, edit, new Set(["Field", fieldInfo.type.decorator]));
 
-    if (fieldInfo.type.decorator === "Relationship" && fieldInfo.additionalConfig?.targetModel) {
-      await this.addModelImport(document, fieldInfo.additionalConfig.targetModel, edit, cache);
+    if (fieldInfo.additionalConfig?.targetModelPath !== document.uri.fsPath) {
+      if (
+        (fieldInfo.type.decorator === "Relationship" || fieldInfo.type.decorator === "Composition") &&
+        fieldInfo.additionalConfig?.targetModel
+      ) {
+        await this.addModelImport(document, fieldInfo.additionalConfig.targetModel, edit, cache);
+      }
     }
 
     const { classEndLine } = this.findClassBoundaries(lines, modelClassName);
@@ -256,6 +261,52 @@ export class SourceCodeService {
     }
 
     return newRelativePath.replace(/\\/g, "/"); // Normalize path separators for imports
+  }
+
+  /**
+   * Inserts a new model class into a document at the appropriate location.
+   *
+   * @param document - The document to insert the model into
+   * @param modelCode - The complete model code to insert
+   * @param afterModelName - Optional name of existing model to insert after (defaults to end of file)
+   * @param requiredImports - Set of imports to ensure are present
+   */
+  public async insertModel(
+    document: vscode.TextDocument,
+    modelCode: string,
+    afterModelName?: string,
+    requiredImports?: Set<string>
+  ): Promise<void> {
+    const edit = new vscode.WorkspaceEdit();
+    const lines = document.getText().split("\n");
+
+    // Ensure required imports are present
+    if (requiredImports && requiredImports.size > 0) {
+      await this.ensureSlingrFrameworkImports(document, edit, requiredImports);
+    }
+
+    // Determine insertion point
+    let insertionLine = lines.length; // Default to end of file
+
+    if (afterModelName) {
+      try {
+        const { classEndLine } = this.findClassBoundaries(lines, afterModelName);
+        insertionLine = classEndLine + 1;
+      } catch (error) {
+        // If we can't find the specified model, fall back to end of file
+        console.warn(`Could not find model ${afterModelName}, inserting at end of file`);
+      }
+    }
+
+    // Detect indentation from the file
+    const indentation = detectIndentation(lines, 0, lines.length);
+    const indentedModelCode = applyIndentation(modelCode, indentation);
+
+    // Insert the model with appropriate spacing
+    const spacing = insertionLine < lines.length ? "\n\n" : "\n";
+    edit.insert(document.uri, new vscode.Position(insertionLine, 0), `${spacing}${indentedModelCode}\n`);
+
+    await vscode.workspace.applyEdit(edit);
   }
 
   /**

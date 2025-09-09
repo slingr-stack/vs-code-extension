@@ -5,7 +5,6 @@ import { AppTreeItem } from "./appTreeItem";
 import * as fs from "fs";
 import * as path from "path";
 
-
 // Define custom MIME types for our drag-and-drop operations
 const FIELD_MIME_TYPE = "application/vnd.slingr-vscode-extension.field";
 const MODEL_MIME_TYPE = "application/vnd.slingr-vscode-extension.model";
@@ -69,7 +68,11 @@ export class ExplorerProvider
           })
         );
       }
-    } else if (draggedItem.itemType === "model" && draggedItem.metadata && this.isDecoratedClass(draggedItem.metadata)) {
+    } else if (
+      draggedItem.itemType === "model" &&
+      draggedItem.metadata &&
+      this.isDecoratedClass(draggedItem.metadata)
+    ) {
       // Check if this is a composition model (nested model within another model)
       if (draggedItem.parent && draggedItem.parent.itemType === "model") {
         // This is a composition model
@@ -147,19 +150,19 @@ export class ExplorerProvider
     const modelTransferItem = dataTransfer.get(MODEL_MIME_TYPE);
     const folderTransferItem = dataTransfer.get(FOLDER_MIME_TYPE);
 
-    if (fieldTransferItem?.value !== '' && fieldTransferItem) {
+    if (fieldTransferItem?.value !== "" && fieldTransferItem) {
       await this.handleFieldDrop(target, fieldTransferItem);
       return;
     }
 
     // Handle model moving to folders
-    if (modelTransferItem?.value !== '' && modelTransferItem) {
+    if (modelTransferItem?.value !== "" && modelTransferItem) {
       await this.handleModelDrop(target, modelTransferItem);
       return;
     }
 
     // Handle folder moving to other folders
-    if (folderTransferItem?.value !== '' && folderTransferItem) {
+    if (folderTransferItem?.value !== "" && folderTransferItem) {
       await this.handleFolderDrop(target, folderTransferItem);
       return;
     }
@@ -173,7 +176,9 @@ export class ExplorerProvider
 
     // Check if someone is trying to drop a composition model into a folder or data root
     if (target && (target.itemType === "folder" || target.itemType === "dataRoot" || target.itemType === "model")) {
-      vscode.window.showWarningMessage("Composition models cannot be moved to folders or models. They are part of their parent model structure.");
+      vscode.window.showWarningMessage(
+        "Composition models cannot be moved to folders or models. They are part of their parent model structure."
+      );
       return;
     }
 
@@ -281,7 +286,7 @@ export class ExplorerProvider
       return;
     }
 
-    const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
+    const srcDataPath = path.join(workspaceFolder.uri.fsPath, "src", "data");
     const targetPath = target.itemType === "dataRoot" ? srcDataPath : path.join(srcDataPath, target.folderPath || "");
 
     try {
@@ -306,15 +311,15 @@ export class ExplorerProvider
       const workspaceEdit = new vscode.WorkspaceEdit();
       const sourceUri = vscode.Uri.file(sourcePath);
       const targetUri = vscode.Uri.file(newPath);
-      
+
       workspaceEdit.renameFile(sourceUri, targetUri);
-      
+
       const success = await vscode.workspace.applyEdit(workspaceEdit);
-      
+
       if (success) {
         // Force cache refresh after model move to ensure proper file path updates
         await this.cache.forceRefresh();
-        
+
         // Wait a bit longer and then refresh the tree to ensure cache is fully updated
         setTimeout(() => {
           this.refresh();
@@ -330,7 +335,10 @@ export class ExplorerProvider
     }
   }
 
-  private async handleFolderDrop(target: AppTreeItem | undefined, transferItem: vscode.DataTransferItem): Promise<void> {
+  private async handleFolderDrop(
+    target: AppTreeItem | undefined,
+    transferItem: vscode.DataTransferItem
+  ): Promise<void> {
     const draggedData = transferItem.value;
 
     // Folders can only be dropped into other folders or the data root
@@ -344,7 +352,7 @@ export class ExplorerProvider
       // Normalize paths for cross-platform comparison
       const normalizedTargetPath = target.folderPath.replace(/[\/\\]/g, path.sep);
       const normalizedDraggedPath = draggedData.folderPath.replace(/[\/\\]/g, path.sep);
-      
+
       if (normalizedTargetPath.startsWith(normalizedDraggedPath)) {
         vscode.window.showWarningMessage("Cannot move a folder into itself or its subfolder.");
         return;
@@ -357,15 +365,18 @@ export class ExplorerProvider
       return;
     }
 
-    const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
+    const srcDataPath = path.join(workspaceFolder.uri.fsPath, "src", "data");
     const sourcePath = path.join(srcDataPath, draggedData.folderPath);
-    const targetBasePath = target.itemType === "dataRoot" ? srcDataPath : path.join(srcDataPath, target.folderPath || "");
+    const targetBasePath =
+      target.itemType === "dataRoot" ? srcDataPath : path.join(srcDataPath, target.folderPath || "");
     const newPath = path.join(targetBasePath, draggedData.folderName);
 
     try {
       // Check if target folder already exists
       if (fs.existsSync(newPath)) {
-        vscode.window.showErrorMessage(`A folder named "${draggedData.folderName}" already exists in the target location.`);
+        vscode.window.showErrorMessage(
+          `A folder named "${draggedData.folderName}" already exists in the target location.`
+        );
         return;
       }
 
@@ -379,15 +390,15 @@ export class ExplorerProvider
       const workspaceEdit = new vscode.WorkspaceEdit();
       const sourceUri = vscode.Uri.file(sourcePath);
       const targetUri = vscode.Uri.file(newPath);
-      
+
       workspaceEdit.renameFile(sourceUri, targetUri);
-      
+
       const success = await vscode.workspace.applyEdit(workspaceEdit);
-      
+
       if (success) {
         // Force cache refresh after folder move to ensure proper file path updates
         await this.cache.forceRefresh();
-        
+
         // Wait a bit longer and then refresh the tree to ensure cache is fully updated
         setTimeout(() => {
           this.refresh();
@@ -487,7 +498,8 @@ export class ExplorerProvider
             (d) =>
               d.name === "Relationship" &&
               d.arguments.some((arg) => arg.type === "Composition" || arg.type === "composition")
-          )
+          ) ||
+          field.decorators.some((d) => d.name === "Composition")
         ) {
           const relationshipType = this.extractBaseTypeFromArrayType(field.type);
           const relatedModel = this.cache.getDataModelClasses().find((model) => model.name === relationshipType);
@@ -500,7 +512,7 @@ export class ExplorerProvider
             relatedModel,
             element
           );
-          
+
           // Set command for click handling (single vs double-click detection)
           if (relatedModel) {
             compositionItem.command = {
@@ -599,12 +611,12 @@ export class ExplorerProvider
       return;
     }
 
-    const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
+    const srcDataPath = path.join(workspaceFolder.uri.fsPath, "src", "data");
     if (!fs.existsSync(srcDataPath)) {
       return;
     }
 
-    this.scanDirectoryRecursively(srcDataPath, root, '');
+    this.scanDirectoryRecursively(srcDataPath, root, "");
   }
 
   /**
@@ -613,7 +625,7 @@ export class ExplorerProvider
   private scanDirectoryRecursively(dirPath: string, currentNode: FolderNode, relativePath: string): void {
     try {
       const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         if (entry.isDirectory()) {
           const folderName = entry.name;
@@ -689,8 +701,14 @@ export class ExplorerProvider
 
       // Only show models that are NOT referenced by composition relationships
       if (!this.isModelReferencedByComposition(model)) {
-        const modelItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "model", this.extensionUri, model);
-        
+        const modelItem = new AppTreeItem(
+          label,
+          vscode.TreeItemCollapsibleState.Collapsed,
+          "model",
+          this.extensionUri,
+          model
+        );
+
         // Set command for click handling (single vs double-click detection)
         modelItem.command = {
           command: "slingr-vscode-extension.handleTreeItemClick",
@@ -742,50 +760,51 @@ export class ExplorerProvider
   }
 
   private isModelReferencedByComposition(item: DecoratedClass): boolean {
-      // Instead of relying on pre-computed references, scan all models in the cache
-      // to find composition relationships. This is more reliable after file moves.
-      const allModels = this.cache.getDataModelClasses();
-      
-      for (const model of allModels) {
-          // Skip the model itself
-          if (model.name === item.name) {
-              continue;
-          }
-          
-          // Check all properties of this model
-          for (const property of Object.values(model.properties)) {
-              // Check if this property references our target model type
-              const baseType = this.extractBaseTypeFromArrayType(property.type);
-              
-              if (baseType === item.name) {
-                  // Check if this property has a @Field decorator (indicating it's a field)
-                  const hasFieldDecorator = property.decorators.some((d) => d.name === "Field");
-                  
-                  if (hasFieldDecorator) {
-                      // Check if this property has a @Relationship decorator with type: "Composition"
-                      const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
-                      
-                      if (relationshipDecorator) {
-                          // Check if the relationship decorator has type: "Composition" or "composition"
-                          const hasCompositionType = relationshipDecorator.arguments.some(
-                              (arg) => {
-                                  if (typeof arg === "object" && arg !== null) {
-                                      return arg.type === "Composition" || arg.type === "composition";
-                                  }
-                                  return arg === "Composition" || arg === "composition";
-                              }
-                          );
+    // Instead of relying on pre-computed references, scan all models in the cache
+    // to find composition relationships. This is more reliable after file moves.
+    const allModels = this.cache.getDataModelClasses();
 
-                          if (hasCompositionType) {
-                              return true;
-                          }
-                      }
-                  }
-              }
-          }
+    for (const model of allModels) {
+      // Skip the model itself
+      if (model.name === item.name) {
+        continue;
       }
 
-      return false;
+      // Check all properties of this model
+      for (const property of Object.values(model.properties)) {
+        // Check if this property references our target model type
+        const baseType = this.extractBaseTypeFromArrayType(property.type);
+
+        if (baseType === item.name) {
+          // Check if this property has a @Field decorator (indicating it's a field)
+          const hasFieldDecorator = property.decorators.some((d) => d.name === "Field");
+
+          if (hasFieldDecorator) {
+            // Check if this property has a @Relationship decorator with type: "Composition"
+            const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
+            const compositionDecorator = property.decorators.find((d) => d.name === "Composition");
+
+            if (relationshipDecorator) {
+              // Check if the relationship decorator has type: "Composition" or "composition"
+              const hasCompositionType = relationshipDecorator.arguments.some((arg) => {
+                if (typeof arg === "object" && arg !== null) {
+                  return arg.type === "Composition" || arg.type === "composition";
+                }
+                return arg === "Composition" || arg === "composition";
+              });
+
+              if (hasCompositionType) {
+                return true;
+              }
+            } else if (compositionDecorator) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+
+    return false;
   }
 
   /**

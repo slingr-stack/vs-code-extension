@@ -203,6 +203,7 @@ export class AddFieldTool implements AIEnhancedTool {
     }
 
     const modelClass = await this.projectAnalysisService.findModelClass(document, cache);
+    
     if (!modelClass) {
       throw new Error("No model class found in this file. Make sure the class has a @Model decorator.");
     }

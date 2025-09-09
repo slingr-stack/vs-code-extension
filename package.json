@@ -65,6 +65,10 @@
         "title": "Add Field"
       },
       {
+        "command": "slingr-vscode-extension.addComposition",
+        "title": "Add Composition"
+      },
+      {
         "command": "slingr-vscode-extension.newFolder",
         "title": "New Folder"
       },
@@ -136,6 +140,11 @@
         },
         {
           "command": "slingr-vscode-extension.addField",
+          "when": "view == slingrExplorer && viewItem == 'model'",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.addComposition",
           "when": "view == slingrExplorer && viewItem == 'model'",
           "group": "0_creation"
         },
@@ -223,6 +232,11 @@
         },
         {
           "command": "slingr-vscode-extension.addField",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "1_field"
+        },
+        {
+          "command": "slingr-vscode-extension.addComposition",
           "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
           "group": "1_field"
         },

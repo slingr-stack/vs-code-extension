@@ -31,7 +31,10 @@ export class ProjectAnalysisService {
     }
 
     if (modelClasses.length > 1) {
-      const selected = await vscode.window.showQuickPick(modelClasses.map((c) => c.name));
+      const selected = await vscode.window.showQuickPick(
+        modelClasses.map((c) => c.name),
+        { placeHolder: 'Select a model class from this file' }
+      );
       return modelClasses.find((c) => c.name === selected);
     }
     return undefined;
