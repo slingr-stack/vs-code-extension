@@ -192,7 +192,7 @@ if (typeof suite !== 'undefined') {
                     type: 'DELETE_MODEL',
                     uri,
                     description: 'Product model deleted',
-                    payload: { oldModelMetadata: oldModel2 } as DeleteModelPayload
+                    payload: { oldModelMetadata: oldModel2 }
                 } as ChangeObject];
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta, accumulatedChanges);

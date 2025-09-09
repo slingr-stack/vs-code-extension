@@ -79,13 +79,13 @@ export class DeleteFieldTool implements IRefactorTool {
 
         for (const change of accumulatedChanges) {
             if (change.type === 'RENAME_MODEL') {
-                const payload = change.payload as RenameModelPayload;
+                const payload = change.payload;
                 if (payload.oldName && payload.newName) {
                     classRenames.set(payload.oldName, payload.newName);
                 }
             }
             if (change.type === 'RENAME_FIELD') {
-                const payload = change.payload as RenameFieldPayload;
+                const payload = change.payload;
                 if (payload.oldName && payload.modelName) {
                     const oldClassName = payload.modelName;
                     if (!renamedFieldsByClass.has(oldClassName)) {
@@ -168,7 +168,7 @@ export class DeleteFieldTool implements IRefactorTool {
             return undefined;
         }
 
-        const field = context.metadata as PropertyMetadata;
+        const field: PropertyMetadata = context.metadata;
         const confirmation = await vscode.window.showWarningMessage(
               `Are you sure you want to delete the Field '${field.name}' and all its references? This action cannot be undone.`,
               "Yes, Delete All"
@@ -223,10 +223,10 @@ export class DeleteFieldTool implements IRefactorTool {
             throw new Error(`DeleteFieldTool can only handle DELETE_FIELD changes, received: ${change.type}`);
         }
         
-        const payload = change.payload as DeleteFieldPayload;
+        const payload = change.payload;
         const { oldFieldMetadata, isManual } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
-        const field = oldFieldMetadata as PropertyMetadata;
+        const field: PropertyMetadata = oldFieldMetadata;
 
         if (!field?.declaration?.range) {
             throw new Error(`Cannot delete field '${field.name}'; metadata is incomplete.`);
@@ -281,8 +281,8 @@ export class DeleteFieldTool implements IRefactorTool {
             console.error(`DeleteFieldTool can only execute prompts for DELETE_FIELD changes, received: ${change.type}`);
             return;
         }
-        
-        const payload = change.payload as DeleteFieldPayload;
+
+        const payload = change.payload;
         const { modelName, oldFieldMetadata } = payload;
         const fieldName = oldFieldMetadata?.name || 'unknown';
         

@@ -83,7 +83,7 @@ export class DeleteModelTool implements IRefactorTool {
     // Check if this model was already handled by a rename operation
     const wasRenamed = accumulatedChanges.some(change => {
       if (change.type === 'RENAME_MODEL') {
-        const payload = change.payload as RenameModelPayload;
+        const payload = change.payload;
         return payload.oldName === oldModelClass.name;
       }
       return false;
@@ -141,7 +141,7 @@ export class DeleteModelTool implements IRefactorTool {
       vscode.window.showErrorMessage("Could not find a valid model to delete.");
       return undefined;
     }
-    const model = context.metadata as DecoratedClass;
+    const model: DecoratedClass = context.metadata;
     const confirmation = await vscode.window.showWarningMessage(
       `Are you sure you want to delete the model '${model.name}', its related files, and all its references? This action cannot be undone.`,
       "Yes, Delete All"
@@ -196,7 +196,7 @@ export class DeleteModelTool implements IRefactorTool {
       throw new Error(`DeleteModelTool can only handle DELETE_MODEL changes, received: ${change.type}`);
     }
     
-    const payload = change.payload as DeleteModelPayload;
+    const payload = change.payload;
     const { oldModelMetadata } = payload;
     const workspaceEdit = new vscode.WorkspaceEdit();
     const urisToDelete: vscode.Uri[] = payload.urisToDelete || [];
@@ -365,7 +365,7 @@ export class DeleteModelTool implements IRefactorTool {
       return;
     }
     
-    const payload = change.payload as DeleteModelPayload;
+    const payload = change.payload;
     const { oldModelMetadata } = payload;
     const modelName = oldModelMetadata?.name || 'unknown';
     

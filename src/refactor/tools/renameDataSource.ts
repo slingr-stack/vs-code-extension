@@ -95,7 +95,10 @@ export class RenameDataSourceTool implements IRefactorTool {
     }
 
     async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
-        const payload = change.payload as RenameDataSourcePayload;
+        if (change.type !== 'RENAME_DATA_SOURCE') {
+            throw new Error(`RenameDataSourceTool can only handle RENAME_DATA_SOURCE changes, received: ${change.type}`);
+        }
+        const payload = change.payload;
         const { oldName, newName, isManual } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
 
