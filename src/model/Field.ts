@@ -172,7 +172,7 @@ export interface FieldOptions<TObject extends object = object, TValue = unknown>
  * }
  * ```
  */
-export function Field<TObject extends object = object, TValue = unknown>(options: FieldOptions<TObject, TValue>) {
+export function Field<TObject extends object = object, TValue = unknown>(options: FieldOptions<TObject, TValue> = {}) {
   return function (target: Object, propertyKey: string, descriptor?: PropertyDescriptor) {
 
     // Mark this property as a field
