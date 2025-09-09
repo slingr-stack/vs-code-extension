@@ -141,8 +141,8 @@ if (typeof suite !== 'undefined') {
                 const newModel = TestMetadataFactory.createModel({ name: 'User', declaration: { uri: modelUri, range: new vscode.Range(5, 0, 5, 4) } });
                 newModel.properties = { 'email': TestMetadataFactory.createField({ name: 'email', type: 'string', declaration: { uri: modelUri, range: new vscode.Range(9, 4, 9, 9) } }) };
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
-                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel }, dataSources: {} };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 
@@ -166,8 +166,8 @@ if (typeof suite !== 'undefined') {
                 const newModel = TestMetadataFactory.createModel({ name: 'User', declaration: { uri: modelUri, range: new vscode.Range(5, 0, 5, 4) } });
                 newModel.properties = { 'email': emailField }; // Only email remains
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
-                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel }, dataSources: {} };
                 
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 
@@ -195,9 +195,9 @@ if (typeof suite !== 'undefined') {
                 const newNonModel = TestMetadataFactory.createNonModel('Helper', nonModelUri, new vscode.Range(5, 0, 5, 6));
                 newNonModel.properties = {}; // Field removed
                 
-                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': oldNonModel } };
-                const newFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': newNonModel } };
-                
+                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': oldNonModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': newNonModel }, dataSources: {} };
+
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 assert.strictEqual(changes.length, 0);
             });
@@ -215,16 +215,16 @@ if (typeof suite !== 'undefined') {
                 const newModel = TestMetadataFactory.createModel({ name: 'User', declaration: { uri: modelUri, range: new vscode.Range(5, 0, 5, 4) } });
                 newModel.properties = { 'name': newField };
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
-                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
-                
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel }, dataSources: {} };
+
                 const changes = tool.analyze(oldFileMeta, newFileMeta);
                 assert.strictEqual(changes.length, 0); // Property still exists, just not a field anymore
             });
 
             test('should handle empty or undefined metadata', () => {
                 const uri = vscode.Uri.file('/test/src/data/models/User.ts');
-                const emptyFileMeta: FileMetadata = { uri, classes: {} };
+                const emptyFileMeta: FileMetadata = { uri, classes: {}, dataSources: {} };
                 
                 // Test with empty files
                 assert.strictEqual(tool.analyze(emptyFileMeta, undefined).length, 0);
@@ -234,7 +234,7 @@ if (typeof suite !== 'undefined') {
                 
                 // Test with non-model files
                 const nonModelUri = vscode.Uri.file('/test/src/utils/helper.ts');
-                const nonModelMeta: FileMetadata = { uri: nonModelUri, classes: {} };
+                const nonModelMeta: FileMetadata = { uri: nonModelUri, classes: {}, dataSources: {} };
                 assert.strictEqual(tool.analyze(nonModelMeta, undefined).length, 0);
             });
         });

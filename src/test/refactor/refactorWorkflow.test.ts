@@ -460,10 +460,10 @@ if (typeof suite !== 'undefined') {
                     { uri: modelUri, range: modelRange }, // declaration 
                     { uri: serviceUri, range: referenceRange } // external reference
                 ];
-                
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
-                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'Person': newModel } };
-                
+
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'Person': newModel }, dataSources: {} };
+
                 // Simulate change detection through tools
                 const renameModelTool = new RenameModelTool();
                 const changes = renameModelTool.analyze(oldFileMeta, newFileMeta);
@@ -512,8 +512,8 @@ if (typeof suite !== 'undefined') {
                 const oldModel = { ...model, properties: { 'age': oldField } };
                 const newModel = { ...model, properties: { 'age': newField } };
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
-                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': newModel }, dataSources: {} };
                 
                 const changeFieldTypeTool = new ChangeFieldTypeTool();
                 const changes = changeFieldTypeTool.analyze(oldFileMeta, newFileMeta);
@@ -549,8 +549,8 @@ if (typeof suite !== 'undefined') {
                 oldModel.properties = { 'name': oldField1, 'age': oldField2 };
                 newModel.properties = { 'fullName': newField1, 'age': newField2 };
                 
-                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel } };
-                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'Person': newModel } };
+                const oldFileMeta: FileMetadata = { uri: modelUri, classes: { 'User': oldModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: modelUri, classes: { 'Person': newModel }, dataSources: {} };
                 
                 // Collect changes from all tools
                 const allChanges: ChangeObject[] = [];
@@ -630,9 +630,9 @@ if (typeof suite !== 'undefined') {
                 const nonModelUri = vscode.Uri.file('/test/src/utils/helper.ts');
                 const range = new vscode.Range(5, 0, 5, 6);
                 const nonModel = createMockNonModel('Helper', nonModelUri, range);
-                
-                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': nonModel } };
-                const newFileMeta: FileMetadata = { uri: nonModelUri, classes: {} };
+
+                const oldFileMeta: FileMetadata = { uri: nonModelUri, classes: { 'Helper': nonModel }, dataSources: {} };
+                const newFileMeta: FileMetadata = { uri: nonModelUri, classes: {}, dataSources: {} };
                 
                 // Test that tools handle non-model files properly
                 const tools = controller.getTools();
@@ -674,7 +674,7 @@ if (typeof suite !== 'undefined') {
                 };
                 
                 // Delete the User model
-                const oldFileMeta: FileMetadata = { uri: userUri, classes: { 'User': userModel } };
+                const oldFileMeta: FileMetadata = { uri: userUri, classes: { 'User': userModel }, dataSources: {} };
                 
                 const deleteModelTool = new DeleteModelTool();
                 const changes = deleteModelTool.analyze(oldFileMeta, undefined);
@@ -737,8 +737,8 @@ if (typeof suite !== 'undefined') {
                             const oldModel = createMockModel(`Model${i}`, modelUri, new vscode.Range(5, 0, 5, 7 + i.toString().length));
                             const newModel = createMockModel(`NewModel${i}`, modelUri, new vscode.Range(5, 0, 5, 10 + i.toString().length));
                             
-                            const oldFileMeta: FileMetadata = { uri: modelUri, classes: { [`Model${i}`]: oldModel } };
-                            const newFileMeta: FileMetadata = { uri: modelUri, classes: { [`NewModel${i}`]: newModel } };
+                            const oldFileMeta: FileMetadata = { uri: modelUri, classes: { [`Model${i}`]: oldModel }, dataSources: {} };
+                            const newFileMeta: FileMetadata = { uri: modelUri, classes: { [`NewModel${i}`]: newModel }, dataSources: {} };
                             
                             // Test that tools can handle concurrent analysis
                             const renameModelTool = new RenameModelTool();
