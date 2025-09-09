@@ -155,6 +155,16 @@ export class MetadataCache {
     }
 
     /**
+     * Gets all SQL data sources from the cache.
+     * @returns An array of SQL data source metadata.
+     */
+    public getSqlDataSources(): DataSourceMetadata[] {
+        return this.getDataSources().filter(
+            ds => ds.type === 'TypeOrmSqlDataSource'
+        );
+    }
+
+    /**
      * Sets up file system watchers to detect changes, creations, and deletions
      * of TypeScript files and folder structure changes in src/data.
      */
