@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
-import { AppTreeItem } from "../explorer/appTreeItem";
-import { ExplorerProvider } from "../explorer/explorerProvider";
-import { ProjectAnalysisService } from "../services/projectAnalysisService";
-import { FileSystemService } from "../services/fileSystemService";
+import { AppTreeItem } from "../../explorer/appTreeItem";
+import { ExplorerProvider } from "../../explorer/explorerProvider";
+import { ProjectAnalysisService } from "../../services/projectAnalysisService";
+import { FileSystemService } from "../../services/fileSystemService";
 
 /**
  * Tool for creating new folders in the src/data directory structure.

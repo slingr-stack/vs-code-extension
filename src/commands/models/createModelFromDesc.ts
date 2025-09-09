@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { MetadataCache } from "../cache/cache";
-import { AppTreeItem } from "../explorer/appTreeItem";
-import { AIService } from "../services/aiService";
+import { MetadataCache } from "../../cache/cache";
+import { AppTreeItem } from "../../explorer/appTreeItem";
+import { AIService } from "../../services/aiService";
 
 export class CreateModelFromDescriptionTool {
   constructor(private aiService: AIService) {}

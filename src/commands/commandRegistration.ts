@@ -1,16 +1,16 @@
 import * as vscode from 'vscode';
 import { MetadataCache } from '../cache/cache';
 import { ExplorerProvider } from '../explorer/explorerProvider';
-import { NewModelTool } from './newModel';
-import { DefineFieldsTool } from './defineFields';
-import { AddFieldTool } from './addField';
-import { NewFolderTool } from './newFolder';
-import { DeleteFolderTool } from './deleteFolder';
-import { RenameFolderTool } from './renameFolder';
+import { NewModelTool } from './models/newModel';
+import { DefineFieldsTool } from './fields/defineFields';
+import { AddFieldTool } from './fields/addField';
+import { NewFolderTool } from './folders/newFolder';
+import { DeleteFolderTool } from './folders/deleteFolder';
+import { RenameFolderTool } from './folders/renameFolder';
 import { CreateTestTool } from './createTest';
 import { AppTreeItem } from '../explorer/appTreeItem';
-import { CreateModelFromDescriptionTool } from './createModelFromDesc';
-import { ModifyModelTool } from './modifyModel';
+import { CreateModelFromDescriptionTool } from './models/createModelFromDesc';
+import { ModifyModelTool } from './models/modifyModel';
 import { AIService } from '../services/aiService';
 
 export function registerGeneralCommands(

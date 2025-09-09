@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
-import { MetadataCache, DecoratedClass, PropertyMetadata } from "../cache/cache";
-import { DefineFieldsTool } from "./defineFields";
-import { AIEnhancedTool, FIELD_TYPE_OPTIONS, FieldTypeOption, FieldInfo } from "./interfaces";
-import { detectIndentation, applyIndentation } from "../utils/detectIndentation";
-import { AIService } from "../services/aiService";
-import { UserInputService } from "../services/userInputService";
-import { ProjectAnalysisService } from "../services/projectAnalysisService";
-import { SourceCodeService } from "../services/sourceCodeService";
-import { FileSystemService } from "../services/fileSystemService";
+import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cache";
+import { DefineFieldsTool } from "../fields/defineFields";
+import { AIEnhancedTool, FIELD_TYPE_OPTIONS, FieldTypeOption, FieldInfo } from "../interfaces";
+import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
+import { AIService } from "../../services/aiService";
+import { UserInputService } from "../../services/userInputService";
+import { ProjectAnalysisService } from "../../services/projectAnalysisService";
+import { SourceCodeService } from "../../services/sourceCodeService";
+import { FileSystemService } from "../../services/fileSystemService";
 
 /**
  * Tool for adding new fields to existing Model classes.

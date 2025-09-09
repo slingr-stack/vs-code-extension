@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
-import { AppTreeItem } from "../explorer/appTreeItem";
-import { DefineFieldsTool } from "./defineFields";
-import { AddFieldTool } from "./addField";
-import { MetadataCache } from "../cache/cache";
-import { AIEnhancedTool, FieldInfo, FIELD_TYPE_OPTIONS } from "./interfaces";
-import { FileSystemService } from "../services/fileSystemService";
+import { AppTreeItem } from "../../explorer/appTreeItem";
+import { DefineFieldsTool } from "../fields/defineFields";
+import { AddFieldTool } from "../fields/addField";
+import { MetadataCache } from "../../cache/cache";
+import { AIEnhancedTool, FieldInfo, FIELD_TYPE_OPTIONS } from "../interfaces";
+import { FileSystemService } from "../../services/fileSystemService";
 import path from "path";
 
 /**

@@ -1,14 +1,14 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { AppTreeItem } from "../explorer/appTreeItem";
-import { ExplorerProvider } from "../explorer/explorerProvider";
-import { MetadataCache } from "../cache/cache";
-import { UserInputService } from "../services/userInputService";
-import { ProjectAnalysisService } from "../services/projectAnalysisService";
-import { SourceCodeService } from "../services/sourceCodeService";
-import { FileSystemService } from "../services/fileSystemService";
-import { DefineFieldsTool } from "./defineFields";
+import { AppTreeItem } from "../../explorer/appTreeItem";
+import { ExplorerProvider } from "../../explorer/explorerProvider";
+import { MetadataCache } from "../../cache/cache";
+import { UserInputService } from "../../services/userInputService";
+import { ProjectAnalysisService } from "../../services/projectAnalysisService";
+import { SourceCodeService } from "../../services/sourceCodeService";
+import { FileSystemService } from "../../services/fileSystemService";
+import { DefineFieldsTool } from "../fields/defineFields";
 
 /**
  * Tool for deleting folders in the src/data directory structure.

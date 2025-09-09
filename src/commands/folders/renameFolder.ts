@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { AppTreeItem } from "../explorer/appTreeItem";
-import { ExplorerProvider } from "../explorer/explorerProvider";
-import { MetadataCache } from "../cache/cache";
-import { FileSystemService } from "../services/fileSystemService";
-import { DefineFieldsTool } from "./defineFields";
-import { AddFieldTool } from "./addField";
-import { ProjectAnalysisService } from "../services/projectAnalysisService";
-import { SourceCodeService } from "../services/sourceCodeService";
+import { AppTreeItem } from "../../explorer/appTreeItem";
+import { ExplorerProvider } from "../../explorer/explorerProvider";
+import { MetadataCache } from "../../cache/cache";
+import { FileSystemService } from "../../services/fileSystemService";
+import { DefineFieldsTool } from "../fields/defineFields";
+import { AddFieldTool } from "../fields/addField";
+import { ProjectAnalysisService } from "../../services/projectAnalysisService";
+import { SourceCodeService } from "../../services/sourceCodeService";
 
 /**
  * Tool for renaming folders in the src/data directory structure.

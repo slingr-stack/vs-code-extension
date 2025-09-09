@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { MetadataCache } from '../cache/cache';
-import { AIService } from '../services/aiService';
+import { MetadataCache } from '../../cache/cache';
+import { AIService } from '../../services/aiService';
 
 export class ModifyModelTool {
 

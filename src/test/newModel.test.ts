@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { NewModelTool } from '../commands/newModel';
+import { NewModelTool } from '../commands/models/newModel';
 import { MetadataCache } from '../cache/cache';
 import { AppTreeItem } from '../explorer/appTreeItem';
 

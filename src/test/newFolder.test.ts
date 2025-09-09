@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { NewFolderTool } from '../commands/newFolder';
+import { NewFolderTool } from '../commands/folders/newFolder';
 import { ExplorerProvider } from '../explorer/explorerProvider';
 import { MetadataCache } from '../cache/cache';
 import { AppTreeItem } from '../explorer/appTreeItem';
