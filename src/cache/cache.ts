@@ -46,6 +46,7 @@ export interface DataSourceMetadata {
     type: string; // e.g., 'TypeOrmSqlDataSource'
     declaration: vscode.Location;
     references: vscode.Location[];
+    options: { [key: string]: any };
 }
 
 /**
@@ -547,6 +548,11 @@ export class MetadataCache {
                     if (initializer && Node.isNewExpression(initializer)) {
                         const dataSourceName = varDecl.getName();
                         const dataSourceType = initializer.getExpression().getText();
+                        let options = {};
+                        const constructorArg = initializer.getArguments()[0];
+                        if (constructorArg && Node.isObjectLiteralExpression(constructorArg)) {
+                            options = this.parseNodeValue(constructorArg);
+                        }
 
                         fileMetadata.dataSources[dataSourceName] = {
                             name: dataSourceName,
@@ -556,6 +562,7 @@ export class MetadataCache {
                                 this.tsNodeToVscodeRange(varDecl.getNameNode())
                             ),
                             references: [],
+                            options: options
                         };
                     }
                 }

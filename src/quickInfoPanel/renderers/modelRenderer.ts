@@ -28,6 +28,22 @@ export class ModelRenderer extends BaseRenderer {
             command: 'goToLocation',
             data: sourceFileLocation
         };
+
+        const dataSourceName = mainDecorator?.arguments[0]?.dataSource;
+        let dataSourceHtml = '';
+        if (dataSourceName && context.findDataSource(dataSourceName)) {
+            const dataSourceClickCommand = {
+                command: 'itemClicked',
+                data: {
+                    itemType: 'dataSource',
+                    name: dataSourceName
+                }
+            };
+            dataSourceHtml = `<a href="#" class="clickable" data-command='${JSON.stringify(dataSourceClickCommand)}'><code>${dataSourceName}</code></a>`;
+        } else if (dataSourceName) {
+            dataSourceHtml = `<code>${dataSourceName}</code>`;
+        }
+
         const fieldsListHtml = Object.values(cls.properties)
             .filter(prop => prop.decorators.some(d => d.name === 'Field'))
             .map(prop => {
@@ -76,6 +92,7 @@ export class ModelRenderer extends BaseRenderer {
             </h1>
             <table>
                 ${this._renderTableRow('Source', `<a href="#" class="clickable" data-command='${JSON.stringify(sourceCommand)}'><code>${vscode.workspace.asRelativePath(cls.declaration.uri)}</code></a>`)}
+                ${this._renderTableRow('Data Source', dataSourceHtml)}
                 ${this._renderDecorators(cls.decorators, cls.declaration.uri)} 
             </table>
             ${fieldsListHtml ? `<h2>Fields</h2><ul class="item-list">${fieldsListHtml}</ul>` : ''}

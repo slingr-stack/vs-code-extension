@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DecoratedClass, MetadataCache, PropertyMetadata, DecoratorMetadata } from '../cache/cache';
+import { DecoratedClass, MetadataCache, PropertyMetadata, DecoratorMetadata, DataSourceMetadata } from '../cache/cache';
 import { rendererRegistry } from './renderers/rendererRegistry';
 import { IMetadataRenderer, IRendererContext } from './renderers/iMetadataRenderer'; 
 
@@ -7,7 +7,7 @@ import { IMetadataRenderer, IRendererContext } from './renderers/iMetadataRender
  * Union type for info provider metadata items.
  * Represents all the different types of metadata that can be displayed in the Quick Info Panel.
  */
-export type MetadataItem = DecoratedClass | PropertyMetadata | DecoratorMetadata;
+export type MetadataItem = DecoratedClass | PropertyMetadata | DecoratorMetadata | DataSourceMetadata;
 
 /**
  * The QuickInfoProvider class implements VS Code's WebviewViewProvider interface to create
@@ -175,8 +175,10 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                 item => 'properties' in item && item.name === name
             ) as DecoratedClass[];
             foundMetadata = modelClass;
+        } else if (itemType === 'dataSource') {
+            const dataSources = this.cache.getDataSources();
+            foundMetadata = dataSources.find(ds => ds.name === name);
         }
-
         if (foundMetadata) {
             // If we found the metadata, update the panel with it
             this.update(itemType, foundMetadata);
@@ -218,7 +220,8 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                 extensionUri: this._extensionUri,
                 findModel: (name: string) => this.cache.findMetadata(
                     item => 'properties' in item && item.name === name
-                )[0] as DecoratedClass | undefined
+                )[0] as DecoratedClass | undefined,
+                findDataSource: (name: string) => this.cache.getDataSources().find(ds => ds.name === name)
             };
             if (!metadata) {
                 contentHtml = `<h1>No metadata found</h1>`;

@@ -68,6 +68,21 @@ export class TestMetadataFactory {
         return { ...defaults, ...overrides };
     }
 
+    static createDataSource(overrides: Partial<any> = {}): any {
+        const defaults = {
+            name: 'TestDataSource',
+            properties: {},
+            methods: {},
+            references: [],
+            declaration: {
+                uri: vscode.Uri.file('/test/dataSource.ts'),
+                range: new vscode.Range(0, 0, 10, 0)
+            }
+        };
+
+        return { ...defaults, ...overrides };
+    }
+
     /**
      * Creates a model with specific fields
      */
@@ -201,6 +216,13 @@ export class TestContextFactory {
                 // Return a basic model for common test model names
                 if (name === 'TestModel' || name === 'UserModel') {
                     return TestMetadataFactory.createModel({ name });
+                }
+                return undefined;
+            },
+            findDataSource: (name: string) => {
+                // Return a basic data source for common test data source names
+                if (name === 'TestDataSource' || name === 'UserDataSource') {
+                    return TestMetadataFactory.createDataSource({ name });
                 }
                 return undefined;
             }
