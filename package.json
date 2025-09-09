@@ -132,6 +132,21 @@
           "when": "resourceScheme == 'file' && resourceLangId == 'typescript' && resourcePath =~ /src[\\\\/]data[\\\\/]/",
           "submenu": "slingr-vscode-extension.actions",
           "group": "2_workspace"
+        },
+        {
+          "command": "slingr-vscode-extension.newDataSource",
+          "when": "explorerResourceIsFolder && resourcePath =~ /src[\\\\/]dataSources$/",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.renameDataSource",
+          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourceLangId == 'typescript' && resourcePath =~ /src[\\\\/]dataSources[\\\\/]/",
+          "group": "1_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteDataSource",
+          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourceLangId == 'typescript' && resourcePath =~ /src[\\\\/]dataSources[\\\\/]/",
+          "group": "2_modification"
         }
       ],
       "view/item/context": [
