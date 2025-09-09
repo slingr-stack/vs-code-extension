@@ -53,15 +53,15 @@ describe('MetadataCache Tests', () => {
 
         it('should have isDataModel flag on models', () => {
             const models = cache.getDataModels();
-            models.forEach(model => {
+            models.forEach((model: any) => {
                 assert.strictEqual(model.isDataModel, true, 'All data models should have isDataModel = true');
             });
         });
 
         it('should only return Model decorated classes from getDataModelClasses', () => {
             const models = cache.getDataModelClasses();
-            models.forEach(model => {
-                const hasModelDecorator = model.decorators.some(d => d.name === 'Model');
+            models.forEach((model: any) => {
+                const hasModelDecorator = model.decorators.some((d: any) => d.name === 'Model');
                 assert.ok(hasModelDecorator, 'All items from getDataModelClasses should have @Model decorator');
             });
         });

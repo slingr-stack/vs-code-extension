@@ -315,10 +315,10 @@ export class ExplorerProvider
         // Force cache refresh after model move to ensure proper file path updates
         await this.cache.forceRefresh();
         
-        // Refresh the tree
+        // Wait a bit longer and then refresh the tree to ensure cache is fully updated
         setTimeout(() => {
           this.refresh();
-        }, 100);
+        }, 300);
 
         vscode.window.showInformationMessage(`Model "${draggedData.modelClassName}" moved successfully.`);
       } else {
@@ -388,10 +388,10 @@ export class ExplorerProvider
         // Force cache refresh after folder move to ensure proper file path updates
         await this.cache.forceRefresh();
         
-        // Refresh the tree
+        // Wait a bit longer and then refresh the tree to ensure cache is fully updated
         setTimeout(() => {
           this.refresh();
-        }, 100);
+        }, 300);
 
         vscode.window.showInformationMessage(`Folder "${draggedData.folderName}" moved successfully.`);
       } else {
@@ -757,47 +757,46 @@ export class ExplorerProvider
   }
 
   private isModelReferencedByComposition(item: DecoratedClass): boolean {
-      // Get all references to this model
-      const modelReferences = item.references;
-      const checkedFiles = new Set<string>();
-
-      // For each external reference, check if it's part of a composition relationship
-      for (const reference of modelReferences) {
-          // Normalize paths for cross-platform consistency
-          const normalizedRefPath = reference.uri.fsPath.replace(/\\/g, "/");
-          const normalizedItemPath = item.declaration.uri.fsPath.replace(/\\/g, "/");
-
-          // Get the file metadata for the reference
-          const referencingFile = this.cache.getMetadataForFile(reference.uri.fsPath);
-          if (!referencingFile) {
+      // Instead of relying on pre-computed references, scan all models in the cache
+      // to find composition relationships. This is more reliable after file moves.
+      const allModels = this.cache.getDataModelClasses();
+      
+      for (const model of allModels) {
+          // Skip the model itself
+          if (model.name === item.name) {
               continue;
           }
-
-          if (normalizedRefPath !== normalizedItemPath && !checkedFiles.has(normalizedRefPath)) {
-              for (const referencingClass of Object.values(referencingFile.classes)) {
-                  // Search through all properties in the class
-                  for (const property of Object.values(referencingClass.properties)) {
-                      // Check if this property references our model type
-                      const lowerItemName = item.name.toLowerCase();
-                      if (property.type === item.name || property.type === `${item.name}[]` || property.type.toLowerCase() === lowerItemName) {
-                          // Check if this property has a @Relationship decorator with type: "Composition"
-                          const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
-                          if (relationshipDecorator) {
-                              // Check if the relationship decorator has type: "Composition"
-                              const hasCompositionType = relationshipDecorator.arguments.some(
-                                  (arg) =>
-                                  (typeof arg === "object" && arg !== null && "type" in arg && arg.type === "Composition") ||
-                                  arg.type === "composition"
-                              );
-
-                              if (hasCompositionType) {
-                                  return true;
+          
+          // Check all properties of this model
+          for (const property of Object.values(model.properties)) {
+              // Check if this property references our target model type
+              const baseType = this.extractBaseTypeFromArrayType(property.type);
+              
+              if (baseType === item.name) {
+                  // Check if this property has a @Field decorator (indicating it's a field)
+                  const hasFieldDecorator = property.decorators.some((d) => d.name === "Field");
+                  
+                  if (hasFieldDecorator) {
+                      // Check if this property has a @Relationship decorator with type: "Composition"
+                      const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
+                      
+                      if (relationshipDecorator) {
+                          // Check if the relationship decorator has type: "Composition" or "composition"
+                          const hasCompositionType = relationshipDecorator.arguments.some(
+                              (arg) => {
+                                  if (typeof arg === "object" && arg !== null) {
+                                      return arg.type === "Composition" || arg.type === "composition";
+                                  }
+                                  return arg === "Composition" || arg === "composition";
                               }
+                          );
+
+                          if (hasCompositionType) {
+                              return true;
                           }
                       }
                   }
               }
-              checkedFiles.add(normalizedRefPath);
           }
       }
 
