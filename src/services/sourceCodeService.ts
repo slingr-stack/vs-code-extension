@@ -299,12 +299,12 @@ export class SourceCodeService {
     }
 
     // Detect indentation from the file
-    const indentation = detectIndentation(lines, 0, lines.length);
-    const indentedModelCode = applyIndentation(modelCode, indentation);
+    //const indentation = detectIndentation(lines, 0, lines.length);
+    //const indentedModelCode = applyIndentation(modelCode, indentation);
 
     // Insert the model with appropriate spacing
     const spacing = insertionLine < lines.length ? "\n\n" : "\n";
-    edit.insert(document.uri, new vscode.Position(insertionLine, 0), `${spacing}${indentedModelCode}\n`);
+    edit.insert(document.uri, new vscode.Position(insertionLine, 0), `${spacing}${modelCode}\n`);
 
     await vscode.workspace.applyEdit(edit);
   }
