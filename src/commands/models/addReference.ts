@@ -301,7 +301,7 @@ export class AddReferenceTool {
     const targetDir = sourceModelDir;
 
     // Generate model content
-    const modelContent = this.generateNewModelContent(finalModelName, dataSource);
+    const modelContent = await this.generateNewModelContent(finalModelName, sourceModel, dataSource);
 
     // Create the file
     const fileName = `${finalModelName}.ts`;
@@ -326,11 +326,24 @@ export class AddReferenceTool {
   /**
    * Generates the TypeScript code for a new referenced model.
    */
-  private generateNewModelContent(modelName: string, dataSource?: string): string {
+  private async generateNewModelContent(
+    modelName: string, 
+    sourceModel: DecoratedClass, 
+    dataSource?: string
+  ): Promise<string> {
     const lines: string[] = [];
 
-    // Add imports
-    lines.push(`import { Model, BaseModel, Field } from 'slingr-framework';`);
+    // Add basic framework imports
+    lines.push(`import { Model, PersistentModel, Field } from 'slingr-framework';`);
+
+    // Add datasource import if needed
+    if (dataSource) {
+      const dataSourceImport = await this.sourceCodeService.extractImport(sourceModel, dataSource);
+      if (dataSourceImport) {
+        lines.push(dataSourceImport);
+      }
+    }
+
     lines.push(``);
 
     // Add model decorator and class
@@ -351,6 +364,8 @@ export class AddReferenceTool {
 
     return lines.join("\n");
   }
+
+
 
   /**
    * Adds the reference field to the source model.

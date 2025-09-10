@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { MetadataCache } from "../cache/cache";
+import { DecoratedClass, MetadataCache } from "../cache/cache";
 import { FieldInfo } from "../commands/interfaces";
 import { detectIndentation, applyIndentation } from "../utils/detectIndentation";
 import { FileSystemService } from "./fileSystemService";
@@ -327,5 +327,61 @@ export class SourceCodeService {
     }
 
     return undefined;
+  }
+
+  /**
+   * Extracts the datasource import from the source model file.
+   */
+  public async extractImport(sourceModel: DecoratedClass, importName: string): Promise<string | null> {
+    try {
+      // Read the source model file to extract datasource imports
+      const document = await vscode.workspace.openTextDocument(sourceModel.declaration.uri);
+      const content = document.getText();
+      const lines = content.split("\n");
+
+      // Clean up the importName (remove quotes if it's a string literal)
+      const cleanImportName = importName.replace(/['"]/g, "");
+
+      // Look for import lines that might contain the datasource
+      for (const line of lines) {
+        if (
+          line.includes("import") &&
+          (line.includes(cleanImportName) ||
+            line.includes(`'${cleanImportName}'`) ||
+            line.includes(`"${cleanImportName}"`))
+        ) {
+          return line;
+        }
+      }
+
+      // Look for import lines from dataSources directory
+      for (const line of lines) {
+        if (line.includes("import") && line.includes("dataSources")) {
+          // Check if this import contains our datasource
+          if (line.includes(cleanImportName)) {
+            return line;
+          }
+        }
+      }
+
+      // If no specific import found, create a generic datasource import
+      // Calculate relative path to dataSources directory
+      const sourceModelDir = path.dirname(sourceModel.declaration.uri.fsPath);
+      const workspaceRoot = vscode.workspace.getWorkspaceFolder(sourceModel.declaration.uri)?.uri.fsPath;
+
+      if (workspaceRoot) {
+        const relativePath = path.relative(sourceModelDir, path.join(workspaceRoot, "src", "dataSources"));
+        const importPath = relativePath.replace(/\\/g, "/");
+        return `import { ${cleanImportName} } from '${
+          importPath.startsWith(".") ? importPath : "./" + importPath
+        }/${cleanImportName}';`;
+      }
+
+      // Fallback
+      return `import { ${cleanImportName} } from '../dataSources/${cleanImportName}';`;
+    } catch (error) {
+      console.warn("Could not extract datasource import:", error);
+      return null;
+    }
   }
 }
