@@ -69,6 +69,10 @@
         "title": "Add Composition"
       },
       {
+        "command": "slingr-vscode-extension.addReference",
+        "title": "Add Reference"
+      },
+      {
         "command": "slingr-vscode-extension.newFolder",
         "title": "New Folder"
       },
@@ -145,6 +149,11 @@
         },
         {
           "command": "slingr-vscode-extension.addComposition",
+          "when": "view == slingrExplorer && viewItem == 'model'",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.addReference",
           "when": "view == slingrExplorer && viewItem == 'model'",
           "group": "0_creation"
         },
@@ -237,6 +246,11 @@
         },
         {
           "command": "slingr-vscode-extension.addComposition",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "1_field"
+        },
+        {
+          "command": "slingr-vscode-extension.addReference",
           "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
           "group": "1_field"
         },

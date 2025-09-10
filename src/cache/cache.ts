@@ -809,6 +809,26 @@ export class MetadataCache {
     }
 
     /**
+     * Returns all models that have the same datasource as the specified model.
+     * @param sourceModel - The model to compare datasources with
+     * @returns An array of DecoratedClass objects with the same datasource
+     */
+    public getModelsByDataSource(sourceModel: DecoratedClass): DecoratedClass[] {
+        const sourceModelDecorator = this.getModelDecoratorByName("Model", sourceModel);
+        const sourceDataSource = sourceModelDecorator?.arguments?.[0]?.dataSource;
+
+        return this.getDataModelClasses().filter(model => {
+            if (model.name === sourceModel.name) {
+                return false; // Don't include the source model itself
+            }
+            
+            const modelDecorator = this.getModelDecoratorByName("Model", model);
+            const modelDataSource = modelDecorator?.arguments?.[0]?.dataSource;
+            return modelDataSource === sourceDataSource;
+        });
+    }
+
+    /**
      * Utility to convert a ts-morph Node's position to a VS Code Range.
      * @param node The ts-morph Node.
      * @returns A VS Code Range.

@@ -12,6 +12,7 @@ import { AppTreeItem } from '../explorer/appTreeItem';
 import { CreateModelFromDescriptionTool } from './models/createModelFromDesc';
 import { ModifyModelTool } from './models/modifyModel';
 import { AddCompositionTool } from './models/addComposition';
+import { AddReferenceTool } from './models/addReference';
 import { AIService } from '../services/aiService';
 import { ProjectAnalysisService } from '../services/projectAnalysisService';
 
@@ -216,6 +217,50 @@ export function registerGeneralCommands(
         }
     });
     disposables.push(addCompositionCommand);
+
+    // Add Reference Tool
+    const addReferenceTool = new AddReferenceTool(explorerProvider); 
+    const addReferenceCommand = vscode.commands.registerCommand('slingr-vscode-extension.addReference', async (uri?: vscode.Uri | AppTreeItem) => {
+        let targetUri: vscode.Uri;
+        let modelName: string | undefined;
+
+        if (uri) {
+            // URI provided from context menu (right-click on file in explorer)
+            if (uri instanceof vscode.Uri) {
+                targetUri = uri;
+            } else {
+                // AppTreeItem case - check if it's a model with metadata
+                if (uri.itemType === 'model' && uri.metadata?.declaration?.uri) {
+                    targetUri = uri.metadata.declaration.uri;
+                    modelName = uri.metadata?.name;
+                } else {
+                    vscode.window.showErrorMessage('Please select a model file to add a reference to.');
+                    return;
+                }
+            }
+        } else {
+            throw new Error('URI must be provided to add a reference.');
+        }
+
+        // Validate that it's a TypeScript file
+        if (!targetUri.fsPath.endsWith('.ts')) {
+            vscode.window.showErrorMessage('Please select a TypeScript model file (.ts).');
+            return;
+        }
+
+        try {
+            if (modelName) {
+                await addReferenceTool.addReference(cache, modelName);
+            }
+            else{
+                vscode.window.showErrorMessage('Model name could not be determined.');
+            }
+            
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to add reference: ${error}`);
+        }
+    });
+    disposables.push(addReferenceCommand);
 
     // New Folder Tool
     const newFolderTool = new NewFolderTool();
