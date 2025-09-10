@@ -2,6 +2,7 @@ import {
   OneToMany, 
   ManyToOne, 
   ManyToMany, 
+  OneToOne,
   JoinColumn, 
   JoinTable 
 } from 'typeorm';
@@ -160,21 +161,22 @@ export class RelationshipFieldManager {
         OneToMany(() => Object, (child: any) => child.owner, relationOptions)(target, propertyKey);
       }
     } else {
-      // Single composition - treat as reference with cascade
+      // Single composition - model as OneToOne to enforce exclusive ownership
       const relationOptions: any = {
         eager,
-        cascade: ['insert', 'update'],
+        // Include remove to delete the composed entity when parent is removed via ORM
+        cascade: ['insert', 'update', 'remove'],
         nullable: true
       };
 
       if (elementType) {
-        ManyToOne(elementType, undefined as any, relationOptions)(target, propertyKey);
+        OneToOne(elementType, undefined as any, relationOptions)(target, propertyKey);
       } else {
         const designType = Reflect.getMetadata('design:type', target, propertyKey);
         if (designType && typeof designType === 'function') {
-          ManyToOne(() => designType, undefined as any, relationOptions)(target, propertyKey);
+          OneToOne(() => designType, undefined as any, relationOptions)(target, propertyKey);
         } else {
-          ManyToOne(() => Object, undefined as any, relationOptions)(target, propertyKey);
+          OneToOne(() => Object, undefined as any, relationOptions)(target, propertyKey);
         }
       }
       
