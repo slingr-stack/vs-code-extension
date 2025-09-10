@@ -152,8 +152,6 @@ export function Money(options: MoneyOptions) {
             return value;
         }, { toClassOnly: true })(target, propertyKey);
 
-        Expose()(target, propertyKey);
-
         const addOptionalValidator = createOptionalValidatorAdder(proto, propName);
         applyMoneyValidations(addOptionalValidator, propName, options);
     };

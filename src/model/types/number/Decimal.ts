@@ -158,9 +158,6 @@ export function Decimal(options: DecimalOptions) {
             return value;
         }, { toClassOnly: true })(target, propertyKey);
 
-        // Expose the property for serialization/deserialization
-        Expose()(target, propertyKey);
-
         const addOptionalValidator = createOptionalValidatorAdder(proto, propName);
         applyDecimalValidations(addOptionalValidator, propName, options);
     };
