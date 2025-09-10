@@ -10,7 +10,7 @@ class DateTimeRangeArrayModel extends BaseModel {
 }
 
 describe("DateTimeRange decorator with array values (DateTimeRangeType[])", () => {
-	it("should fail validation for arrays (array of DateTimeRange is not currently supported)", async () => {
+	it("should pass validation for arrays (array of DateTimeRange is now supported)", async () => {
 		const m = new DateTimeRangeArrayModel();
 
 		const r1 = new DateTimeRangeType();
@@ -24,11 +24,8 @@ describe("DateTimeRange decorator with array values (DateTimeRangeType[])", () =
 		m.dateRanges = [r1, r2];
 
 		const errors = await m.validate();
-		// Expect at least one error because @DateTimeRange applies to a single value,
-		// not an array, so custom validation will flag it.
-		expect(errors.length).toBeGreaterThan(0);
-		const propError = errors.find((e) => e.property === "dateRanges");
-		expect(propError).toBeDefined();
+		// Should pass validation now that array support is implemented
+		expect(errors.length).toBe(0);
 	});
 
 	it("should still serialize and deserialize array items to ISO strings and back to Date objects", async () => {
