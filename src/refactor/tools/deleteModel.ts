@@ -246,10 +246,17 @@ export class DeleteModelTool implements IRefactorTool {
     // Filter out references that are in files/directories being deleted
     const externalReferences = allReferences.filter((ref) => {
       for (const path of pathsToDelete) {
-        if (ref.uri.fsPath.startsWith(path) || (ref.uri.fsPath === change.uri.fsPath && !change.payload.isManual)) {
+        if (ref.uri.fsPath.startsWith(path)) {
           return false;
         }
       }
+      
+      // If we're doing partial class deletion (not deleting the entire file),
+      // filter out references within the same file since deleteModelClassFromFile handles those
+      if (!isEntireFileBeingDeleted && ref.uri.fsPath === change.uri.fsPath) {
+        return false;
+      }
+      
       return true; 
     });
 

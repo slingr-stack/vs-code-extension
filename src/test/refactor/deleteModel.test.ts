@@ -568,6 +568,79 @@ if (typeof suite !== 'undefined') {
                 assert.ok(!capturedMessage.includes('other models in the same file will remain'));
                 assert.ok(capturedMessage.includes('its related files'));
             });
+
+            test('should not create duplicate edits when deleting model from multi-model file', async () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/MultiModel.ts');
+                const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
+                const orderModel = createMockModel('Order', modelUri, new vscode.Range(20, 0, 30, 1));
+                
+                // Add a self-reference within the same file (e.g., the class declaration itself)
+                userModel.references = [
+                    { uri: modelUri, range: new vscode.Range(5, 13, 5, 17) }, // class declaration
+                    { uri: modelUri, range: new vscode.Range(8, 4, 8, 8) }   // some property or usage
+                ];
+
+                // Mock workspace operations with realistic file content
+                (vscode.workspace as any).openTextDocument = async (uri: vscode.Uri) => {
+                    const mockFileContent = `import { Model, Field } from '@slingr/platform';
+
+@Model()
+export class User extends PersistentModel {
+    @Field()
+    name: string;
+    
+    @Field()
+    email: string;
+}
+
+@Model()
+export class Order extends PersistentModel {
+    @Field()
+    orderNumber: string;
+}`;
+                    return {
+                        getText: () => mockFileContent,
+                        lineAt: (line: number) => {
+                            const lines = mockFileContent.split('\n');
+                            return {
+                                text: lines[line] || '',
+                                isEmptyOrWhitespace: (lines[line] || '').trim() === '',
+                                rangeIncludingLineBreak: new vscode.Range(line, 0, line + 1, 0)
+                            };
+                        }
+                    };
+                };
+                
+                const change: ChangeObject = {
+                    type: 'DELETE_MODEL',
+                    uri: modelUri,
+                    description: 'Delete User model',
+                    payload: {
+                        oldModelMetadata: userModel,
+                        urisToDelete: [], // No file deletion since there are multiple models
+                        isManual: true
+                    } as DeleteModelPayload
+                };
+
+                const workspaceEdit = await tool.prepareEdit(change, mockCache);
+                
+                // Get all the edits for this file
+                const fileEdits = workspaceEdit.get(modelUri) || [];
+                
+                // Should have only ONE edit for this file (the class deletion), not multiple
+                // The class declaration reference should NOT be processed separately
+                assert.strictEqual(fileEdits.length, 1, 
+                    `Expected only 1 edit for the file, but got ${fileEdits.length}. ` +
+                    `This suggests duplicate edits are being created.`);
+                
+                // The single edit should be a delete operation (either proper deletion or fallback comment)
+                assert.ok(fileEdits[0].range, 'Edit should have a range');
+                // Accept either proper deletion or fallback comment replacement
+                const isProperDeletion = fileEdits[0].newText === '';
+                const isFallbackComment = fileEdits[0].newText.includes('/* DELETED_MODEL:');
+                assert.ok(isProperDeletion || isFallbackComment, 
+                    'Edit should be either a deletion or fallback comment replacement');
+            });
         });
     });
 }
