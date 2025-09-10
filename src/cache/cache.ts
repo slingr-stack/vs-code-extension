@@ -8,6 +8,14 @@ import * as crypto from 'crypto';
 // Represents the type of changes that can occur to a file
 type FileChangeType = 'create' | 'change' | 'delete';
 
+export type InfrastructureEventStatus  = 'change-detected' | 'update-success' | 'update-failure';
+
+export interface InfrastructureStatusChangeEvent {
+    status: InfrastructureEventStatus ;
+    uri: vscode.Uri;
+    error?: string; // Optional: only used for 'update-failure'
+}
+
 /**
  * The main cache structure to hold all the metadata of the project.
  * It's a map where the key is the file path.
@@ -104,8 +112,8 @@ export class MetadataCache {
     private refactorController: RefactorController | null = null;
     private automaticRefactorsEnabled: boolean = true;
     private dataSourceHashes: Map<string, string> = new Map();
-    private _onInfrastructureChange: vscode.EventEmitter<vscode.Uri> = new vscode.EventEmitter<vscode.Uri>();
-    public readonly onInfrastructureChange: vscode.Event<vscode.Uri> = this._onInfrastructureChange.event;
+    private _onInfrastructureStatusChange: vscode.EventEmitter<InfrastructureStatusChangeEvent> = new vscode.EventEmitter<InfrastructureStatusChangeEvent>();
+    public readonly onInfrastructureStatusChange: vscode.Event<InfrastructureStatusChangeEvent> = this._onInfrastructureStatusChange.event;
     public isInfrastructureUpdateNeeded: boolean = false;
     private outOfSyncDataSources: Set<string> = new Set();
 
@@ -162,6 +170,10 @@ export class MetadataCache {
         return this.getDataSources().filter(
             ds => ds.type === 'TypeOrmSqlDataSource'
         );
+    }
+
+    public notifyInfrastructureStatus(event: InfrastructureStatusChangeEvent): void {
+        this._onInfrastructureStatusChange.fire(event);
     }
 
     /**
@@ -364,7 +376,7 @@ export class MetadataCache {
         if (oldHash !== newHash) {
             this.isInfrastructureUpdateNeeded = true;
             this.outOfSyncDataSources.add(filePath);
-            this._onInfrastructureChange.fire(uri);
+            this._onInfrastructureStatusChange.fire({ status: 'change-detected', uri: uri });
         }
 
         if (type === 'delete') {
@@ -372,7 +384,7 @@ export class MetadataCache {
             if (oldHash) { // Trigger update if there was a data source to delete
                 this.isInfrastructureUpdateNeeded = true;
                 this.outOfSyncDataSources.add(filePath);
-                this._onInfrastructureChange.fire(uri);
+                this._onInfrastructureStatusChange.fire({ status: 'change-detected', uri: uri });
             }
         } else if (newHash) {
             this.dataSourceHashes.set(filePath, newHash);

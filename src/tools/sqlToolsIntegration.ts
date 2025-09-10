@@ -1,15 +1,25 @@
 import * as vscode from 'vscode';
 import { DataSourceMetadata, MetadataCache } from '../cache/cache';
 
-// The driverMap and updateSqlToolsConfig function remain exactly the same as before.
-// ... (no changes to driverMap or updateSqlToolsConfig)
+/**
+ * SQLTools connection configuration interface
+ */
+interface SQLToolsConnection {
+    name: string;
+    driver: string;
+    server?: string;
+    port?: number;
+    database?: string;
+    username?: string;
+    password?: string;
+    connectionTimeout?: number;
+}
 
 // Maps TypeORM dialect names to SQLTools driver names
 const driverMap: { [key: string]: string } = {
     'postgres': 'PostgreSQL',
     'mysql': 'MySQL',
     'mariadb': 'MariaDB',
-    'mssql': 'MSSQL',
 };
 
 // Map of TypeORM dialect to the required VS Code extension ID for the driver
@@ -17,13 +27,50 @@ const driverExtensionMap: { [key: string]: string } = {
     'postgres': 'mtxr.sqltools-driver-pg',
     'mysql': 'mtxr.sqltools-driver-mysql',
     'mariadb': 'mtxr.sqltools-driver-mariadb',
-    'mssql': 'mtxr.sqltools-driver-mssql',
 };
 
+/**
+ * Validates if a data source has the minimum required configuration for SQLTools
+ */
+function isValidDataSource(ds: DataSourceMetadata): boolean {
+    return !!(ds.options.type && (ds.options.host || ds.options.server));
+}
+
+/**
+ * Sanitizes a string value, returning undefined if empty or invalid
+ */
+function sanitizeString(value: any): string | undefined {
+    if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+    }
+    return undefined;
+}
+
+/**
+ * Sanitizes a numeric value, returning undefined if invalid
+ */
+function sanitizeNumber(value: any): number | undefined {
+    if (typeof value === 'number' && value > 0) {
+        return value;
+    }
+    if (typeof value === 'string') {
+        const parsed = parseInt(value, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+            return parsed;
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Updates the SQLTools configuration with the provided data sources.
+ * Filters out invalid data sources and sanitizes configuration values to prevent
+ * SQLTools connection issues with empty or inconsistent values.
+ * @param sqlDataSources Array of SQL data source metadata
+ * @returns Promise that resolves when the configuration is updated
+ */
 async function updateSqlToolsConfig(sqlDataSources: DataSourceMetadata[]): Promise<void> {
-    // This function's implementation does not need to change.
     if (sqlDataSources.length === 0) {
-        // Optionally, we could clear existing Slingr connections here if the list is empty
         return;
     }
     const sqlToolsExtension = vscode.extensions.getExtension('mtxr.sqltools');
@@ -61,18 +108,47 @@ async function updateSqlToolsConfig(sqlDataSources: DataSourceMetadata[]): Promi
         }
     }
 
-    const newSlingrConnections = sqlDataSources.map(ds => {
-        const driver = driverMap[ds.options.type] || ds.options.type;
-        return {
-            name: `Slingr: ${ds.name}`,
-            driver: driver,
-            server: ds.options.host,
-            port: ds.options.port,
-            database: ds.options.database,
-            username: ds.options.username,
-            password: ds.options.password,
-        };
-    });
+    const newSlingrConnections: SQLToolsConnection[] = sqlDataSources
+        .filter(isValidDataSource)
+        .map(ds => {
+            const driver = driverMap[ds.options.type] || ds.options.type;
+            const connection: SQLToolsConnection = {
+                name: `Slingr: ${ds.name}`,
+                driver: driver,
+            };
+
+            // Handle server/host variations - server is required for SQLTools
+            connection.server = sanitizeString(ds.options.host || ds.options.server) || 'localhost';
+            
+            // Add optional properties only if they have valid values
+            const port = sanitizeNumber(ds.options.port);
+            if (port) {
+                connection.port = port;
+            }
+            
+            const database = sanitizeString(ds.options.database);
+            if (database) {
+                connection.database = database;
+            }
+            
+            const username = sanitizeString(ds.options.username);
+            if (username) {
+                connection.username = username;
+            }
+            
+            const password = sanitizeString(ds.options.password);
+            if (password) {
+                connection.password = password;
+            }
+            
+            const connectionTimeout = sanitizeNumber(ds.options.connectionTimeout);
+            if (connectionTimeout) {
+                connection.connectionTimeout = connectionTimeout;
+            }
+
+            return connection;
+        });
+
     const config = vscode.workspace.getConfiguration();
     const existingConnections = config.get<any[]>('sqltools.connections') || [];
     const userConnections = existingConnections.filter(c => !c.name.startsWith('Slingr:'));
@@ -87,19 +163,17 @@ async function updateSqlToolsConfig(sqlDataSources: DataSourceMetadata[]): Promi
  * @param cache The metadata cache.
  */
 export function setupSqlToolsIntegration(context: vscode.ExtensionContext, cache: MetadataCache) {
-    // Subscribe to the existing onInfrastructureChange event.
-    const disposable = cache.onInfrastructureChange(changedUri => {
-        // We only act on changes within the dataSources directory.
-        if (changedUri.path.includes('/src/dataSources/')) {
-            // When a change is detected, we get the *current state* of all
-            // SQL data sources from the cache and run the update logic.
+    const disposable = cache.onInfrastructureStatusChange(event => {
+        // Only act when the infrastructure update has successfully completed
+        if (event.status === 'update-success') {
+            // The rest of the logic is the same!
             const allSqlDataSources = cache.getSqlDataSources();
             updateSqlToolsConfig(allSqlDataSources);
         }
     });
     context.subscriptions.push(disposable);
 
-    // Run once on activation for any data sources that already exist when VS Code opens.
+    // Initial sync on activation
     const initialSqlDataSources = cache.getSqlDataSources();
     if (initialSqlDataSources.length > 0) {
         updateSqlToolsConfig(initialSqlDataSources);

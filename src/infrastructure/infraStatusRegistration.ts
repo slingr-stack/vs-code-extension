@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path'; 
-import { MetadataCache } from '../cache/cache';
+import { InfrastructureStatusChangeEvent, MetadataCache } from '../cache/cache';
 import { InfrastructureStatus } from './infrastructureStatus';
 import { exec } from 'child_process';
 
@@ -17,6 +17,16 @@ export function registerInfraStatus(context: vscode.ExtensionContext, cache: Met
     let lastError = '';
     let lastFailedUri: vscode.Uri | undefined;
     const updateQueue: vscode.Uri[] = []; 
+
+    cache.onInfrastructureStatusChange((event: InfrastructureStatusChangeEvent) => {
+        // Only queue an update when a file change is first detected
+        if (event.status === 'change-detected') {
+            if (!updateQueue.some(item => item.fsPath === event.uri.fsPath)) {
+                updateQueue.push(event.uri);
+            }
+            processUpdateQueue();
+        }
+    });
 
     const processUpdateQueue = () => {
         if (isUpdating || updateQueue.length === 0) {
@@ -40,26 +50,19 @@ export function registerInfraStatus(context: vscode.ExtensionContext, cache: Met
                 lastError = stderr || stdout || error.message;
                 lastFailedUri = uriToUpdate;
                 infraStatus.showError(lastError);
+                cache.notifyInfrastructureStatus({ status: 'update-failure', uri: uriToUpdate, error: lastError });
             } else {
                 infraStatus.showSynced();
                 cache.acknowledgeInfrastructureUpdate(uriToUpdate);
                 lastError = '';
                 lastFailedUri = undefined;
+                cache.notifyInfrastructureStatus({ status: 'update-success', uri: uriToUpdate });
             }
 
             isUpdating = false;
             processUpdateQueue();
         });
     };
-
-    cache.onInfrastructureChange((uri: vscode.Uri) => {
-
-        if (!updateQueue.some(item => item.fsPath === uri.fsPath)) {
-            updateQueue.push(uri);
-        }
-        processUpdateQueue();
-    });
-
     
     const showInfraErrorCommand = vscode.commands.registerCommand('slingr.showInfraError', () => {
         if (!lastError || !lastFailedUri) {
