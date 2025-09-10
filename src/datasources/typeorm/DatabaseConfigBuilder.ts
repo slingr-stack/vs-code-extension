@@ -25,6 +25,8 @@ export class DatabaseConfigBuilder {
       logging: options.logging ?? false,
       synchronize: options.synchronize ?? options.managed,
       entities: entities,
+  // Only include dropSchema when explicitly requested (typically in tests)
+  ...(options.dropSchema ? { dropSchema: true } : {})
     };
 
     // Database-specific configuration

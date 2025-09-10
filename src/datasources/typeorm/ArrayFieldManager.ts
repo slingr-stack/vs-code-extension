@@ -19,7 +19,18 @@ export interface ArrayFieldMetadata {
  * and test array field functionality separately from the main data source.
  */
 export class ArrayFieldManager {
-  private arrayElementEntities: Map<string, Function> = new Map();
+  // Use a global (static) cache so that multiple data source instances reusing
+  // the same model classes (e.g. across multiple tests or different database
+  // connections) reference the SAME dynamically created array element entity
+  // classes. Without this, each new data source instance would create a fresh
+  // dynamic entity class while existing relation decorators on the shared
+  // model class still reference the first created class. When the new
+  // DataSource initializes, TypeORM sees a relation pointing to an entity
+  // class not included in its entities array and throws:
+  //   Entity metadata for BlogPost#_<field>_elements was not found
+  private static globalArrayElementEntities: Map<string, Function> = new Map();
+
+  // Instance-level cache (currently unused beyond potential future optimizations)
   private arrayFieldNamesCache: WeakMap<Function, string[]> = new WeakMap();
 
   /**
@@ -28,7 +39,7 @@ export class ArrayFieldManager {
    * @returns Array of entity classes
    */
   getArrayElementEntities(): Function[] {
-    return Array.from(this.arrayElementEntities.values());
+    return Array.from(ArrayFieldManager.globalArrayElementEntities.values());
   }
 
   /**
@@ -54,7 +65,7 @@ export class ArrayFieldManager {
     const arrayEntityKey = ArrayEntityFactory.generateEntityKey(parentEntityName, propertyKey);
 
     // Check if we've already created an entity for this array field
-    if (!this.arrayElementEntities.has(arrayEntityKey)) {
+    if (!ArrayFieldManager.globalArrayElementEntities.has(arrayEntityKey)) {
       const arrayElementEntity = ArrayEntityFactory.createArrayElementEntity(
         parentEntityName,
         parentEntityClass,
@@ -62,23 +73,40 @@ export class ArrayFieldManager {
         baseFieldType,
         fieldOptions
       );
-      this.arrayElementEntities.set(arrayEntityKey, arrayElementEntity);
+      ArrayFieldManager.globalArrayElementEntities.set(arrayEntityKey, arrayElementEntity);
     }
 
     // Get the array element entity for the OneToMany relationship
-  const ArrayElementEntity = this.arrayElementEntities.get(arrayEntityKey)!;
+    const ArrayElementEntity = ArrayFieldManager.globalArrayElementEntities.get(arrayEntityKey)!;
 
     // Add OneToMany relationship to parent entity for eager loading
     // Use a different property name to avoid conflicts with the original array field
     const relationPropertyName = `_${propertyKey}_elements`;
 
-    OneToMany(() => ArrayElementEntity as any, (element: any) => element.parent, {
-      eager: true,
-      cascade: true,                  // insert/update/remove through parent
-      orphanedRowAction: 'delete'     // remove missing children when saving parent
-    })(target, relationPropertyName);
+    // Only configure the relation once per model class + property. Additional
+    // data source instances should reuse the same relation metadata.
+    if (!Reflect.getMetadata('typeorm:array:relation:configured', target, relationPropertyName)) {
+      // Ensure TypeORM can discover the relation property type. Since the relation
+      // property is added dynamically (not declared in the class), reflect-metadata
+      // does not have a "design:type" entry for it. TypeORM relies on this metadata
+      // when building entity schemas for relations. Without it, it later fails with:
+      //   Entity metadata for BlogPost#_<field>_elements was not found
+      // We explicitly define the design type as Array which matches what a
+      // OneToMany relation expects.
+      if (!Reflect.getMetadata('design:type', target, relationPropertyName)) {
+        Reflect.defineMetadata('design:type', Array, target, relationPropertyName);
+      }
 
-  // Add @AfterLoad hook to automatically transform array element entities to arrays
+      OneToMany(() => ArrayElementEntity as any, (element: any) => element.parent, {
+        eager: true,
+        cascade: true,                  // insert/update/remove through parent
+        orphanedRowAction: 'delete'     // remove missing children when saving parent
+      })(target, relationPropertyName);
+
+      Reflect.defineMetadata('typeorm:array:relation:configured', true, target, relationPropertyName);
+    }
+
+    // Add @AfterLoad hook to automatically transform array element entities to arrays
     const afterLoadMethodName = `_afterLoad_${propertyKey}`;
 
     // Create the afterLoad method if it doesn't exist
@@ -173,6 +201,7 @@ export class ArrayFieldManager {
     }
 
     // Store metadata about this array field
+    const existingMeta: ArrayFieldMetadata | undefined = Reflect.getMetadata('typeorm:array-field', target, propertyKey);
     const metadata: ArrayFieldMetadata = {
       elementEntityKey: arrayEntityKey,
       elementEntityClass: ArrayElementEntity as Function,
@@ -180,8 +209,10 @@ export class ArrayFieldManager {
       options: fieldOptions,
       relationPropertyName: relationPropertyName
     };
-
-    Reflect.defineMetadata('typeorm:array-field', metadata, target, propertyKey);
+    // Overwrite / define fresh metadata ensuring elementEntityClass points to the globally cached class
+    if (!existingMeta || existingMeta.elementEntityClass !== ArrayElementEntity) {
+      Reflect.defineMetadata('typeorm:array-field', metadata, target, propertyKey);
+    }
     Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
 
     // Invalidate cached array field names for this class so future calls recompute once

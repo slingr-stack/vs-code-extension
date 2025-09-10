@@ -109,7 +109,7 @@ describe("Array Persistence in SQL Databases", () => {
             // Clean up any existing data
             const allPosts = await dataSource.find(BlogPost);
             for (const post of allPosts) {
-                await dataSource.deleteById(BlogPost, post.id);
+                await dataSource.delete(BlogPost, post.id);
             }
             
             // Create first blog post for testing
@@ -148,7 +148,7 @@ describe("Array Persistence in SQL Databases", () => {
         });
 
         it("should retrieve a blog post with all array fields intact using findById", async () => {
-            const retrievedPost = await dataSource.findById(BlogPost, savedPost1.id);
+            const retrievedPost = await dataSource.findOneById(BlogPost, savedPost1.id);
             
             expect(retrievedPost).not.toBeNull();
             expect(retrievedPost!.id).toBe(savedPost1.id);
@@ -164,7 +164,7 @@ describe("Array Persistence in SQL Databases", () => {
         });
 
         it("should preserve array order when retrieving by ID", async () => {
-            const retrievedPost = await dataSource.findById(BlogPost, savedPost1.id);
+            const retrievedPost = await dataSource.findOneById(BlogPost, savedPost1.id);
             
             expect(retrievedPost!.tags[0]).toBe("javascript");
             expect(retrievedPost!.tags[1]).toBe("tutorial");
@@ -300,7 +300,7 @@ describe("Array Persistence in SQL Databases", () => {
             expect(Array.isArray(nonExistentPosts)).toBe(true);
             
             // Clean up the third post
-            await dataSource.deleteById(BlogPost, savedPost3.id);
+            await dataSource.delete(BlogPost, savedPost3.id);
         });
     });
 
@@ -311,7 +311,7 @@ describe("Array Persistence in SQL Databases", () => {
             // Clean up any existing data
             const allPosts = await dataSource.find(BlogPost);
             for (const post of allPosts) {
-                await dataSource.deleteById(BlogPost, post.id);
+                await dataSource.delete(BlogPost, post.id);
             }
             
             // Create a fresh blog post for testing
@@ -349,7 +349,7 @@ describe("Array Persistence in SQL Databases", () => {
             expect(updatedPost.collaboratorEmails).toEqual(["new@example.com"]);
 
             // Verify the update persisted
-            const retrievedPost = await dataSource.findById(BlogPost, savedPost.id);
+            const retrievedPost = await dataSource.findOneById(BlogPost, savedPost.id);
             expect(retrievedPost!.tags).toEqual(["react", "node.js"]);
             expect(retrievedPost!.notes).toEqual(["<p>Updated note</p>"]);
             expect(retrievedPost!.collaboratorEmails).toEqual(["new@example.com"]);
@@ -370,7 +370,7 @@ describe("Array Persistence in SQL Databases", () => {
             expect(updatedPost.tags).toEqual(["single-tag"]);
 
             // Verify the update persisted
-            const retrievedPost = await dataSource.findById(BlogPost, savedPost.id);
+            const retrievedPost = await dataSource.findOneById(BlogPost, savedPost.id);
             expect(retrievedPost!.tags).toEqual(["single-tag"]);
         });
     });
@@ -382,7 +382,7 @@ describe("Array Persistence in SQL Databases", () => {
             // Clean up any existing data
             const allPosts = await dataSource.find(BlogPost);
             for (const post of allPosts) {
-                await dataSource.deleteById(BlogPost, post.id);
+                await dataSource.delete(BlogPost, post.id);
             }
             
             // Create a fresh blog post for testing
@@ -404,9 +404,9 @@ describe("Array Persistence in SQL Databases", () => {
         });
 
         it("should delete a blog post and cascade delete array elements", async () => {
-            await dataSource.deleteById(BlogPost, savedPost.id);
+            await dataSource.delete(BlogPost, savedPost.id);
             
-            const retrievedPost = await dataSource.findById(BlogPost, savedPost.id);
+            const retrievedPost = await dataSource.findOneById(BlogPost, savedPost.id);
             expect(retrievedPost).toBeNull();
         });
     });
