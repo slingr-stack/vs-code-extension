@@ -24,13 +24,17 @@ export function isModel(metadata: DecoratedClass | PropertyMetadata | DataSource
 
 const fieldDecoratorNames = Object.keys(fieldTypeConfig);
 
+function hasDecorators(obj: any): obj is { decorators: Array<{ name: string }> } {
+    return Array.isArray(obj?.decorators);
+}
+
 /**
  * Checks if a property metadata object is a Field.
  * @param metadata - The class or property metadata to check.
  * @returns True if the metadata is for a Field property, false otherwise.
  */
 export function isField(metadata: DecoratedClass | PropertyMetadata | DataSourceMetadata): metadata is PropertyMetadata {
-    if (!('decorators' in metadata)) {
+    if (!hasDecorators(metadata)) {
         return false;
     }
     return 'type' in metadata && metadata.decorators.some(d => fieldDecoratorNames.includes(d.name) || d.name === 'Field');
