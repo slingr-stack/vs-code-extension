@@ -1,10 +1,10 @@
 import 'reflect-metadata';
-import { 
-  FindOptionsWhere, 
-  FindManyOptions, 
+import {
+  FindOptionsWhere,
+  FindManyOptions,
   FindOneOptions,
   FindOptionsOrder,
-  DataSource as TypeORMDataSource, 
+  DataSource as TypeORMDataSource,
   DataSourceOptions as TypeORMDataSourceOptions,
   UpdateResult,
   DeleteResult,
@@ -136,9 +136,9 @@ export class TypeORMSqlDataSource extends DataSource {
       await this.typeormDataSource.initialize();
       this.isInitialized = true;
       console.log(`TypeORM DataSource initialized successfully for ${typeormOptions.type}`);
-      
-    // Keep initialization logs concise in test runs
-      
+
+      // Keep initialization logs concise in test runs
+
       return this.typeormDataSource;
     } catch (error) {
       console.error('Failed to initialize TypeORM DataSource:', error);
@@ -254,24 +254,31 @@ export class TypeORMSqlDataSource extends DataSource {
       return; // PersistentModel already handles this with @PrimaryGeneratedColumn
     }
 
+    // Check if this is an embedded field
+    const isEmbedded = Reflect.getMetadata('field:embedded', target, propertyKey);
+    if (isEmbedded || fieldType === 'embedded') {
+      this.configureEmbeddedField(target, propertyKey);
+      return;
+    }
+
     // Check if this is a relationship field
     if (fieldType === 'relationship') {
       const relationshipType = Reflect.getMetadata('field:relationship:type', target, propertyKey);
       const load = Reflect.getMetadata('field:relationship:load', target, propertyKey);
       const onDelete = Reflect.getMetadata('field:relationship:onDelete', target, propertyKey);
-      
+
       // Get elementType from field options if it exists (for array relationships)
       const elementType = fieldOptions?.elementType;
-      
+
       this.relationshipFieldManager.configureRelationshipField(
-        target, 
-        propertyKey, 
-        relationshipType, 
-        load, 
-        onDelete, 
+        target,
+        propertyKey,
+        relationshipType,
+        load,
+        onDelete,
         elementType
       );
-      
+
       // Store that this field is configured for TypeORM
       Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
       return;
@@ -305,6 +312,139 @@ export class TypeORMSqlDataSource extends DataSource {
   }
 
   /**
+   * Configures an embedded field by flattening its properties into the parent entity.
+   * The embedded model's fields are added as columns to the parent table with a prefix.
+   * 
+   * @param target - The prototype of the class containing the embedded field
+   * @param propertyKey - The name of the embedded property
+   */
+  private configureEmbeddedField(target: any, propertyKey: string): void {
+    // Get the embedded type from metadata
+    const embeddedType = Reflect.getMetadata('field:embedded:type', target, propertyKey);
+
+    if (!embeddedType) {
+      throw new Error(`Cannot determine type for embedded field ${propertyKey}`);
+    }
+
+    // Get all fields from the embedded model
+    const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
+
+    // For each field in the embedded model, create a column in the parent entity
+    for (const embeddedFieldName of embeddedFields) {
+      // Skip if this field is also embedded (nested embedding not supported yet)
+      const isNestedEmbedded = Reflect.getMetadata('field:embedded', embeddedType.prototype, embeddedFieldName);
+      if (isNestedEmbedded) {
+        throw new Error(`Nested embedded fields are not yet supported: ${propertyKey}.${embeddedFieldName}`);
+      }
+
+      // Get field type and options from the embedded model
+      const fieldType = Reflect.getMetadata('field:type', embeddedType.prototype, embeddedFieldName);
+      const fieldOptions = Reflect.getMetadata('field:type:options', embeddedType.prototype, embeddedFieldName);
+
+      if (!fieldType) {
+        continue; // Skip fields without type information
+      }
+
+      // Create a column name with prefix (propertyKey_fieldName)
+      const columnName = `${propertyKey}_${embeddedFieldName}`;
+
+      // Map the embedded field type to TypeORM column type
+      const typeMapping = TypeORMTypeMapper.getColumnType(fieldType, fieldOptions);
+
+      // Apply the TypeORM @Column decorator to the parent entity
+      // The column will be mapped to a property that doesn't exist on the parent class
+      // but will be used for database storage
+      Column({ ...typeMapping, name: columnName })(target, columnName);
+
+      // Store metadata for the embedded field mapping
+      Reflect.defineMetadata(`embedded:${propertyKey}:${embeddedFieldName}`, {
+        columnName,
+        fieldType,
+        fieldOptions,
+        typeMapping
+      }, target);
+    }
+
+    // Store that this embedded field is configured for TypeORM
+    Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
+    Reflect.defineMetadata('datasource:embedded:configured', true, target, propertyKey);
+  }
+
+  /**
+   * Extracts embedded field values from an entity and sets them as flat properties.
+   * This converts nested objects to the flat column structure expected by TypeORM.
+   * 
+   * @param entity - The entity instance to process
+   */
+  private extractEmbeddedValues<T extends object>(entity: T): void {
+    const constructor = entity.constructor;
+    const fieldNames = Reflect.getMetadata('model:fields', constructor) || [];
+
+    for (const fieldName of fieldNames) {
+      const isEmbedded = Reflect.getMetadata('field:embedded', constructor.prototype, fieldName);
+
+      if (isEmbedded) {
+        const embeddedValue = (entity as any)[fieldName];
+
+        if (embeddedValue && typeof embeddedValue === 'object') {
+          // Get the embedded type
+          const embeddedType = Reflect.getMetadata('field:embedded:type', constructor.prototype, fieldName);
+          const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
+
+          // Extract each embedded field to its corresponding column
+          for (const embeddedFieldName of embeddedFields) {
+            const columnName = `${fieldName}_${embeddedFieldName}`;
+            const value = embeddedValue[embeddedFieldName];
+
+            // Set the flat column value on the entity
+            (entity as any)[columnName] = value;
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Restores embedded field values from flat columns back to nested objects.
+   * This converts the flat column structure from TypeORM back to nested objects.
+   * 
+   * @param entity - The entity instance to process
+   */
+  private restoreEmbeddedValues<T extends object>(entity: T): void {
+    const constructor = entity.constructor;
+    const fieldNames = Reflect.getMetadata('model:fields', constructor) || [];
+
+    for (const fieldName of fieldNames) {
+      const isEmbedded = Reflect.getMetadata('field:embedded', constructor.prototype, fieldName);
+
+      if (isEmbedded) {
+        // Get the embedded type and its fields
+        const embeddedType = Reflect.getMetadata('field:embedded:type', constructor.prototype, fieldName);
+        const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
+
+        // Create a new instance of the embedded type
+        const embeddedInstance = new embeddedType();
+
+        // Restore each field from its column
+        for (const embeddedFieldName of embeddedFields) {
+          const columnName = `${fieldName}_${embeddedFieldName}`;
+          const value = (entity as any)[columnName];
+
+          if (value !== undefined) {
+            embeddedInstance[embeddedFieldName] = value;
+          }
+
+          // Clean up the flat column property (optional)
+          delete (entity as any)[columnName];
+        }
+
+        // Set the restored embedded object
+        (entity as any)[fieldName] = embeddedInstance;
+      }
+    }
+  }
+
+  /**
    * Save an entity to the database.
    * Handles array field conversion and DateTimeRange field conversion before saving.
    * 
@@ -325,6 +465,9 @@ export class TypeORMSqlDataSource extends DataSource {
 
     this.dateTimeRangeFieldManager.extractDateTimeRangeValues(entity);
 
+    // Extract embedded field values to flat columns
+    this.extractEmbeddedValues(entity);
+
     // Single save with cascades will insert/update parent and children.
     const saved = await repository.save(entity as any) as T;
 
@@ -334,6 +477,8 @@ export class TypeORMSqlDataSource extends DataSource {
     if ((saved as any).id) {
       const reloaded = await repository.findOneBy({ id: (saved as any).id } as any) as T | null;
       if (reloaded) {
+        // Restore embedded field values from flat columns
+        this.restoreEmbeddedValues(reloaded);
         return reloaded;
       }
     }
@@ -363,7 +508,7 @@ export class TypeORMSqlDataSource extends DataSource {
     } else {
       entities = await repository.find() as T[];
     }
-    
+
     return entities;
   }
 
@@ -382,12 +527,12 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
-    
+
     // Handle SQLite select issue by using query builder when select is specified
     if (options?.select && (this.options as TypeORMSqlDataSourceOptions).type === 'sqlite') {
       return this.findWithSelectWorkaround(repository, options);
     }
-    
+
     const entities = await repository.find(options) as T[];
 
     // Load array data for each entity using the array field manager
@@ -399,17 +544,17 @@ export class TypeORMSqlDataSource extends DataSource {
    * Uses query builder instead of repository.find() when select is specified.
    */
   private async findWithSelectWorkaround<T extends object>(
-    repository: any, 
+    repository: any,
     options: FindManyOptions<T>
   ): Promise<T[]> {
     const queryBuilder = repository.createQueryBuilder('entity');
-    
+
     // Apply select
     if (options.select) {
       const selectFields = Array.isArray(options.select) ? options.select : Object.keys(options.select);
       queryBuilder.select(selectFields.map(field => `entity.${String(field)}`));
     }
-    
+
     // Apply where conditions
     if (options.where) {
       if (Array.isArray(options.where)) {
@@ -431,14 +576,14 @@ export class TypeORMSqlDataSource extends DataSource {
         });
       }
     }
-    
+
     // Apply order
     if (options.order) {
       Object.entries(options.order).forEach(([key, direction]) => {
         queryBuilder.addOrderBy(`entity.${key}`, direction as 'ASC' | 'DESC');
       });
     }
-    
+
     // Apply pagination
     if (options.skip !== undefined) {
       queryBuilder.offset(options.skip);
@@ -446,7 +591,7 @@ export class TypeORMSqlDataSource extends DataSource {
     if (options.take !== undefined) {
       queryBuilder.limit(options.take);
     }
-    
+
     return await queryBuilder.getMany() as T[];
   }
 
@@ -465,6 +610,9 @@ export class TypeORMSqlDataSource extends DataSource {
 
     const repository = this.typeormDataSource.getRepository(entityClass);
     const entities = await repository.findBy(where) as T[];
+
+    // Restore embedded field values from flat columns for each entity
+    entities.forEach(entity => this.restoreEmbeddedValues(entity));
 
     // Load array data for each entity using the array field manager
     return entities;
@@ -490,6 +638,9 @@ export class TypeORMSqlDataSource extends DataSource {
       return null;
     }
 
+    // Restore embedded field values from flat columns
+    this.restoreEmbeddedValues(entity);
+
     // Load array data for the entity using the array field manager
     return entity;
   }
@@ -508,13 +659,13 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
-    
+
     // Handle SQLite select issue by using query builder when select is specified
     if (options?.select && (this.options as TypeORMSqlDataSourceOptions).type === 'sqlite') {
       const results = await this.findWithSelectWorkaround(repository, { ...options, take: 1 });
       return results.length > 0 ? (results[0] as T) : null;
     }
-    
+
     const entity = await repository.findOne(options) as T | null;
 
     if (!entity) {
@@ -541,6 +692,9 @@ export class TypeORMSqlDataSource extends DataSource {
 
     const repository = this.typeormDataSource.getRepository(entityClass);
     const entity = await repository.findOneByOrFail(where) as T;
+
+    // Restore embedded field values from flat columns
+    this.restoreEmbeddedValues(entity);
 
     // Load array data for the entity using the array field manager
     return entity;
@@ -678,8 +832,8 @@ export class TypeORMSqlDataSource extends DataSource {
    * @returns Promise resolving to UpdateResult
    */
   async update<T extends object>(
-    entityClass: new () => T, 
-    criteria: FindOptionsWhere<T> | FindOptionsWhere<T>[], 
+    entityClass: new () => T,
+    criteria: FindOptionsWhere<T> | FindOptionsWhere<T>[],
     partialEntity: Partial<T>
   ): Promise<UpdateResult> {
     if (!this.typeormDataSource) {
@@ -698,7 +852,7 @@ export class TypeORMSqlDataSource extends DataSource {
    * @returns Promise resolving to DeleteResult
    */
   async delete<T extends object>(
-    entityClass: new () => T, 
+    entityClass: new () => T,
     criteria: string | string[] | number | number[] | Date | Date[] | ObjectId | ObjectId[] | FindOptionsWhere<T> | FindOptionsWhere<T>[]
   ): Promise<DeleteResult> {
     if (!this.typeormDataSource) {
@@ -770,11 +924,11 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
-    
+
     // Get the table name for this entity
     const metadata = this.typeormDataSource.getMetadata(entityClass);
     const tableName = metadata.tableName;
-    
+
     // Use raw query to get the basic entity data
     const result = await this.typeormDataSource.query(
       `SELECT * FROM ${tableName} WHERE id = ?`,
@@ -784,10 +938,10 @@ export class TypeORMSqlDataSource extends DataSource {
     if (!result || result.length === 0) {
       return null;
     }
-    
+
     // Create entity instance from raw data
     const entity = repository.create(result[0]) as T;
-    
+
     // Since we set eager: true in relationship configuration, TypeORM should load relationships automatically
     // But our current query doesn't include joins. Let's use TypeORM's built-in findOne with relations
     if (this.typeormDataSource) {
@@ -796,7 +950,7 @@ export class TypeORMSqlDataSource extends DataSource {
           where: { id } as any,
           loadEagerRelations: true // This will load all eager relationships
         });
-        
+
         if (entityWithRelations) {
           console.log(`Loaded entity with eager relations:`, Object.keys(entityWithRelations));
           return entityWithRelations;
@@ -805,7 +959,7 @@ export class TypeORMSqlDataSource extends DataSource {
         console.warn('Failed to load with eager relations, falling back to manual loading:', error);
       }
     }
-    
+
     // Fallback: manually load relationships that are marked as eager
     await this.loadEagerRelationships(entity, entityClass, metadata);
 
@@ -823,14 +977,14 @@ export class TypeORMSqlDataSource extends DataSource {
     // Get relationship fields from our field metadata
     const relationshipFields = Reflect.getMetadata('model:fields', entityClass) || [];
     console.log(`All fields for ${entityClass.name}:`, relationshipFields);
-    
+
     for (const fieldName of relationshipFields) {
       // Check if this field is a relationship
       const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-      
+
       if (fieldType === 'relationship') {
         console.log(`Found relationship field: ${fieldName}`);
-        
+
         // Get relationship-specific metadata
         const relationshipType = Reflect.getMetadata('field:relationship:type', entityClass.prototype, fieldName);
         const relationshipLoad = Reflect.getMetadata('field:relationship:load', entityClass.prototype, fieldName);
@@ -864,14 +1018,14 @@ export class TypeORMSqlDataSource extends DataSource {
     // Get the foreign key value - TypeORM should use the explicit column name we specified
     const foreignKeyName = `${fieldName}Id`;
     const foreignKeyValue = (entity as any)[foreignKeyName];
-    
+
     console.log(`Available entity keys: ${Object.keys(entity)}`);
     console.log(`Loading relationship ${fieldName}, foreign key: ${foreignKeyName} = ${foreignKeyValue}`);
-    
+
     if (foreignKeyValue && foreignKeyName) {
       // Get the target entity class - try elementType first, then fall back to design:type
       let targetClass;
-      
+
       if (relationshipMetadata.elementType && typeof relationshipMetadata.elementType === 'function') {
         targetClass = relationshipMetadata.elementType();
       } else {
@@ -879,16 +1033,16 @@ export class TypeORMSqlDataSource extends DataSource {
         const entityClass = entity.constructor;
         targetClass = Reflect.getMetadata('design:type', entityClass.prototype, fieldName);
       }
-      
+
       console.log(`Target class for ${fieldName}:`, targetClass?.name);
-      
+
       if (targetClass) {
         try {
           const targetRepository = this.typeormDataSource.getRepository(targetClass);
           const relatedEntity = await targetRepository.findOneBy({ id: foreignKeyValue });
-          
+
           console.log(`Found related entity for ${fieldName}:`, relatedEntity);
-          
+
           if (relatedEntity) {
             (entity as any)[fieldName] = relatedEntity;
           }

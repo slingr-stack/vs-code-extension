@@ -6,6 +6,8 @@ export { Field } from './src/model/Field';
 export type { FieldOptions } from './src/model/Field';
 export { Model } from './src/model/Model';
 export type { ModelOptions } from './src/model/Model';
+export { Embedded } from './src/model/Embedded';
+export type { EmbeddedOptions } from './src/model/Embedded';
 export { CustomValidate } from './src/validators/CustomValidationConstraint';
 export { Text } from './src/model/types/string/Text';
 export type { TextOptions } from './src/model/types/string/Text';
