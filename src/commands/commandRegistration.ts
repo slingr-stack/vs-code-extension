@@ -174,9 +174,10 @@ export function registerGeneralCommands(
     disposables.push(addFieldCommand);
 
     // Add Composition Tool
-    const addCompositionTool = new AddCompositionTool();
+    const addCompositionTool = new AddCompositionTool(explorerProvider);
     const addCompositionCommand = vscode.commands.registerCommand('slingr-vscode-extension.addComposition', async (uri?: vscode.Uri | AppTreeItem) => {
         let targetUri: vscode.Uri;
+        let modelName: string | undefined;
 
         if (uri) {
             // URI provided from context menu (right-click on file in explorer)
@@ -186,19 +187,14 @@ export function registerGeneralCommands(
                 // AppTreeItem case - check if it's a model with metadata
                 if (uri.itemType === 'model' && uri.metadata?.declaration?.uri) {
                     targetUri = uri.metadata.declaration.uri;
+                    modelName = uri.metadata?.name;
                 } else {
                     vscode.window.showErrorMessage('Please select a model file to add a composition to.');
                     return;
                 }
             }
         } else {
-            // Fallback to active editor if no URI provided
-            const activeEditor = vscode.window.activeTextEditor;
-            if (!activeEditor) {
-                vscode.window.showErrorMessage('Please select a model file or open one in the editor to add a composition.');
-                return;
-            }
-            targetUri = activeEditor.document.uri;
+            throw new Error('URI must be provided to add a composition.');
         }
 
         // Validate that it's a TypeScript file
@@ -208,7 +204,13 @@ export function registerGeneralCommands(
         }
 
         try {
-            await addCompositionTool.addComposition(targetUri, cache);
+            if (modelName) {
+                await addCompositionTool.addComposition(cache, modelName);
+            }
+            else{
+                vscode.window.showErrorMessage('Model name could not be determined.');
+            }
+            
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to add composition: ${error}`);
         }
