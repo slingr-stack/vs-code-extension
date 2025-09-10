@@ -8,10 +8,10 @@ import { ProjectAnalysisService } from "./projectAnalysisService";
 
 export class SourceCodeService {
   private fileSystemService: FileSystemService;
-  private projectAnalysisSercice: ProjectAnalysisService;
+  private projectAnalysisService: ProjectAnalysisService;
   constructor() {
     this.fileSystemService = new FileSystemService();
-    this.projectAnalysisSercice = new ProjectAnalysisService();
+    this.projectAnalysisService = new ProjectAnalysisService();
   }
 
   public async insertField(
@@ -192,7 +192,7 @@ export class SourceCodeService {
       while ((match = importRegex.exec(content)) !== null) {
         const importPath = match[1];
 
-        if (this.projectAnalysisSercice.importReferencesFolder(fileUri, importPath, oldFolderPath)) {
+        if (this.projectAnalysisService.importReferencesFolder(fileUri, importPath, oldFolderPath)) {
           // Calculate the new import path
           const newImportPath = this.calculateNewImportPath(fileUri, importPath, oldFolderPath, newFolderPath);
 
