@@ -26,7 +26,7 @@ export class Person extends BaseModel {
   })
   lastName!: string;
 
-  @Field({})
+  @Field()
   @Email()
   email!: string;
 
