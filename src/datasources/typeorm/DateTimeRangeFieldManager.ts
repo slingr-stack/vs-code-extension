@@ -128,10 +128,10 @@ export class DateTimeRangeFieldManager {
                     entity[fieldName] = undefined;
                 }
                 
-                // Clean up hidden column values from the entity object
-                // so they don't appear in JSON serialization
-                delete entity[hiddenColumns.from];
-                delete entity[hiddenColumns.to];
+                // Make hidden column properties non-enumerable so they don't appear 
+                // in JSON serialization while preserving them for TypeORM's use
+                this.makePropertyNonEnumerable(entity, hiddenColumns.from);
+                this.makePropertyNonEnumerable(entity, hiddenColumns.to);
             }
         }
     }
@@ -146,5 +146,24 @@ export class DateTimeRangeFieldManager {
      */
     getHiddenColumnNames(target: any, propertyKey: string): { from: string; to: string } | null {
         return Reflect.getMetadata('dateTimeRange:hiddenColumns', target.prototype || target, propertyKey) || null;
+    }
+    
+    /**
+     * Makes a property non-enumerable to hide it from JSON serialization
+     * while preserving it for TypeORM operations.
+     * 
+     * @param object - The object containing the property
+     * @param propertyName - The name of the property to make non-enumerable
+     */
+    private makePropertyNonEnumerable(object: any, propertyName: string): void {
+        if (object.hasOwnProperty(propertyName)) {
+            const value = object[propertyName];
+            Object.defineProperty(object, propertyName, {
+                value: value,
+                writable: true,
+                enumerable: false,
+                configurable: true
+            });
+        }
     }
 }

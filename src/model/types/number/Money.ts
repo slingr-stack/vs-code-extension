@@ -169,9 +169,16 @@ export const MoneyTypeConfig: FieldTypeConfig = {
             fieldOptions?.roundingType || 'truncate'
         );
         
+        let precision = 19;
+        if (fieldOptions?.max) {
+            // Remove decimal point and count total digits
+            const maxDigits = fieldOptions.max.replace('.', '').length;
+            precision = maxDigits;
+        }
+
         return {
             type: 'decimal',
-            precision: 19,
+            precision: precision,
             scale: fieldOptions?.decimals || 2,
             nullable: nullable,
             transformer: transformer

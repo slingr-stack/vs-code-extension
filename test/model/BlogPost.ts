@@ -1,7 +1,4 @@
-import { Field } from "../../src/model/Field";
-import { Model } from "../../src/model/Model";
-import { PersistentModel } from "../../src/model/PersistentModel";
-import { Text, HTML, Email } from "../../src/model/types";
+import { Field, Model, PersistentModel, Text, HTML, Email } from '../../index';
 
 @Model({
     docs: "Represents a blog post with array fields",
