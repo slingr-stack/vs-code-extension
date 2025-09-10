@@ -181,28 +181,20 @@ export function DateTimeRange(options?: DateTimeRangeOptions) {
     };
 }
 
-/**
- * Configuration object for DateTimeRange field TypeORM mapping.
- * Uses hidden columns approach since DateTimeRange is a complex object with multiple fields.
- */
-export const DateTimeRangeTypeConfig: FieldTypeConfig = {
-    getTypeORMColumnConfig(fieldOptions?: DateTimeRangeOptions, nullable: boolean = true): any {
-        // DateTimeRange fields are handled specially via hidden columns
-        // This returns a configuration that indicates special handling is needed
-        return {
-            type: 'datetime-range',
-            nullable: nullable,
-            options: fieldOptions,
-            // This special flag tells TypeORM data source to handle this field differently
-            isComplexType: true
-        };
-    },
+// /**
+//  * DateTimeRange field is managed by the Field manager and does not require
+//  * any specific database column configuration.
+//  */
+// export const DateTimeRangeTypeConfig: FieldTypeConfig = {
+//     getTypeORMColumnConfig(fieldOptions?: DateTimeRangeOptions, nullable: boolean = true): any {
+//         return {
+//         };
+//     },
 
-    getArrayElementColumnConfig(fieldOptions?: DateTimeRangeOptions): any {
-        // Array elements for DateTimeRange would need special handling too
-        return this.getTypeORMColumnConfig(fieldOptions, false);
-    }
-};
+//     getArrayElementColumnConfig(fieldOptions?: DateTimeRangeOptions): any {
+//         return this.getTypeORMColumnConfig(fieldOptions, false);
+//     }
+// };
 
 // Register the datetime range type configuration
-FieldTypeRegistry.register('datetimerange', DateTimeRangeTypeConfig);
+// FieldTypeRegistry.register('datetimerange', DateTimeRangeTypeConfig);
