@@ -66,8 +66,13 @@ function validateDateTimeRangeType(proto: Object, propertyKey: string): void {
     const designType = Reflect.getMetadata('design:type', proto, propertyKey);
     // Be more flexible with type checking since TypeScript may not preserve exact type info
     // We accept DateTimeRangeType, Object, or undefined types
-    if (designType && designType !== DateTimeRangeType && designType !== Object) {
-        console.warn(`@DateTimeRange applied to property '${propertyKey}' of type '${designType?.name}'. Ensure the property type is DateTimeRangeType.`);
+    if (
+        designType &&
+        designType !== DateTimeRangeType &&
+        designType !== Object &&
+        designType !== Array
+    ) {
+        throw new Error(`@DateTimeRange can only be applied to 'DateTimeRange' or 'DateTimeRange[]' properties: ${propertyKey}`);
     }
 }
 
