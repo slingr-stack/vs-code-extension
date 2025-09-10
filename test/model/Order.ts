@@ -1,7 +1,4 @@
-import { Field } from "@/model/Field";
-import { Model } from "@/model/Model";
-import { BaseModel } from "@/model/BaseModel";
-import { DateTime, Relationship } from "@/model/types";
+import { BaseModel, Field, Model, Relationship, DateTime } from "../../index";
 import { Customer } from "./Customer";
 import { LineItem } from "./LineItem";
 

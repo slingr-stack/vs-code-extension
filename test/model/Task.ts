@@ -1,7 +1,7 @@
-import { Field } from "@/model/Field";
-import { Model } from "@/model/Model";
-import { BaseModel } from "@/model/BaseModel";
-import { Choice, Text, Relationship } from "@/model/types";
+import { Field } from "../../src/model/Field";
+import { Model } from "../../src/model/Model";
+import { BaseModel } from "../../src/model/BaseModel";
+import { Choice, Text, Relationship, HTML } from "../../src/model/types";
 import { Project } from "./Project";
 
 export enum TaskStatus {
@@ -44,4 +44,16 @@ export class Task extends BaseModel {
         type: 'reference'
     })
     project!: Project;
+
+    @Field({
+        required: false
+    })
+    @HTML()
+    notes!: string[];
+
+    @Field({
+        required: false
+    })
+    @Text()
+    sponsors!: string[];
 }

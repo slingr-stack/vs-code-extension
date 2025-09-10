@@ -1,6 +1,4 @@
-import { Field } from "@/model/Field";
-import { Model } from "@/model/Model";
-import { BaseModel } from "@/model/BaseModel";
+import { BaseModel, Field, Model } from "../../index";
 
 @Model({
     docs: "Represents a line item in an order",

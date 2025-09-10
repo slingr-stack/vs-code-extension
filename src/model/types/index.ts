@@ -1,16 +1,20 @@
-export { Text } from './Text';
-export type { TextOptions } from './Text';
-export { Email } from './Email';
-export { HTML } from './HTML';
-export { Boolean } from './Boolean';
-export { Choice } from './Choice';
-export { DateTime } from './DateTime';
-export type { DateTimeOptions } from './DateTime';
-export { DateTimeRange, DateTimeRangeType } from './DateTimeRange';
-export type { DateTimeRangeOptions } from './DateTimeRange';
-export { Integer } from './Integer';
-export { Money } from './Money';
-export { Number } from './Number';
-export { Decimal } from './Decimal';
-export { Relationship } from './Relationship';
-export type { RelationshipOptions } from './Relationship';
+export { Text } from './string/Text';
+export type { TextOptions } from './string/Text';
+export { Email } from './string/Email';
+export { HTML } from './string/HTML';
+export { Boolean } from './boolean/Boolean';
+export { Choice } from './enum/Choice';
+export { DateTime } from './date_time/DateTime';
+export type { DateTimeOptions } from './date_time/DateTime';
+export { DateTimeRange, DateTimeRangeType } from './date_time/DateTimeRange';
+export type { DateTimeRangeOptions } from './date_time/DateTimeRange';
+export { Integer } from './number/Integer';
+export { Money } from './number/Money';
+export { Number } from './number/Number';
+export { Decimal } from './number/Decimal';
+export { Relationship } from './relationship/Relationship';
+export type { RelationshipOptions } from './relationship/Relationship';
+
+// Export the field type configuration system
+export { FieldTypeRegistry } from './FieldTypeConfig';
+export type { FieldTypeConfig } from './FieldTypeConfig';

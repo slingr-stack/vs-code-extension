@@ -1,7 +1,4 @@
-import { Field } from "@/model/Field";
-import { Model } from "@/model/Model";
-import { BaseModel } from "@/model/BaseModel";
-import { Text } from "@/model/types";
+import { BaseModel, Field, Model, Text } from "../../index";
 
 @Model({
     docs: "Represents a customer",
