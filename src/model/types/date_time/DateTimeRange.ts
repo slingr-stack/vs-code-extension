@@ -55,7 +55,7 @@ export class DateTimeRangeType {
 }
 
 // Custom key types for clearer IntelliSense errors
-type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRangeType | undefined
+type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRangeType | DateTimeRangeType[] | undefined
     ? K
     : `DateTimeRange: requires DateTimeRange field`;
 
