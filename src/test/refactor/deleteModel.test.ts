@@ -432,6 +432,143 @@ if (typeof suite !== 'undefined') {
                 // The workspace edit should include removal of relationship decorators
             });
         });
+
+        suite('Multiple Models in File', () => {
+            test('should handle deletion of one model from multi-model file', () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/MultiModel.ts');
+                
+                // Create mock metadata for two models in the same file
+                const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
+                const orderModel = createMockModel('Order', modelUri, new vscode.Range(20, 0, 30, 1));
+                
+                const oldFileMeta: FileMetadata = {
+                    uri: modelUri,
+                    classes: {
+                        'User': userModel,
+                        'Order': orderModel
+                    },
+                    dataSources: {}
+                };
+
+                const newFileMeta: FileMetadata = {
+                    uri: modelUri,
+                    classes: {
+                        'Order': orderModel  // User model was deleted
+                    },
+                    dataSources: {}
+                };
+
+                const changes = tool.analyze(oldFileMeta, newFileMeta);
+                
+                assert.strictEqual(changes.length, 1);
+                assert.strictEqual(changes[0].type, 'DELETE_MODEL');
+                assert.strictEqual((changes[0].payload as DeleteModelPayload).oldModelMetadata.name, 'User');
+                
+                // Should not include the file itself in urisToDelete since other models remain
+                const urisToDelete = (changes[0].payload as DeleteModelPayload).urisToDelete;
+                const fileIsInDeleteList = urisToDelete.some(uri => uri.fsPath === modelUri.fsPath);
+                assert.strictEqual(fileIsInDeleteList, false);
+            });
+
+            test('should handle deletion of last model from file', () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/SingleModel.ts');
+                
+                // Create mock metadata for single model in file
+                const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
+                
+                const oldFileMeta: FileMetadata = {
+                    uri: modelUri,
+                    classes: {
+                        'User': userModel
+                    },
+                    dataSources: {}
+                };
+
+                const newFileMeta: FileMetadata = {
+                    uri: modelUri,
+                    classes: {}, // No models left
+                    dataSources: {}
+                };
+
+                const changes = tool.analyze(oldFileMeta, newFileMeta);
+                
+                assert.strictEqual(changes.length, 1);
+                assert.strictEqual(changes[0].type, 'DELETE_MODEL');
+                assert.strictEqual((changes[0].payload as DeleteModelPayload).oldModelMetadata.name, 'User');
+                
+                // Should include the file itself in urisToDelete since no models remain
+                const urisToDelete = (changes[0].payload as DeleteModelPayload).urisToDelete;
+                const fileIsInDeleteList = urisToDelete.some(uri => uri.fsPath === modelUri.fsPath);
+                assert.strictEqual(fileIsInDeleteList, true);
+            });
+
+            test('should show appropriate confirmation message for multiple models', async () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/MultiModel.ts');
+                const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
+                const orderModel = createMockModel('Order', modelUri, new vscode.Range(20, 0, 30, 1));
+                
+                // Mock cache to return multiple models for the file
+                (mockCache as any).getMetadataForFile = (filePath: string) => ({
+                    uri: modelUri,
+                    classes: {
+                        'User': userModel,
+                        'Order': orderModel
+                    },
+                    dataSources: {}
+                });
+
+                let capturedMessage = '';
+                (vscode.window as any).showWarningMessage = async (message: string, ...items: string[]) => {
+                    capturedMessage = message;
+                    return "Yes, Delete All";
+                };
+
+                const context: ManualRefactorContext = {
+                    cache: mockCache,
+                    uri: modelUri,
+                    range: userModel.declaration.range,
+                    metadata: userModel
+                };
+
+                await tool.initiateManualRefactor(context);
+                
+                // Should mention that other models will remain
+                assert.ok(capturedMessage.includes('other models in the same file will remain'));
+            });
+
+            test('should show appropriate confirmation message for single model', async () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/SingleModel.ts');
+                const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
+                
+                // Mock cache to return single model for the file
+                (mockCache as any).getMetadataForFile = (filePath: string) => ({
+                    uri: modelUri,
+                    classes: {
+                        'User': userModel
+                    },
+                    dataSources: {}
+                });
+
+                let capturedMessage = '';
+                (vscode.window as any).showWarningMessage = async (message: string, ...items: string[]) => {
+                    capturedMessage = message;
+                    return "Yes, Delete All";
+                };
+
+                const context: ManualRefactorContext = {
+                    cache: mockCache,
+                    uri: modelUri,
+                    range: userModel.declaration.range,
+                    metadata: userModel
+                };
+
+                await tool.initiateManualRefactor(context);
+                
+                // Should NOT mention other models since there's only one
+                assert.ok(!capturedMessage.includes('other models in the same file will remain'));
+                assert.ok(capturedMessage.includes('its related files'));
+            });
+        });
     });
 }
 

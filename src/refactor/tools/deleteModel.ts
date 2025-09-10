@@ -59,71 +59,85 @@ export class DeleteModelTool implements IRefactorTool {
    * 
    * @param oldFileMeta - The metadata of the file before changes, containing class information
    * @param newFileMeta - The metadata of the file after changes, or undefined if file was deleted
-   * @returns An array of ChangeObject instances. Returns a single DELETE_MODEL change object if an model deletion is detected, otherwise returns an empty array
+   * @returns An array of ChangeObject instances. Returns DELETE_MODEL change objects for each deleted model
    * 
    * @remarks
    * This method performs the following checks:
    * - Validates that oldFileMeta exists and represents an model file
-   * - Extracts the model class from the old file metadata
-   * - Determines if the model was deleted by checking if it no longer exists in newFileMeta
-   * - If deleted, collects related URIs that should also be removed (actions and UI directories)
-   * - Returns a DELETE_MODEL change object with the deleted model metadata and related URIs
+   * - Extracts all model classes from the old file metadata
+   * - Determines which models were deleted by comparing old and new metadata
+   * - Handles both full file deletion and selective model deletion within files
+   * - For each deleted model, collects related URIs that should also be removed (actions and UI directories)
+   * - Returns DELETE_MODEL change objects for each deleted model
    */
   public analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata, accumulatedChanges: ChangeObject[] = []): ChangeObject[] {
     if (!oldFileMeta || !isModelFile(oldFileMeta.uri)) {
       return [];
     }
 
-    const oldModelClass = Object.values(oldFileMeta.classes).find(isModel);
-
-    if (!oldModelClass) {
+    const oldModelClasses = Object.values(oldFileMeta.classes).filter(isModel);
+    if (oldModelClasses.length === 0) {
       return [];
     }
 
-    // Check if this model was already handled by a rename operation
-    const wasRenamed = accumulatedChanges.some(change => {
-      if (change.type === 'RENAME_MODEL') {
-        const payload = change.payload as RenameModelPayload;
-        return payload.oldName === oldModelClass.name;
-      }
-      return false;
-    });
+    const changes: ChangeObject[] = [];
+    const newModelClasses = newFileMeta ? Object.values(newFileMeta.classes).filter(isModel) : [];
+    const newModelNames = new Set(newModelClasses.map(cls => cls.name));
 
-    if (wasRenamed) {
-      // Model was renamed, not deleted
-      return [];
-    }
-
-    const isDeleted = !newFileMeta || !Object.values(newFileMeta.classes).some(isModel);
-
-    if (isDeleted) {
-      const urisToDelete: vscode.Uri[] = [];
-      const modelUri = oldFileMeta.uri;
-      const modelNameLower = oldModelClass.name.toLowerCase();
-      const workspaceFolder = vscode.workspace.getWorkspaceFolder(modelUri);
-
-      if (workspaceFolder) {
-        const parentDirsToSearch = ["src/data/actions", "src/ui"];
-        for (const parentDir of parentDirsToSearch) {
-          const relatedDirUri = vscode.Uri.joinPath(workspaceFolder.uri, parentDir, modelNameLower);
-          urisToDelete.push(relatedDirUri);
+    for (const oldModelClass of oldModelClasses) {
+      // Check if this model was already handled by a rename operation
+      const wasRenamed = accumulatedChanges.some(change => {
+        if (change.type === 'RENAME_MODEL') {
+          const payload = change.payload as RenameModelPayload;
+          return payload.oldName === oldModelClass.name;
         }
+        return false;
+      });
+
+      if (wasRenamed) {
+        // Model was renamed, not deleted
+        return [];
       }
-      const payload: DeleteModelPayload = {
-        oldModelMetadata: oldModelClass,
-        urisToDelete: urisToDelete,
-        isManual: false
-      };
-      return [
-        {
+
+      const isModelDeleted = !newModelNames.has(oldModelClass.name);
+
+      if (isModelDeleted) {
+        const urisToDelete: vscode.Uri[] = [];
+        const modelUri = oldFileMeta.uri;
+        const modelNameLower = oldModelClass.name.toLowerCase();
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(modelUri);
+
+        // Only delete the entire file if this was the only model in the file
+        const wasOnlyModel = oldModelClasses.length === 1;
+        if (wasOnlyModel) {
+          urisToDelete.push(modelUri);
+        }
+
+        // Always collect related directories for deletion
+        if (workspaceFolder) {
+          const parentDirsToSearch = ["src/data/actions", "src/ui"];
+          for (const parentDir of parentDirsToSearch) {
+            const relatedDirUri = vscode.Uri.joinPath(workspaceFolder.uri, parentDir, modelNameLower);
+            urisToDelete.push(relatedDirUri);
+          }
+        }
+
+        const payload: DeleteModelPayload = {
+          oldModelMetadata: oldModelClass,
+          urisToDelete: urisToDelete,
+          isManual: false
+        };
+
+        changes.push({
           type: "DELETE_MODEL",
           uri: oldFileMeta.uri,
           description: `Model '${oldModelClass.name}' was deleted.`,
           payload,
-        },
-      ];
+        });
+      }
     }
-    return [];
+
+    return changes;
   }
 
   /**
@@ -131,7 +145,8 @@ export class DeleteModelTool implements IRefactorTool {
    * 
    * This method validates that the context contains a valid model, asks the user for
    * confirmation, and then constructs a `ChangeObject` for the deletion. The change
-   * object includes the URIs of the model file and related directories to be deleted.
+   * object includes the URIs of related directories to be deleted. If multiple models
+   * exist in the same file, only the specific model will be deleted, not the entire file.
    * 
    * @param context The manual refactor context.
    * @returns A promise that resolves to a `ChangeObject` for the deletion, or `undefined` if the user cancels.
@@ -142,17 +157,32 @@ export class DeleteModelTool implements IRefactorTool {
       return undefined;
     }
     const model = context.metadata as DecoratedClass;
+    
+    // Check if there are multiple models in the same file
+    const fileMeta = context.cache.getMetadataForFile(context.uri.fsPath);
+    const allModelsInFile = fileMeta ? Object.values(fileMeta.classes).filter(isModel) : [];
+    const hasMultipleModels = allModelsInFile.length > 1;
+    
+    const warningMessage = hasMultipleModels
+      ? `Are you sure you want to delete the model '${model.name}' and all its references? The model will be removed from this file, but other models in the same file will remain. This action cannot be undone.`
+      : `Are you sure you want to delete the model '${model.name}', its related files, and all its references? This action cannot be undone.`;
+      
     const confirmation = await vscode.window.showWarningMessage(
-      `Are you sure you want to delete the model '${model.name}', its related files, and all its references? This action cannot be undone.`,
+      warningMessage,
       "Yes, Delete All"
     );
 
     if (confirmation !== "Yes, Delete All") {
       return undefined;
     }
+    
     const urisToDelete: vscode.Uri[] = [];
     const modelUri = context.uri;
-    urisToDelete.push(modelUri);
+    
+    // Only delete the entire file if this is the only model in the file
+    if (!hasMultipleModels) {
+      urisToDelete.push(modelUri);
+    }
 
     const modelNameLower = model.name.toLowerCase();
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(modelUri);
@@ -181,10 +211,11 @@ export class DeleteModelTool implements IRefactorTool {
   /**
    * Prepares a workspace edit for deleting an model.
    * 
-   * This method performs two main cleanup tasks:
-   * 1. Removes all external references to the deleted model. References within the
-   *    model's own file or related files/directories being deleted are ignored.
-   * 2. Cleans up relationship fields in other models that reference the deleted model.
+   * This method performs several cleanup tasks:
+   * 1. If multiple models exist in the same file, removes only the specific model class
+   * 2. If it's the only model in the file, the entire file will be deleted via urisToDelete
+   * 3. Removes all external references to the deleted model
+   * 4. Cleans up relationship fields in other models that reference the deleted model
    * 
    * @param change The change object containing deletion details.
    * @param cache The metadata cache for looking up other models.
@@ -204,16 +235,25 @@ export class DeleteModelTool implements IRefactorTool {
     const deletedModelName = oldModelMetadata.name;
     const allReferences = (oldModelMetadata.references as vscode.Location[]) || [];
 
+    // Check if we need to delete just the class or the entire file
+    const isEntireFileBeingDeleted = urisToDelete.some(uri => uri.fsPath === change.uri.fsPath);
+    
+    if (!isEntireFileBeingDeleted) {
+      // Multiple models in file - delete only the specific model class
+      await this.deleteModelClassFromFile(change.uri, oldModelMetadata, workspaceEdit);
+    }
+
+    // Filter out references that are in files/directories being deleted
     const externalReferences = allReferences.filter((ref) => {
       for (const path of pathsToDelete) {
         if (ref.uri.fsPath.startsWith(path) || (ref.uri.fsPath === change.uri.fsPath && !change.payload.isManual)) {
           return false;
         }
-        
       }
       return true; 
     });
 
+    // Remove external references to the deleted model
     for (const ref of externalReferences) {
       try {
         const doc = await vscode.workspace.openTextDocument(ref.uri);
@@ -226,8 +266,222 @@ export class DeleteModelTool implements IRefactorTool {
         workspaceEdit.replace(ref.uri, ref.range, "/* DELETED_REFERENCE */");
       }
     }
+    
     await this.cleanupRelationshipFields(deletedModelName, workspaceEdit, cache);
     return workspaceEdit;
+  }
+
+  /**
+   * Deletes a specific model class from a file that contains multiple models.
+   * This method calculates the exact range of the class declaration including
+   * its decorators, imports, and related code, then removes only that portion.
+   * It also cleans up any unused imports that were only used by the deleted model.
+   * 
+   * @param fileUri - The URI of the file containing the model
+   * @param modelMetadata - The metadata of the model to delete
+   * @param workspaceEdit - The workspace edit to add the deletion to
+   */
+  private async deleteModelClassFromFile(
+    fileUri: vscode.Uri, 
+    modelMetadata: DecoratedClass, 
+    workspaceEdit: vscode.WorkspaceEdit
+  ): Promise<void> {
+    try {
+      const document = await vscode.workspace.openTextDocument(fileUri);
+      const text = document.getText();
+      const lines = text.split('\n');
+      
+      // Find the class declaration range
+      const classDeclaration = modelMetadata.declaration;
+      const startLine = classDeclaration.range.start.line;
+      const endLine = classDeclaration.range.end.line;
+      
+      // Extend the range to include decorators above the class
+      let actualStartLine = startLine;
+      
+      // Look backwards to find decorators and comments that belong to this class
+      for (let i = startLine - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line === '' || line.startsWith('//') || line.startsWith('/*') || line.endsWith('*/')) {
+          // Empty lines, single-line comments, or comment blocks - continue looking
+          actualStartLine = i;
+        } else if (line.startsWith('@')) {
+          // Decorator - include it
+          actualStartLine = i;
+        } else {
+          // Found non-empty, non-comment, non-decorator line - stop here
+          break;
+        }
+      }
+      
+      // Look forward to find the complete class body (including closing brace)
+      let actualEndLine = endLine;
+      let braceCount = 0;
+      let foundOpenBrace = false;
+      
+      for (let i = startLine; i < lines.length; i++) {
+        const line = lines[i];
+        
+        for (const char of line) {
+          if (char === '{') {
+            braceCount++;
+            foundOpenBrace = true;
+          } else if (char === '}') {
+            braceCount--;
+            if (foundOpenBrace && braceCount === 0) {
+              actualEndLine = i;
+              break;
+            }
+          }
+        }
+        
+        if (foundOpenBrace && braceCount === 0) {
+          break;
+        }
+      }
+      
+      // Include any trailing empty lines that belong to this class
+      while (actualEndLine + 1 < lines.length && lines[actualEndLine + 1].trim() === '') {
+        actualEndLine++;
+      }
+      
+      // Create the range to delete (include the newline of the last line)
+      const rangeToDelete = new vscode.Range(
+        new vscode.Position(actualStartLine, 0),
+        new vscode.Position(actualEndLine + 1, 0)
+      );
+      
+      workspaceEdit.delete(fileUri, rangeToDelete);
+      
+      // Clean up unused imports after the class deletion
+      await this.cleanupUnusedImports(fileUri, modelMetadata, workspaceEdit, text);
+      
+    } catch (error) {
+      console.error(`Error deleting model class from file ${fileUri.fsPath}:`, error);
+      // Fallback: just comment out the class declaration
+      workspaceEdit.replace(fileUri, modelMetadata.declaration.range, `/* DELETED_MODEL: ${modelMetadata.name} */`);
+    }
+  }
+
+  /**
+   * Identifies and removes import statements that were only used by the deleted model.
+   * This prevents unused import errors after a model is removed from a multi-model file.
+   * 
+   * @param fileUri - The URI of the file being modified
+   * @param deletedModel - The metadata of the deleted model
+   * @param workspaceEdit - The workspace edit to add import deletions to
+   * @param originalText - The original file content before class deletion
+   */
+  private async cleanupUnusedImports(
+    fileUri: vscode.Uri, 
+    deletedModel: DecoratedClass, 
+    workspaceEdit: vscode.WorkspaceEdit,
+    originalText: string
+  ): Promise<void> {
+    try {
+      const lines = originalText.split('\n');
+      const importsToCheck: Set<string> = new Set();
+      
+      // Collect potential imports used by the deleted model
+      // Check decorators for imported types
+      for (const decorator of deletedModel.decorators) {
+        importsToCheck.add(decorator.name);
+      }
+      
+      // Check property types for imported types
+      for (const property of Object.values(deletedModel.properties)) {
+        // Extract type name (handle generic types like Array<SomeType>)
+        const baseType = property.type.replace(/[<>[\]]/g, ' ').split(' ')[0];
+        if (baseType && /^[A-Z]/.test(baseType)) { // Likely an imported type (starts with capital letter)
+          importsToCheck.add(baseType);
+        }
+        
+        // Check property decorators
+        for (const decorator of property.decorators) {
+          importsToCheck.add(decorator.name);
+        }
+      }
+      
+      // Now check if these imports are still used elsewhere in the file
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Skip if this is an import line
+        if (!line.startsWith('import ')) {
+          continue;
+        }
+        
+        // Extract imported identifiers from the line
+        const importMatch = line.match(/import\s+{([^}]+)}\s+from/);
+        if (!importMatch) {
+          continue;
+        }
+        
+        const importedItems = importMatch[1]
+          .split(',')
+          .map(item => item.trim())
+          .filter(item => item.length > 0);
+          
+        // Check which imports from this line are no longer used
+        const unusedImports = importedItems.filter(importedItem => {
+          if (!importsToCheck.has(importedItem)) {
+            return false; // Not related to deleted model
+          }
+          
+          // Check if this import is still used elsewhere in the file
+          // (excluding the import line itself and the deleted class content)
+          const searchPattern = new RegExp(`\\b${importedItem}\\b`, 'g');
+          let usageCount = 0;
+          
+          for (let j = 0; j < lines.length; j++) {
+            if (j === i) {
+              continue; // Skip the import line
+            }
+            
+            // Skip lines that are part of the deleted model (rough approximation)
+            if (j >= deletedModel.declaration.range.start.line && 
+                j <= deletedModel.declaration.range.end.line) {
+              continue;
+            }
+            
+            const matches = lines[j].match(searchPattern);
+            if (matches) {
+              usageCount += matches.length;
+            }
+          }
+          
+          return usageCount === 0;
+        });
+        
+        // If we found unused imports in this line, update it
+        if (unusedImports.length > 0) {
+          const remainingImports = importedItems.filter(item => !unusedImports.includes(item));
+          
+          if (remainingImports.length === 0) {
+            // Remove the entire import line
+            const lineRange = new vscode.Range(
+              new vscode.Position(i, 0),
+              new vscode.Position(i + 1, 0)
+            );
+            workspaceEdit.delete(fileUri, lineRange);
+          } else {
+            // Update the import line to remove only unused imports
+            const newImportLine = line.replace(
+              /import\s+{[^}]+}/,
+              `import { ${remainingImports.join(', ')} }`
+            );
+            const lineRange = new vscode.Range(
+              new vscode.Position(i, 0),
+              new vscode.Position(i, lines[i].length)
+            );
+            workspaceEdit.replace(fileUri, lineRange, newImportLine);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error cleaning up unused imports in ${fileUri.fsPath}:`, error);
+      // Don't fail the entire operation if import cleanup fails
+    }
   }
 
   /**
