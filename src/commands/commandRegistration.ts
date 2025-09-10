@@ -1,17 +1,17 @@
 import * as vscode from 'vscode';
 import { MetadataCache } from '../cache/cache';
 import { ExplorerProvider } from '../explorer/explorerProvider';
-import { NewModelTool } from './newModel';
-import { DefineFieldsTool } from './defineFields';
-import { AddFieldTool } from './addField';
-import { NewFolderTool } from './newFolder';
-import { DeleteFolderTool } from './deleteFolder';
-import { RenameFolderTool } from './renameFolder';
+import { NewModelTool } from './models/newModel';
+import { DefineFieldsTool } from './fields/defineFields';
+import { AddFieldTool } from './fields/addField';
+import { NewFolderTool } from './folders/newFolder';
+import { DeleteFolderTool } from './folders/deleteFolder';
+import { RenameFolderTool } from './folders/renameFolder';
 import { CreateTestTool } from './createTest';
 import { AppTreeItem } from '../explorer/appTreeItem';
-import { CreateModelFromDescriptionTool } from './createModelFromDesc';
-import { ModifyModelTool } from './modifyModel';
-import { ExplorerService } from '../explorer/explorerService';
+import { CreateModelFromDescriptionTool } from './models/createModelFromDesc';
+import { ModifyModelTool } from './models/modifyModel';
+import { AIService } from '../services/aiService';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -19,7 +19,7 @@ export function registerGeneralCommands(
     explorerProvider: ExplorerProvider
 ): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
-    const explorerService = new ExplorerService();
+    const aiService = new AIService();
 
     // Navigation command
     const navigateToCodeCommand = vscode.commands.registerCommand('slingr-vscode-extension.navigateToCode', (location: vscode.Location) => {
@@ -65,7 +65,7 @@ export function registerGeneralCommands(
         const content = document.getText();
         
         // Check if this is a model file
-        if (!content.includes('@Model') || !content.includes('extends BaseModel')) {
+        if (!content.includes('@Model')) {
             vscode.window.showErrorMessage('The current file does not appear to be a model file.');
             return;
         }
@@ -116,7 +116,7 @@ export function registerGeneralCommands(
         const content = document.getText();
         
         // Check if this is a model file
-        if (!content.includes('@Model') || !content.includes('extends BaseModel')) {
+        if (!content.includes('@Model')) {
             vscode.window.showErrorMessage('The current file does not appear to be a model file.');
             return;
         }
@@ -130,28 +130,28 @@ export function registerGeneralCommands(
     disposables.push(addFieldCommand);
 
     // New Folder Tool
-    const newFolderTool = new NewFolderTool(explorerService);
+    const newFolderTool = new NewFolderTool();
     const newFolderCommand = vscode.commands.registerCommand('slingr-vscode-extension.newFolder', (uri?: vscode.Uri | AppTreeItem) => {
         return newFolderTool.createFolder(explorerProvider, uri);
     });
     disposables.push(newFolderCommand);
 
     // Delete Folder Tool
-    const deleteFolderTool = new DeleteFolderTool(explorerService);
+    const deleteFolderTool = new DeleteFolderTool();
     const deleteFolderCommand = vscode.commands.registerCommand('slingr-vscode-extension.deleteFolder', (uri?: vscode.Uri | AppTreeItem) => {
         return deleteFolderTool.deleteFolder(explorerProvider, cache, uri);
     });
     disposables.push(deleteFolderCommand);
 
     // Rename Folder Tool
-    const renameFolderTool = new RenameFolderTool(explorerService);
+    const renameFolderTool = new RenameFolderTool();
     const renameFolderCommand = vscode.commands.registerCommand('slingr-vscode-extension.renameFolder', (uri?: vscode.Uri | AppTreeItem) => {
         return renameFolderTool.renameFolder(explorerProvider, cache, uri);
     });
     disposables.push(renameFolderCommand);
 
     // Create Test Tool
-    const createTestTool = new CreateTestTool();
+    const createTestTool = new CreateTestTool(aiService);
     const createTestCommand = vscode.commands.registerCommand('slingr-vscode-extension.createTest', async (uri?: vscode.Uri) => {
         let targetUri = uri;
         
@@ -179,14 +179,14 @@ export function registerGeneralCommands(
     disposables.push(refactorCommand);
 
     // Create Model from Description Tool
-    const createModelFromDescriptionTool = new CreateModelFromDescriptionTool();
+    const createModelFromDescriptionTool = new CreateModelFromDescriptionTool(aiService);
     const createModelFromDescriptionCommand = vscode.commands.registerCommand('slingr-vscode-extension.createModelFromDescription', (context?: vscode.Uri | AppTreeItem) => {
         return createModelFromDescriptionTool.createModel(cache, context);
     });
     disposables.push(createModelFromDescriptionCommand);
 
     // Modify Model Tool
-    const modifyModelTool = new ModifyModelTool();
+    const modifyModelTool = new ModifyModelTool(aiService);
     const modifyModelCommand = vscode.commands.registerCommand('slingr-vscode-extension.modifyModel', () => {
         return modifyModelTool.modifyModel(cache);
     });

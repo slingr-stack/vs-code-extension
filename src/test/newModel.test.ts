@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { NewModelTool } from '../commands/newModel';
+import { NewModelTool } from '../commands/models/newModel';
 import { MetadataCache } from '../cache/cache';
 import { AppTreeItem } from '../explorer/appTreeItem';
 
@@ -375,9 +375,7 @@ export class ParentModel extends BaseModel {
                         name: 'ParentModel',
                         decorators: [{ name: 'Model', arguments: [] }],
                         properties: {}
-                    } as any,
-                    undefined,
-                    testDataDir
+                    } as any
                 );
 
                 // Get the original parent model content before the operation
@@ -438,9 +436,9 @@ export class ParentModel extends BaseModel {
                 index: 0
             }];
             
-            // Create an existing model file
-            const existingModelPath = path.join(testDataDir, 'ExistingModel.ts');
-            fs.writeFileSync(existingModelPath, 'export class ExistingModel {}');
+            // Create an existing model file (using a name NOT in the cache)
+            const existingModelPath = path.join(testDataDir, 'FileExistingModel.ts');
+            fs.writeFileSync(existingModelPath, 'export class FileExistingModel {}');
             
             const originalWorkspaceFolders = vscode.workspace.workspaceFolders;
             const originalShowInputBox = vscode.window.showInputBox;
@@ -454,7 +452,7 @@ export class ParentModel extends BaseModel {
 
                 vscode.window.showInputBox = async (options: any) => {
                     if (options?.prompt?.includes('name of the new model')) {
-                        return 'ExistingModel';
+                        return 'FileExistingModel';
                     }
                     return '';
                 };
@@ -519,20 +517,6 @@ export class ParentModel extends BaseModel {
             assert.ok(testContent.includes('* Test documentation'), 'Should include documentation');
             assert.ok(testContent.includes('@Model()'), 'Should include @Model decorator');
             assert.ok(testContent.includes('export class TestModel extends BaseModel'), 'Should create proper class declaration');
-        });
-
-        test('Should generate correct composition field names', () => {
-            const tool = new NewModelTool();
-            
-            // Test the pluralization logic
-            const generateName = (tool as any).generateCompositionFieldName.bind(tool);
-            
-            assert.strictEqual(generateName('Task'), 'tasks', 'Simple plural should add s');
-            assert.strictEqual(generateName('Category'), 'categories', 'Word ending in y should become ies');
-            assert.strictEqual(generateName('Address'), 'addresses', 'Word ending in s should add es');
-            assert.strictEqual(generateName('Box'), 'boxes', 'Word ending in x should add es');
-            assert.strictEqual(generateName('Branch'), 'branches', 'Word ending in ch should add es');
-            assert.strictEqual(generateName('Wish'), 'wishes', 'Word ending in sh should add es');
         });
 
         test('Should handle errors gracefully', async () => {

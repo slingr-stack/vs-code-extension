@@ -26,6 +26,7 @@ export interface AIEnhancedTool {
         userInput: string,
         targetUri: vscode.Uri,
         cache: MetadataCache,
+        
         additionalContext?: any
     ): Promise<void>;
 }
