@@ -22,11 +22,11 @@
       },
       {
         "command": "slingr-vscode-extension.navigateToCode",
-        "title": "Navigate to Code"
+        "title": "Navigate to code"
       },
       {
         "command": "slingr-vscode-extension.refreshNavigation",
-        "title": "Refresh App Navigation"
+        "title": "Refresh app navigation"
       },
       {
         "command": "slingr-vscode-extension.refactor",
@@ -34,75 +34,75 @@
       },
       {
         "command": "slingr-vscode-extension.renameModel",
-        "title": "Rename Model"
+        "title": "Rename model"
       },
       {
         "command": "slingr-vscode-extension.deleteModel",
-        "title": "Delete Model"
+        "title": "Delete model"
       },
       {
         "command": "slingr-vscode-extension.renameField",
-        "title": "Rename Field"
+        "title": "Rename field"
       },
       {
         "command": "slingr-vscode-extension.deleteField",
-        "title": "Delete Field"
+        "title": "Delete field"
       },
       {
         "command": "slingr-vscode-extension.changeFieldType",
-        "title": "Change Field Type"
+        "title": "Change field type"
       },
       {
         "command": "slingr.runInfraUpdate",
-        "title": "Run Infrastructure Update"
+        "title": "Run infrastructure update"
       },
       {
         "command": "slingr-vscode-extension.newModel",
-        "title": "New Model"
+        "title": "New model"
       },
       {
         "command": "slingr-vscode-extension.defineFields",
-        "title": "Define Fields with AI"
+        "title": "Define fields with AI"
       },
       {
         "command": "slingr-vscode-extension.addField",
-        "title": "Add Field"
+        "title": "Add field"
       },
       {
         "command": "slingr-vscode-extension.newFolder",
-        "title": "New Folder"
+        "title": "New folder"
       },
       {
         "command": "slingr-vscode-extension.renameFolder",
-        "title": "Rename Folder"
+        "title": "Rename folder"
       },
       {
         "command": "slingr-vscode-extension.deleteFolder",
-        "title": "Delete Folder"
+        "title": "Delete folder"
       },
       {
         "command": "slingr-vscode-extension.createTest",
-        "title": "Create Test"
+        "title": "Create test"
       },
       {
         "command": "slingr-vscode-extension.createModelFromDescription",
-        "title": "Create Model from Description"
+        "title": "Create model from description"
       },
       {
         "command": "slingr-vscode-extension.modifyModel",
-        "title": "Modify Model"
+        "title": "Modify model"
       },
       {
         "command": "slingr-vscode-extension.newDataSource",
-        "title": "New Data Source"
+        "title": "New data source"
       },
       {
         "command": "slingr-vscode-extension.renameDataSource",
-        "title": "Rename Data Source"
+        "title": "Rename data source"
       },
       {
         "command": "slingr-vscode-extension.deleteDataSource",
-        "title": "Delete Data Source"
+        "title": "Delete data source"
       }
     ],
     "submenus": [
