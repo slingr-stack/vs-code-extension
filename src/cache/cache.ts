@@ -786,6 +786,12 @@ export class MetadataCache {
         return dataModels;
     }
 
+    public getModelByName(name: string): DecoratedClass | null {
+        const models = this.getDataModels();
+        return models.find(m => m.name === name) || null;
+    }
+
+
     /**
      * Returns all @Model decorated classes that are stored in the src/data folder.
      * This is a more specific version of getDataModels() that only returns
@@ -796,6 +802,10 @@ export class MetadataCache {
         return this.getDataModels().filter(classData => 
             classData.decorators.some(decorator => decorator.name === 'Model')
         );
+    }
+
+    public getModelDecoratorByName(name: string, model: DecoratedClass): DecoratorMetadata | null {
+        return model.decorators.find(decorator => decorator.name === name) || null;
     }
 
     /**
