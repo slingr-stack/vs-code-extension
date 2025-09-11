@@ -360,134 +360,10 @@ export class DeleteModelTool implements IRefactorTool {
       
       workspaceEdit.delete(fileUri, rangeToDelete);
       
-      // Clean up unused imports after the class deletion
-      await this.cleanupUnusedImports(fileUri, modelMetadata, workspaceEdit, text);
-      
     } catch (error) {
       console.error(`Error deleting model class from file ${fileUri.fsPath}:`, error);
       // Fallback: just comment out the class declaration
       workspaceEdit.replace(fileUri, modelMetadata.declaration.range, `/* DELETED_MODEL: ${modelMetadata.name} */`);
-    }
-  }
-
-  /**
-   * Identifies and removes import statements that were only used by the deleted model.
-   * This prevents unused import errors after a model is removed from a multi-model file.
-   * 
-   * @param fileUri - The URI of the file being modified
-   * @param deletedModel - The metadata of the deleted model
-   * @param workspaceEdit - The workspace edit to add import deletions to
-   * @param originalText - The original file content before class deletion
-   */
-  private async cleanupUnusedImports(
-    fileUri: vscode.Uri, 
-    deletedModel: DecoratedClass, 
-    workspaceEdit: vscode.WorkspaceEdit,
-    originalText: string
-  ): Promise<void> {
-    try {
-      const lines = originalText.split('\n');
-      const importsToCheck: Set<string> = new Set();
-      
-      // Collect potential imports used by the deleted model
-      // Check decorators for imported types
-      for (const decorator of deletedModel.decorators) {
-        importsToCheck.add(decorator.name);
-      }
-      
-      // Check property types for imported types
-      for (const property of Object.values(deletedModel.properties)) {
-        // Extract type name (handle generic types like Array<SomeType>)
-        const baseType = property.type.replace(/[<>[\]]/g, ' ').split(' ')[0];
-        if (baseType && /^[A-Z]/.test(baseType)) { // Likely an imported type (starts with capital letter)
-          importsToCheck.add(baseType);
-        }
-        
-        // Check property decorators
-        for (const decorator of property.decorators) {
-          importsToCheck.add(decorator.name);
-        }
-      }
-      
-      // Now check if these imports are still used elsewhere in the file
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        
-        // Skip if this is an import line
-        if (!line.startsWith('import ')) {
-          continue;
-        }
-        
-        // Extract imported identifiers from the line
-        const importMatch = line.match(/import\s+{([^}]+)}\s+from/);
-        if (!importMatch) {
-          continue;
-        }
-        
-        const importedItems = importMatch[1]
-          .split(',')
-          .map(item => item.trim())
-          .filter(item => item.length > 0);
-          
-        // Check which imports from this line are no longer used
-        const unusedImports = importedItems.filter(importedItem => {
-          if (!importsToCheck.has(importedItem)) {
-            return false; // Not related to deleted model
-          }
-          
-          // Check if this import is still used elsewhere in the file
-          // (excluding the import line itself and the deleted class content)
-          const searchPattern = new RegExp(`\\b${importedItem}\\b`, 'g');
-          let usageCount = 0;
-          
-          for (let j = 0; j < lines.length; j++) {
-            if (j === i) {
-              continue; // Skip the import line
-            }
-            
-            // Skip lines that are part of the deleted model (rough approximation)
-            if (j >= deletedModel.declaration.range.start.line && 
-                j <= deletedModel.declaration.range.end.line) {
-              continue;
-            }
-            
-            const matches = lines[j].match(searchPattern);
-            if (matches) {
-              usageCount += matches.length;
-            }
-          }
-          
-          return usageCount === 0;
-        });
-        
-        // If we found unused imports in this line, update it
-        if (unusedImports.length > 0) {
-          const remainingImports = importedItems.filter(item => !unusedImports.includes(item));
-          
-          if (remainingImports.length === 0) {
-            // Remove the entire import line
-            const lineRange = new vscode.Range(
-              new vscode.Position(i, 0),
-              new vscode.Position(i + 1, 0)
-            );
-            workspaceEdit.delete(fileUri, lineRange);
-          } else {
-            // Update the import line to remove only unused imports
-            const newImportLine = line.replace(
-              /import\s+{[^}]+}/,
-              `import { ${remainingImports.join(', ')} }`
-            );
-            const lineRange = new vscode.Range(
-              new vscode.Position(i, 0),
-              new vscode.Position(i, lines[i].length)
-            );
-            workspaceEdit.replace(fileUri, lineRange, newImportLine);
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`Error cleaning up unused imports in ${fileUri.fsPath}:`, error);
-      // Don't fail the entire operation if import cleanup fails
     }
   }
 
@@ -522,7 +398,9 @@ export class DeleteModelTool implements IRefactorTool {
         // If this property has both @Relationship and @Field decorators,
         // it's a relationship field that should be removed when the referenced model is deleted
         if (relationshipDecorator && fieldDecorator) {
-          await this.removeRelationshipField(property, workspaceEdit);
+          if (property.type === deletedModelName || property.type === `Array<${deletedModelName}>`) {
+            await this.removeRelationshipField(property, workspaceEdit);
+          }
         }
       }
     }
