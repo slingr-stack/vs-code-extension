@@ -1,5 +1,5 @@
 import { Project } from "../model/Project";
-import { DateTimeRangeType } from "../../index";
+import { DateTimeRangeValue } from "../../index";
 
 import type { ValidationError } from "class-validator";
 
@@ -24,7 +24,7 @@ describe("DateTime Field Type", () => {
       project.name = "Date Test";
       project.startDate = new Date('2024-06-15'); // Within 2020-2030 range
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
@@ -38,7 +38,7 @@ describe("DateTime Field Type", () => {
       project.name = "Date Test";
       project.startDate = new Date('2019-12-31'); // Before 2020-01-01 minimum
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
@@ -56,7 +56,7 @@ describe("DateTime Field Type", () => {
       project.name = "Date Test";
       project.startDate = new Date('2031-01-01'); // After 2030-12-31 maximum
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
@@ -74,7 +74,7 @@ describe("DateTime Field Type", () => {
       project.name = "Invalid Date Test";
       project.startDate = new Date('invalid-date'); // Invalid date
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
@@ -93,7 +93,7 @@ describe("DateTime Field Type", () => {
       project.startDate = new Date('2024-06-15');
       project.endDate = new Date('1990-01-01'); // No constraints on endDate
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
@@ -109,7 +109,7 @@ describe("DateTime Field Type", () => {
       project.name = "Date Test";
       // Missing startDate (required)
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
@@ -126,7 +126,7 @@ describe("DateTime Field Type", () => {
       project.startDate = new Date('2024-06-15');
       // endDate is optional
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
@@ -143,7 +143,7 @@ describe("DateTime Field Type", () => {
       project.startDate = new Date('2024-06-15T10:00:00.000Z');
       project.endDate = new Date('2024-12-31T23:59:59.000Z');
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15T10:00:00.000Z');
       activeRange.to = new Date('2024-09-15T10:00:00.000Z');
       project.activeRange = activeRange;
@@ -179,7 +179,7 @@ describe("DateTime Field Type", () => {
       project.startDate = new Date('2024-06-15');
       // endDate is undefined
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;

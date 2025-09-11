@@ -1,4 +1,4 @@
-import { Field, Model, BaseModel, DateTimeRange, DateTimeRangeType } from "../../index";
+import { Field, Model, BaseModel, DateTimeRange, DateTimeRangeValue } from "../../index";
 
 @Model({
 	docs: "Test model for DateTimeRange with array support checks",
@@ -6,18 +6,18 @@ import { Field, Model, BaseModel, DateTimeRange, DateTimeRangeType } from "../..
 class DateTimeRangeArrayModel extends BaseModel {
 	@Field({})
 	@DateTimeRange({ from: true, to: true })
-	dateRanges!: DateTimeRangeType[];
+	dateRanges!: DateTimeRangeValue[];
 }
 
-describe("DateTimeRange decorator with array values (DateTimeRangeType[])", () => {
+describe("DateTimeRange decorator with array values (DateTimeRangeValue[])", () => {
 	it("should pass validation for arrays (array of DateTimeRange is now supported)", async () => {
 		const m = new DateTimeRangeArrayModel();
 
-		const r1 = new DateTimeRangeType();
+		const r1 = new DateTimeRangeValue();
 		r1.from = new Date("2024-01-01T00:00:00Z");
 		r1.to = new Date("2024-01-31T23:59:59Z");
 
-		const r2 = new DateTimeRangeType();
+		const r2 = new DateTimeRangeValue();
 		r2.from = new Date("2024-02-01T00:00:00Z");
 		r2.to = new Date("2024-02-28T23:59:59Z");
 
@@ -31,11 +31,11 @@ describe("DateTimeRange decorator with array values (DateTimeRangeType[])", () =
 	it("should still serialize and deserialize array items to ISO strings and back to Date objects", async () => {
 		const m = new DateTimeRangeArrayModel();
 
-		const r1 = new DateTimeRangeType();
+		const r1 = new DateTimeRangeValue();
 		r1.from = new Date("2024-03-01T00:00:00Z");
 		r1.to = new Date("2024-03-31T23:59:59Z");
 
-		const r2 = new DateTimeRangeType();
+		const r2 = new DateTimeRangeValue();
 		r2.from = new Date("2024-04-01T00:00:00Z");
 		r2.to = new Date("2024-04-30T23:59:59Z");
 
@@ -49,13 +49,13 @@ describe("DateTimeRange decorator with array values (DateTimeRangeType[])", () =
 		expect(json.dateRanges[1].from).toBe("2024-04-01T00:00:00.000Z");
 		expect(json.dateRanges[1].to).toBe("2024-04-30T23:59:59.000Z");
 
-		// fromJSON should rehydrate to DateTimeRangeType instances with Date fields
+		// fromJSON should rehydrate to DateTimeRangeValue instances with Date fields
 		const restored = DateTimeRangeArrayModel.fromJSON(json);
 		expect(Array.isArray(restored.dateRanges)).toBe(true);
-		expect(restored.dateRanges[0]).toBeInstanceOf(DateTimeRangeType);
+		expect(restored.dateRanges[0]).toBeInstanceOf(DateTimeRangeValue);
 		expect(restored.dateRanges[0]!.from).toBeInstanceOf(Date);
 		expect(restored.dateRanges[0]!.to).toBeInstanceOf(Date);
-		expect(restored.dateRanges[1]).toBeInstanceOf(DateTimeRangeType);
+		expect(restored.dateRanges[1]).toBeInstanceOf(DateTimeRangeValue);
 		expect(restored.dateRanges[1]!.from).toBeInstanceOf(Date);
 		expect(restored.dateRanges[1]!.to).toBeInstanceOf(Date);
 	});

@@ -24,7 +24,7 @@ export interface DateTimeRangeOptions {
  * DateTimeRange class that represents a range between two dates.
  * Used as a nested object in models that need date ranges.
  */
-export class DateTimeRangeType {
+export class DateTimeRangeValue {
     @IsOptional()
     @Expose()
     @Transform(({ value, type }) => {
@@ -55,20 +55,20 @@ export class DateTimeRangeType {
 }
 
 // Custom key types for clearer IntelliSense errors
-type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRangeType | DateTimeRangeType[] | undefined
+type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRangeValue | DateTimeRangeValue[] | undefined
     ? K
     : `DateTimeRange: requires DateTimeRange field`;
 
 /**
  * Validates that a property is of DateTimeRange type at runtime.
  */
-function validateDateTimeRangeType(proto: Object, propertyKey: string): void {
+function validateDateTimeRangeValue(proto: Object, propertyKey: string): void {
     const designType = Reflect.getMetadata('design:type', proto, propertyKey);
     // Be more flexible with type checking since TypeScript may not preserve exact type info
-    // We accept DateTimeRangeType, Object, or undefined types
+    // We accept DateTimeRangeValue, Object, or undefined types
     if (
         designType &&
-        designType !== DateTimeRangeType &&
+        designType !== DateTimeRangeValue &&
         designType !== Object &&
         designType !== Array
     ) {
@@ -103,7 +103,7 @@ function validateSingleRange(value: any, args: ValidationArguments): boolean {
         return true; // Allow null/undefined values in arrays
     }
 
-    if (!(value instanceof DateTimeRangeType)) {
+    if (!(value instanceof DateTimeRangeValue)) {
         return false;
     }
 
@@ -146,12 +146,12 @@ function IsValidDateTimeRange(options?: DateTimeRangeOptions, validationOptions?
                         return true; // Allow null/undefined values
                     }
 
-                    // Handle arrays of DateTimeRangeType
+                    // Handle arrays of DateTimeRangeValue
                     if (Array.isArray(value)) {
                         return value.every(item => validateSingleRange(item, args));
                     }
 
-                    // Handle single DateTimeRangeType
+                    // Handle single DateTimeRangeValue
                     return validateSingleRange(value, args);
                 },
                 defaultMessage(args: ValidationArguments) {
@@ -200,7 +200,7 @@ export function DateTimeRange(options?: DateTimeRangeOptions) {
         const propName = propertyKey as unknown as string;
         const proto = target as unknown as Object;
 
-        validateDateTimeRangeType(proto, propName);
+        validateDateTimeRangeValue(proto, propName);
         storeDateTimeRangeMetadata(proto, propName, options);
 
         const designType = Reflect.getMetadata('design:type', proto, propName);
@@ -214,7 +214,7 @@ export function DateTimeRange(options?: DateTimeRangeOptions) {
             
             // Apply nested validation for each array element
             ValidateNested({ each: true })(target as any, propName);
-            Type(() => DateTimeRangeType)(target as any, propName);
+            Type(() => DateTimeRangeValue)(target as any, propName);
             
             // Apply custom range validation for each array element
             IsValidDateTimeRange(options)(target as any, propName);
@@ -222,7 +222,7 @@ export function DateTimeRange(options?: DateTimeRangeOptions) {
             // Handle single DateTimeRange case
             // Apply nested validation for DateTimeRange
             ValidateNested()(target as any, propName);
-            Type(() => DateTimeRangeType)(target as any, propName);
+            Type(() => DateTimeRangeValue)(target as any, propName);
 
             // Apply custom range validation
             IsValidDateTimeRange(options)(target as any, propName);
@@ -234,7 +234,7 @@ export function DateTimeRange(options?: DateTimeRangeOptions) {
  * DateTimeRange field configuration for TypeORM persistence.
  * Uses JSON column type with custom transformer to store DateTimeRange objects.
  */
-export const DateTimeRangeTypeConfig: FieldTypeConfig = {
+export const DateTimeRangeValueConfig: FieldTypeConfig = {
     getTypeORMColumnConfig(fieldOptions?: DateTimeRangeOptions, nullable: boolean = true): any {
         const { dateTimeRangeTransformer } = require('../../../datasources/typeorm/ValueTransformers');
         return {
@@ -255,4 +255,4 @@ export const DateTimeRangeTypeConfig: FieldTypeConfig = {
 };
 
 // Register the datetime range type configuration
-FieldTypeRegistry.register('datetimerange', DateTimeRangeTypeConfig);
+FieldTypeRegistry.register('datetimerange', DateTimeRangeValueConfig);

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { Column, AfterLoad } from 'typeorm';
-import { DateTimeRangeType } from '../../model/types/date_time/DateTimeRange';
+import { DateTimeRangeValue } from '../../model/types/date_time/DateTimeRange';
 
 /**
  * Manages DateTimeRange field persistence using hidden columns approach.
@@ -84,7 +84,7 @@ export class DateTimeRangeFieldManager {
                 const hiddenColumns = Reflect.getMetadata('dateTimeRange:hiddenColumns', constructor.prototype, fieldName);
                 
                 if (hiddenColumns) {
-                    const dateTimeRange = entity[fieldName] as DateTimeRangeType | undefined;
+                    const dateTimeRange = entity[fieldName] as DateTimeRangeValue | undefined;
                     
                     if (dateTimeRange) {
                         // Extract from and to dates to hidden columns
@@ -119,7 +119,7 @@ export class DateTimeRangeFieldManager {
                 
                 // Only create DateTimeRange if at least one date is present and not null
                 if ((fromDate !== null && fromDate !== undefined) || (toDate !== null && toDate !== undefined)) {
-                    const dateTimeRange = new DateTimeRangeType();
+                    const dateTimeRange = new DateTimeRangeValue();
                     // Convert null to undefined for consistency
                     dateTimeRange.from = fromDate === null ? undefined : fromDate;
                     dateTimeRange.to = toDate === null ? undefined : toDate;

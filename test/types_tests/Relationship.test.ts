@@ -1,4 +1,4 @@
-import { BaseModel, Field, Model, DateTimeRangeType, Relationship } from "../../index";
+import { BaseModel, Field, Model, DateTimeRangeValue, Relationship } from "../../index";
 import { Customer } from '../model/Customer';
 import { LineItem } from '../model/LineItem';
 import { Order } from '../model/Order';
@@ -126,7 +126,7 @@ describe('Relationship Type', () => {
             const project = new Project();
             project.name = 'Test Project';
             project.startDate = new Date('2023-01-01');
-            const activeRange = new DateTimeRangeType();
+            const activeRange = new DateTimeRangeValue();
             activeRange.from = new Date('2023-01-01');
             activeRange.to = new Date('2023-12-31');
             project.activeRange = activeRange;

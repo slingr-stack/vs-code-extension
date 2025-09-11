@@ -1,5 +1,5 @@
 import { Project } from "../model/Project";
-import { DateTimeRangeType } from "../../index";
+import { DateTimeRangeValue } from "../../index";
 
 import type { ValidationError } from "class-validator";
 
@@ -24,7 +24,7 @@ describe("DateTimeRange Field Type", () => {
       project.name = "Range Test";
       project.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
@@ -38,7 +38,7 @@ describe("DateTimeRange Field Type", () => {
       project.name = "Range Test";
       project.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-09-15'); // After 'to' date
       activeRange.to = new Date('2024-06-15');
       project.activeRange = activeRange;
@@ -56,7 +56,7 @@ describe("DateTimeRange Field Type", () => {
       project.name = "Range Test";
       project.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       // Both from and to are undefined, but openStart and openEnd are false
       project.activeRange = activeRange;
 
@@ -73,12 +73,12 @@ describe("DateTimeRange Field Type", () => {
       project.name = "Flexible Range Test";
       project.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
       
-      const flexibleRange = new DateTimeRangeType();
+      const flexibleRange = new DateTimeRangeValue();
       flexibleRange.from = new Date('2024-01-01');
       // to is undefined, but openEnd is true
       project.flexibleRange = flexibleRange;
@@ -92,12 +92,12 @@ describe("DateTimeRange Field Type", () => {
       project.name = "Flexible Range Test";
       project.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
       
-      const flexibleRange = new DateTimeRangeType();
+      const flexibleRange = new DateTimeRangeValue();
       // from is undefined, but openStart is true
       flexibleRange.to = new Date('2024-12-31');
       project.flexibleRange = flexibleRange;
@@ -111,12 +111,12 @@ describe("DateTimeRange Field Type", () => {
       project.name = "Flexible Range Test";
       project.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
       
-      const flexibleRange = new DateTimeRangeType();
+      const flexibleRange = new DateTimeRangeValue();
       // Both from and to are undefined, but both openStart and openEnd are true
       project.flexibleRange = flexibleRange;
 
@@ -143,7 +143,7 @@ describe("DateTimeRange Field Type", () => {
       project.name = "Range Test";
       project.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
@@ -160,7 +160,7 @@ describe("DateTimeRange Field Type", () => {
       project.name = "Range JSON Test";
       project.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15T10:00:00.000Z');
       activeRange.to = new Date('2024-09-15T10:00:00.000Z');
       project.activeRange = activeRange;
@@ -185,7 +185,7 @@ describe("DateTimeRange Field Type", () => {
 
       const project = Project.fromJSON(jsonData);
       
-      expect(project.activeRange).toBeInstanceOf(DateTimeRangeType);
+      expect(project.activeRange).toBeInstanceOf(DateTimeRangeValue);
       expect(project.activeRange.from).toBeInstanceOf(Date);
       expect(project.activeRange.to).toBeInstanceOf(Date);
       expect(project.activeRange.from?.toISOString()).toBe('2024-06-15T10:00:00.000Z');
@@ -197,12 +197,12 @@ describe("DateTimeRange Field Type", () => {
       project.name = "Partial Range Test";
       project.startDate = new Date('2024-06-15');
       
-      const activeRange = new DateTimeRangeType();
+      const activeRange = new DateTimeRangeValue();
       activeRange.from = new Date('2024-06-15');
       activeRange.to = new Date('2024-09-15');
       project.activeRange = activeRange;
       
-      const flexibleRange = new DateTimeRangeType();
+      const flexibleRange = new DateTimeRangeValue();
       flexibleRange.from = new Date('2024-01-01');
       // to is undefined
       project.flexibleRange = flexibleRange;

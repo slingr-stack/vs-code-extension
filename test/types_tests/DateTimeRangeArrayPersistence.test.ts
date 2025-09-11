@@ -4,7 +4,7 @@ import {
     Field, 
     Model, 
     DateTimeRange, 
-    DateTimeRangeType,
+    DateTimeRangeValue,
     Text
 } from "../../index";
 
@@ -21,17 +21,17 @@ class DateTimeRangeArrayPersistenceModel extends PersistentModel {
 
     @Field({})
     @DateTimeRange({ from: true, to: true })
-    dateRanges?: DateTimeRangeType[];
+    dateRanges?: DateTimeRangeValue[];
 
     @Field({
         required: true,
     })
     @DateTimeRange({ from: false, to: false })
-    requiredDateRanges!: DateTimeRangeType[];
+    requiredDateRanges!: DateTimeRangeValue[];
 
     @Field({})
     @DateTimeRange({ from: true, to: false })
-    mixedDateRanges?: DateTimeRangeType[];
+    mixedDateRanges?: DateTimeRangeValue[];
 }
 
 describe("DateTimeRange Array Persistence in SQL Databases", () => {
@@ -82,33 +82,33 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
         testEntity.name = "DateTimeRange Array Test";
         
         // Set up required DateTimeRange array
-        const range1 = new DateTimeRangeType();
+        const range1 = new DateTimeRangeValue();
         range1.from = new Date('2024-01-01T00:00:00Z');
         range1.to = new Date('2024-01-31T23:59:59Z');
         
-        const range2 = new DateTimeRangeType();
+        const range2 = new DateTimeRangeValue();
         range2.from = new Date('2024-02-01T00:00:00Z');
         range2.to = new Date('2024-02-28T23:59:59Z');
         
         testEntity.requiredDateRanges = [range1, range2];
         
         // Set up optional DateTimeRange array
-        const range3 = new DateTimeRangeType();
+        const range3 = new DateTimeRangeValue();
         range3.from = new Date('2024-03-01T00:00:00Z');
         range3.to = new Date('2024-03-31T23:59:59Z');
         
-        const range4 = new DateTimeRangeType();
+        const range4 = new DateTimeRangeValue();
         range4.from = new Date('2024-04-01T00:00:00Z');
         range4.to = new Date('2024-04-30T23:59:59Z');
         
         testEntity.dateRanges = [range3, range4];
         
         // Set up mixed DateTimeRange array (some with openStart)
-        const range5 = new DateTimeRangeType();
+        const range5 = new DateTimeRangeValue();
         // range5.from remains undefined for open start
         range5.to = new Date('2024-05-31T23:59:59Z');
         
-        const range6 = new DateTimeRangeType();
+        const range6 = new DateTimeRangeValue();
         range6.from = new Date('2024-06-01T00:00:00Z');
         range6.to = new Date('2024-06-30T23:59:59Z');
         
@@ -131,7 +131,7 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
             // Check required array
             expect(Array.isArray(savedEntity.requiredDateRanges)).toBe(true);
             expect(savedEntity.requiredDateRanges).toHaveLength(2);
-            expect(savedEntity.requiredDateRanges[0]).toBeInstanceOf(DateTimeRangeType);
+            expect(savedEntity.requiredDateRanges[0]).toBeInstanceOf(DateTimeRangeValue);
             expect(savedEntity.requiredDateRanges[0]!.from).toBeInstanceOf(Date);
             expect(savedEntity.requiredDateRanges[0]!.to).toBeInstanceOf(Date);
             expect(savedEntity.requiredDateRanges[0]!.from!.toISOString()).toBe('2024-01-01T00:00:00.000Z');
@@ -143,7 +143,7 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
             // Check optional array
             expect(Array.isArray(savedEntity.dateRanges)).toBe(true);
             expect(savedEntity.dateRanges).toHaveLength(2);
-            expect(savedEntity.dateRanges![0]).toBeInstanceOf(DateTimeRangeType);
+            expect(savedEntity.dateRanges![0]).toBeInstanceOf(DateTimeRangeValue);
             expect(savedEntity.dateRanges![0]!.from!.toISOString()).toBe('2024-03-01T00:00:00.000Z');
             expect(savedEntity.dateRanges![0]!.to!.toISOString()).toBe('2024-03-31T23:59:59.000Z');
             
@@ -167,14 +167,14 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
             // Verify required array integrity
             expect(Array.isArray(retrievedEntity!.requiredDateRanges)).toBe(true);
             expect(retrievedEntity!.requiredDateRanges).toHaveLength(2);
-            expect(retrievedEntity!.requiredDateRanges[0]).toBeInstanceOf(DateTimeRangeType);
+            expect(retrievedEntity!.requiredDateRanges[0]).toBeInstanceOf(DateTimeRangeValue);
             expect(retrievedEntity!.requiredDateRanges[0]!.from).toBeInstanceOf(Date);
             expect(retrievedEntity!.requiredDateRanges[0]!.to).toBeInstanceOf(Date);
             
             // Verify optional array integrity
             expect(Array.isArray(retrievedEntity!.dateRanges)).toBe(true);
             expect(retrievedEntity!.dateRanges).toHaveLength(2);
-            expect(retrievedEntity!.dateRanges![0]).toBeInstanceOf(DateTimeRangeType);
+            expect(retrievedEntity!.dateRanges![0]).toBeInstanceOf(DateTimeRangeValue);
             
             // Verify mixed array integrity
             expect(Array.isArray(retrievedEntity!.mixedDateRanges)).toBe(true);
@@ -221,7 +221,7 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
         });
 
         it("should handle arrays with single DateTimeRange element", async () => {
-            const singleRange = new DateTimeRangeType();
+            const singleRange = new DateTimeRangeValue();
             singleRange.from = new Date('2024-07-01T00:00:00Z');
             singleRange.to = new Date('2024-07-31T23:59:59Z');
             
@@ -240,7 +240,7 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
             
             const retrievedEntity = await dataSource.findOneById(DateTimeRangeArrayPersistenceModel, savedEntity.id!);
             expect(retrievedEntity!.dateRanges).toHaveLength(1);
-            expect(retrievedEntity!.dateRanges![0]).toBeInstanceOf(DateTimeRangeType);
+            expect(retrievedEntity!.dateRanges![0]).toBeInstanceOf(DateTimeRangeValue);
             expect(retrievedEntity!.dateRanges![0]!.from).toBeInstanceOf(Date);
             expect(retrievedEntity!.dateRanges![0]!.to).toBeInstanceOf(Date);
         });
@@ -248,11 +248,11 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
 
     describe("Complex Array Operations", () => {
         it("should handle large DateTimeRange arrays", async () => {
-            const manyRanges: DateTimeRangeType[] = [];
+            const manyRanges: DateTimeRangeValue[] = [];
             
             // Create 10 DateTimeRange objects
             for (let i = 0; i < 10; i++) {
-                const range = new DateTimeRangeType();
+                const range = new DateTimeRangeValue();
                 range.from = new Date(`2024-${String(i + 1).padStart(2, '0')}-01T00:00:00Z`);
                 range.to = new Date(`2024-${String(i + 1).padStart(2, '0')}-28T23:59:59Z`);
                 manyRanges.push(range);
@@ -276,28 +276,28 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
         });
 
         it("should handle arrays with mixed open/closed DateTimeRanges", async () => {
-            const mixedRanges: DateTimeRangeType[] = [];
+            const mixedRanges: DateTimeRangeValue[] = [];
             
             // Fully closed range
-            const closedRange = new DateTimeRangeType();
+            const closedRange = new DateTimeRangeValue();
             closedRange.from = new Date('2024-01-01T00:00:00Z');
             closedRange.to = new Date('2024-01-31T23:59:59Z');
             mixedRanges.push(closedRange);
             
             // Open start range
-            const openStartRange = new DateTimeRangeType();
+            const openStartRange = new DateTimeRangeValue();
             // openStartRange.from = undefined;
             openStartRange.to = new Date('2024-02-28T23:59:59Z');
             mixedRanges.push(openStartRange);
             
             // Open end range
-            const openEndRange = new DateTimeRangeType();
+            const openEndRange = new DateTimeRangeValue();
             openEndRange.from = new Date('2024-03-01T00:00:00Z');
             // openEndRange.to = undefined;
             mixedRanges.push(openEndRange);
             
             // Fully open range
-            const fullyOpenRange = new DateTimeRangeType();
+            const fullyOpenRange = new DateTimeRangeValue();
             // fullyOpenRange.from = undefined;
             // fullyOpenRange.to = undefined;
             mixedRanges.push(fullyOpenRange);
@@ -345,11 +345,11 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
             const savedEntity = await dataSource.save(testEntity);
             
             // Update the arrays
-            const newRange1 = new DateTimeRangeType();
+            const newRange1 = new DateTimeRangeValue();
             newRange1.from = new Date('2024-08-01T00:00:00Z');
             newRange1.to = new Date('2024-08-31T23:59:59Z');
             
-            const newRange2 = new DateTimeRangeType();
+            const newRange2 = new DateTimeRangeValue();
             newRange2.from = new Date('2024-09-01T00:00:00Z');
             newRange2.to = new Date('2024-09-30T23:59:59Z');
             
@@ -380,7 +380,7 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
             const validEntity = new DateTimeRangeArrayPersistenceModel();
             validEntity.name = "Valid Entity";
             
-            const validRange = new DateTimeRangeType();
+            const validRange = new DateTimeRangeValue();
             validRange.from = new Date('2024-01-01T00:00:00Z');
             validRange.to = new Date('2024-01-31T23:59:59Z');
             
