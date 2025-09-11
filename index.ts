@@ -15,7 +15,7 @@ export { Boolean } from './src/model/types/boolean/Boolean';
 export { Choice } from './src/model/types/';
 export { DateTime } from './src/model/types/';
 export type { DateTimeOptions } from './src/model/types/';
-export { DateTimeRange, DateTimeRangeValue } from './src/model/types/';
+export { DateTimeRange, DateTimeRangeValue, dateTimeRange } from './src/model/types/';
 export type { DateTimeRangeOptions } from './src/model/types/';
 export { Integer } from './src/model/types/number/Integer';
 export { Money } from './src/model/types/number/Money';

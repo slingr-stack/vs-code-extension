@@ -6,7 +6,7 @@ export { Boolean } from './boolean/Boolean';
 export { Choice } from './enum/Choice';
 export { DateTime } from './date_time/DateTime';
 export type { DateTimeOptions } from './date_time/DateTime';
-export { DateTimeRange, DateTimeRangeValue } from './date_time/DateTimeRange';
+export { DateTimeRange, DateTimeRangeValue, dateTimeRange } from './date_time/DateTimeRange';
 export type { DateTimeRangeOptions } from './date_time/DateTimeRange';
 export { Integer } from './number/Integer';
 export { Money } from './number/Money';

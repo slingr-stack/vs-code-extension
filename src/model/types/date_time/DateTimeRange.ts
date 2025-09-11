@@ -54,6 +54,39 @@ export class DateTimeRangeValue {
     to?: Date;
 }
 
+/**
+ * Convenience function to create a DateTimeRangeValue instance.
+ * 
+ * @param from - The start date (can be a Date object, ISO string, or timestamp)
+ * @param to - The end date (can be a Date object, ISO string, or timestamp)
+ * @returns A new DateTimeRangeValue instance
+ * 
+ * @example
+ * ```typescript
+ * // Using ISO strings
+ * const range1 = dateTimeRange('2024-01-01T00:00:00Z', '2024-12-31T23:59:59Z');
+ * 
+ * // Using Date objects
+ * const range2 = dateTimeRange(new Date('2024-01-01'), new Date('2024-12-31'));
+ * 
+ * // Mixed types
+ * const range3 = dateTimeRange('2024-01-01', new Date('2024-12-31'));
+ * ```
+ */
+export function dateTimeRange(from?: string | Date | number, to?: string | Date | number): DateTimeRangeValue {
+    const range = new DateTimeRangeValue();
+    
+    if (from !== undefined) {
+        range.from = from instanceof Date ? from : new Date(from);
+    }
+    
+    if (to !== undefined) {
+        range.to = to instanceof Date ? to : new Date(to);
+    }
+    
+    return range;
+}
+
 // Custom key types for clearer IntelliSense errors
 type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRangeValue | DateTimeRangeValue[] | undefined
     ? K

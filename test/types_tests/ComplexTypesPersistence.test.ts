@@ -9,7 +9,8 @@ import {
     DateTimeRangeValue,
     Text,
     DecimalNumber,
-    MoneyNumber
+    MoneyNumber,
+    dateTimeRange
 } from "../../index";
 import { validateSync } from 'class-validator';
 import number from 'financial-number';
@@ -115,15 +116,11 @@ describe("Complex Types Persistence in SQL Databases", () => {
         testEntity.priceMoney = number("999.99");
         
         // Set up required DateTimeRange
-        const activeRange = new DateTimeRangeValue();
-        activeRange.from = new Date('2024-01-01T00:00:00Z');
-        activeRange.to = new Date('2024-12-31T23:59:59Z');
+        const activeRange = dateTimeRange('2024-01-01T00:00:00Z', '2024-12-31T23:59:59Z');
         testEntity.activeRange = activeRange;
         
         // Set up optional DateTimeRange
-        const flexibleRange = new DateTimeRangeValue();
-        flexibleRange.from = new Date('2024-06-01T00:00:00Z');
-        flexibleRange.to = new Date('2024-08-31T23:59:59Z');
+        const flexibleRange = dateTimeRange('2024-06-01T00:00:00Z', '2024-08-31T23:59:59Z');
         testEntity.flexibleRange = flexibleRange;
     });
 
@@ -297,10 +294,8 @@ describe("Complex Types Persistence in SQL Databases", () => {
             entity1.name = "Entity 1";
             entity1.priceDecimal = number("100.00");
             entity1.priceMoney = number("200.00");
-            
-            const range1 = new DateTimeRangeValue();
-            range1.from = new Date('2024-01-01T00:00:00Z');
-            range1.to = new Date('2024-06-30T23:59:59Z');
+
+            const range1 = dateTimeRange('2024-01-01T00:00:00Z', '2024-06-30T23:59:59Z');
             entity1.activeRange = range1;
             
             savedEntity1 = await dataSource.save(entity1);
@@ -310,10 +305,8 @@ describe("Complex Types Persistence in SQL Databases", () => {
             entity2.name = "Entity 2";
             entity2.priceDecimal = number("150.00");
             entity2.priceMoney = number("300.00");
-            
-            const range2 = new DateTimeRangeValue();
-            range2.from = new Date('2024-07-01T00:00:00Z');
-            range2.to = new Date('2024-12-31T23:59:59Z');
+
+            const range2 = dateTimeRange('2024-07-01T00:00:00Z', '2024-12-31T23:59:59Z');
             entity2.activeRange = range2;
             
             savedEntity2 = await dataSource.save(entity2);
@@ -378,9 +371,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
         });
 
         it("should update DateTimeRange values correctly", async () => {
-            const newRange = new DateTimeRangeValue();
-            newRange.from = new Date('2025-01-01T00:00:00Z');
-            newRange.to = new Date('2025-12-31T23:59:59Z');
+            const newRange = dateTimeRange('2025-01-01T00:00:00Z', '2025-12-31T23:59:59Z');
             savedEntity.activeRange = newRange;
             
             const updatedEntity = await dataSource.save(savedEntity);
@@ -416,9 +407,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
 
         it("should validate DateTimeRange constraints", async () => {
             // Test invalid range (from > to)
-            const invalidRange = new DateTimeRangeValue();
-            invalidRange.from = new Date('2024-12-31T23:59:59Z');
-            invalidRange.to = new Date('2024-01-01T00:00:00Z');
+            const invalidRange = dateTimeRange('2024-12-31T23:59:59Z', '2024-01-01T00:00:00Z');
             testEntity.activeRange = invalidRange;
             
             const errors = validateSync(testEntity);
