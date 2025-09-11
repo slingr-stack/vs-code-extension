@@ -269,7 +269,7 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(payload.isManual, true);
             });
 
-            test('should handle user cancellation', async () => {
+            test('should create change object when initiated manually', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
                 const fieldMeta = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
@@ -281,14 +281,13 @@ if (typeof suite !== 'undefined') {
                     metadata: fieldMeta
                 };
 
-                // Mock user cancellation
-                (vscode.window as any).showWarningMessage = async () => undefined;
-
                 const change = await tool.initiateManualRefactor(context);
-                assert.strictEqual(change, undefined);
+                assert.notStrictEqual(change, undefined);
+                assert.strictEqual(change?.type, 'DELETE_FIELD');
+                assert.strictEqual(change?.description, "Delete field 'name'.");
             });
 
-            test('should handle non-confirmation response', async () => {
+            test('should create change object for confirmed deletion', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const fieldRange = new vscode.Range(8, 4, 8, 8);
                 const fieldMeta = TestMetadataFactory.createField({ name: 'name', type: 'string', declaration: { uri: modelUri, range: fieldRange } });
@@ -300,11 +299,10 @@ if (typeof suite !== 'undefined') {
                     metadata: fieldMeta
                 };
 
-                // Mock different response
-                (vscode.window as any).showWarningMessage = async () => 'Cancel';
-
                 const change = await tool.initiateManualRefactor(context);
-                assert.strictEqual(change, undefined);
+                assert.notStrictEqual(change, undefined);
+                assert.strictEqual(change?.type, 'DELETE_FIELD');
+                assert.strictEqual(change?.description, "Delete field 'name'.");
             });
 
             test('should handle invalid metadata', async () => {

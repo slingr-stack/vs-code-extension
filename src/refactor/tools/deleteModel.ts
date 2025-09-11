@@ -143,13 +143,12 @@ export class DeleteModelTool implements IRefactorTool {
   /**
    * Initiates a manual refactor to delete an model.
    * 
-   * This method validates that the context contains a valid model, asks the user for
-   * confirmation, and then constructs a `ChangeObject` for the deletion. The change
-   * object includes the URIs of related directories to be deleted. If multiple models
-   * exist in the same file, only the specific model will be deleted, not the entire file.
+   * This method validates that the context contains a valid model and constructs a `ChangeObject` 
+   * for the deletion. The change object includes the URIs of related directories to be deleted. 
+   * If multiple models exist in the same file, only the specific model will be deleted, not the entire file.
    * 
    * @param context The manual refactor context.
-   * @returns A promise that resolves to a `ChangeObject` for the deletion, or `undefined` if the user cancels.
+   * @returns A promise that resolves to a `ChangeObject` for the deletion, or `undefined` if validation fails.
    */
   public async initiateManualRefactor(context: ManualRefactorContext): Promise<ChangeObject | undefined> {
     if (!context.metadata || !("decorators" in context.metadata) || !isModel(context.metadata)) {
@@ -162,19 +161,6 @@ export class DeleteModelTool implements IRefactorTool {
     const fileMeta = context.cache.getMetadataForFile(context.uri.fsPath);
     const allModelsInFile = fileMeta ? Object.values(fileMeta.classes).filter(isModel) : [];
     const hasMultipleModels = allModelsInFile.length > 1;
-    
-    const warningMessage = hasMultipleModels
-      ? `Are you sure you want to delete the model '${model.name}' and all its references? The model will be removed from this file, but other models in the same file will remain. This action cannot be undone.`
-      : `Are you sure you want to delete the model '${model.name}', its related files, and all its references? This action cannot be undone.`;
-      
-    const confirmation = await vscode.window.showWarningMessage(
-      warningMessage,
-      "Yes, Delete All"
-    );
-
-    if (confirmation !== "Yes, Delete All") {
-      return undefined;
-    }
     
     const urisToDelete: vscode.Uri[] = [];
     const modelUri = context.uri;

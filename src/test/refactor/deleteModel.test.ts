@@ -238,7 +238,7 @@ if (typeof suite !== 'undefined') {
                 assert.ok(Array.isArray(payload.urisToDelete));
             });
 
-            test('should handle user cancellation', async () => {
+            test('should create change object when initiated manually', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const modelRange = new vscode.Range(5, 0, 5, 4);
                 const model = createMockModel('User', modelUri, modelRange);
@@ -250,14 +250,13 @@ if (typeof suite !== 'undefined') {
                     metadata: model
                 };
 
-                // Mock user cancellation
-                (vscode.window as any).showWarningMessage = async () => undefined;
-
                 const change = await tool.initiateManualRefactor(context);
-                assert.strictEqual(change, undefined);
+                assert.notStrictEqual(change, undefined);
+                assert.strictEqual(change?.type, 'DELETE_MODEL');
+                assert.strictEqual(change?.description, "Delete model 'User'.");
             });
 
-            test('should handle non-confirmation response', async () => {
+            test('should create change object for confirmed deletion', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const modelRange = new vscode.Range(5, 0, 5, 4);
                 const model = createMockModel('User', modelUri, modelRange);
@@ -269,11 +268,10 @@ if (typeof suite !== 'undefined') {
                     metadata: model
                 };
 
-                // Mock different response
-                (vscode.window as any).showWarningMessage = async () => 'Cancel';
-
                 const change = await tool.initiateManualRefactor(context);
-                assert.strictEqual(change, undefined);
+                assert.notStrictEqual(change, undefined);
+                assert.strictEqual(change?.type, 'DELETE_MODEL');
+                assert.strictEqual(change?.description, "Delete model 'User'.");
             });
 
             test('should handle invalid metadata', async () => {
@@ -502,7 +500,7 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(fileIsInDeleteList, true);
             });
 
-            test('should show appropriate confirmation message for multiple models', async () => {
+            test('should handle multiple models in same file', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/MultiModel.ts');
                 const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
                 const orderModel = createMockModel('Order', modelUri, new vscode.Range(20, 0, 30, 1));
@@ -517,12 +515,6 @@ if (typeof suite !== 'undefined') {
                     dataSources: {}
                 });
 
-                let capturedMessage = '';
-                (vscode.window as any).showWarningMessage = async (message: string, ...items: string[]) => {
-                    capturedMessage = message;
-                    return "Yes, Delete All";
-                };
-
                 const context: ManualRefactorContext = {
                     cache: mockCache,
                     uri: modelUri,
@@ -530,13 +522,19 @@ if (typeof suite !== 'undefined') {
                     metadata: userModel
                 };
 
-                await tool.initiateManualRefactor(context);
+                const change = await tool.initiateManualRefactor(context);
                 
-                // Should mention that other models will remain
-                assert.ok(capturedMessage.includes('other models in the same file will remain'));
+                // Should create a change object without asking for confirmation
+                assert.notStrictEqual(change, undefined);
+                assert.strictEqual(change?.type, 'DELETE_MODEL');
+                
+                // Should not include the entire file for deletion since other models remain
+                const payload = change?.payload as DeleteModelPayload;
+                const fileIsInDeleteList = payload.urisToDelete.some(uri => uri.fsPath === modelUri.fsPath);
+                assert.strictEqual(fileIsInDeleteList, false);
             });
 
-            test('should show appropriate confirmation message for single model', async () => {
+            test('should handle single model in file', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/SingleModel.ts');
                 const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
                 
@@ -549,12 +547,6 @@ if (typeof suite !== 'undefined') {
                     dataSources: {}
                 });
 
-                let capturedMessage = '';
-                (vscode.window as any).showWarningMessage = async (message: string, ...items: string[]) => {
-                    capturedMessage = message;
-                    return "Yes, Delete All";
-                };
-
                 const context: ManualRefactorContext = {
                     cache: mockCache,
                     uri: modelUri,
@@ -562,11 +554,16 @@ if (typeof suite !== 'undefined') {
                     metadata: userModel
                 };
 
-                await tool.initiateManualRefactor(context);
+                const change = await tool.initiateManualRefactor(context);
                 
-                // Should NOT mention other models since there's only one
-                assert.ok(!capturedMessage.includes('other models in the same file will remain'));
-                assert.ok(capturedMessage.includes('its related files'));
+                // Should create a change object without asking for confirmation
+                assert.notStrictEqual(change, undefined);
+                assert.strictEqual(change?.type, 'DELETE_MODEL');
+                
+                // Should include the entire file for deletion since it's the only model
+                const payload = change?.payload as DeleteModelPayload;
+                const fileIsInDeleteList = payload.urisToDelete.some(uri => uri.fsPath === modelUri.fsPath);
+                assert.strictEqual(fileIsInDeleteList, true);
             });
 
             test('should not create duplicate edits when deleting model from multi-model file', async () => {

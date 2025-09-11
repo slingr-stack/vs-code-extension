@@ -169,14 +169,6 @@ export class DeleteFieldTool implements IRefactorTool {
         }
 
         const field = context.metadata as PropertyMetadata;
-        const confirmation = await vscode.window.showWarningMessage(
-              `Are you sure you want to delete the Field '${field.name}' and all its references? This action cannot be undone.`,
-              "Yes, Delete All"
-            );
-        
-            if (confirmation !== "Yes, Delete All") {
-              return undefined;
-            }
             
         // Find the model name by getting the file metadata and looking for the class containing this field
         const fileMetadata = context.cache.getMetadataForFile(context.uri.fsPath);
