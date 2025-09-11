@@ -88,21 +88,36 @@ export function Model(options?: ModelOptions) {
 
         // Walk up the prototype chain to find the field metadata
         while (currentClass && currentClass !== Object && currentClass.prototype) {
-          if (!fieldType && Reflect.hasMetadata('field:type', currentClass.prototype, fieldName)) {
-            fieldType = Reflect.getMetadata('field:type', currentClass.prototype, fieldName);
+          if (fieldType === undefined) {
+            if (Reflect.hasMetadata('field:type', currentClass.prototype, fieldName)) {
+              fieldType = Reflect.getMetadata('field:type', currentClass.prototype, fieldName);
+            } else {
+              fieldType = null;
+            }
           }
-          if (!fieldTypeOptions && Reflect.hasMetadata('field:type:options', currentClass.prototype, fieldName)) {
-            fieldTypeOptions = Reflect.getMetadata('field:type:options', currentClass.prototype, fieldName);
+          if (fieldTypeOptions === undefined) {
+            if (Reflect.hasMetadata('field:type:options', currentClass.prototype, fieldName)) {
+              fieldTypeOptions = Reflect.getMetadata('field:type:options', currentClass.prototype, fieldName);
+            } else {
+              fieldTypeOptions = null;
+            }
           }
-          if (fieldRequired === undefined && Reflect.hasMetadata('field:required', currentClass.prototype, fieldName)) {
-            fieldRequired = Reflect.getMetadata('field:required', currentClass.prototype, fieldName);
+          if (fieldRequired === undefined) {
+            if (Reflect.hasMetadata('field:required', currentClass.prototype, fieldName)) {
+              fieldRequired = Reflect.getMetadata('field:required', currentClass.prototype, fieldName);
+            } else {
+              fieldRequired = null;
+            }
           }
-          if (!isEmbedded && Reflect.hasMetadata('field:embedded', currentClass.prototype, fieldName)) {
-            isEmbedded = Reflect.getMetadata('field:embedded', currentClass.prototype, fieldName);
+          if (isEmbedded === undefined) {
+            if (Reflect.hasMetadata('field:embedded', currentClass.prototype, fieldName)) {
+              isEmbedded = Reflect.getMetadata('field:embedded', currentClass.prototype, fieldName);
+            } else {
+              isEmbedded = null;
+            }
           }
-
-          // Break early if we found all metadata
-          if (fieldType && fieldTypeOptions !== undefined && fieldRequired !== undefined && isEmbedded !== undefined) {
+          // Break early if we have checked all metadata (i.e., none are undefined)
+          if (fieldType !== undefined && fieldTypeOptions !== undefined && fieldRequired !== undefined && isEmbedded !== undefined) {
             break;
           }
 
