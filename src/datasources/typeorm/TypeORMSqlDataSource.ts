@@ -494,8 +494,8 @@ export class TypeORMSqlDataSource extends DataSource {
   ): any {
     const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
 
-    // Create a new instance of the embedded type
-    const embeddedInstance = new embeddedType();
+    // Create a new instance of the embedded type without calling its constructor
+    const embeddedInstance = Object.create(embeddedType.prototype);
 
     // Restore each field from its column
     for (const embeddedFieldName of embeddedFields) {
