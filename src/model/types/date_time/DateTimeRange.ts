@@ -15,9 +15,9 @@ import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
  */
 export interface DateTimeRangeOptions {
     /** If set to true, the 'from' field can be empty (open start). */
-    openStart?: boolean;
+    from?: boolean;
     /** If set to true, the 'to' field can be empty (open end). */
-    openEnd?: boolean;
+    to?: boolean;
 }
 
 /**
@@ -110,12 +110,12 @@ function validateSingleRange(value: any, args: ValidationArguments): boolean {
     const rangeOptions = args.constraints[0] as DateTimeRangeOptions | undefined;
 
     // Check if from is required (when openStart is false or undefined)
-    if (!rangeOptions?.openStart && !value.from) {
+    if (!rangeOptions?.from && !value.from) {
         return false;
     }
 
     // Check if to is required (when openEnd is false or undefined)
-    if (!rangeOptions?.openEnd && !value.to) {
+    if (!rangeOptions?.to && !value.to) {
         return false;
     }
 

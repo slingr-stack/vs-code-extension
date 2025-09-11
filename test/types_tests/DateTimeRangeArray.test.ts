@@ -5,7 +5,7 @@ import { Field, Model, BaseModel, DateTimeRange, DateTimeRangeType } from "../..
 })
 class DateTimeRangeArrayModel extends BaseModel {
 	@Field({})
-	@DateTimeRange({ openStart: true, openEnd: true })
+	@DateTimeRange({ from: true, to: true })
 	dateRanges!: DateTimeRangeType[];
 }
 

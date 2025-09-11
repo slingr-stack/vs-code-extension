@@ -48,15 +48,15 @@ class ComplexTypesModel extends PersistentModel {
         required: true,
     })
     @DateTimeRange({
-        openStart: false,
-        openEnd: false,
+        from: false,
+        to: false,
     })
     activeRange!: DateTimeRangeType;
 
     @Field({})
     @DateTimeRange({
-        openStart: true,
-        openEnd: true,
+        from: true,
+        to: true,
     })
     flexibleRange?: DateTimeRangeType | undefined;
 }

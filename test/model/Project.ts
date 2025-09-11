@@ -35,8 +35,8 @@ export class Project extends BaseModel {
     required: true,
   })
   @DateTimeRange({
-    openStart: false,
-    openEnd: false,
+    from: false,
+    to: false,
   })
   activeRange!: DateTimeRangeType;
 
@@ -45,8 +45,8 @@ export class Project extends BaseModel {
     required: false,
   })
   @DateTimeRange({
-    openStart: true,
-    openEnd: true,
+    from: true,
+    to: true,
   })
   flexibleRange?: DateTimeRangeType;
 

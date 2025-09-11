@@ -20,17 +20,17 @@ class DateTimeRangeArrayPersistenceModel extends PersistentModel {
     name!: string;
 
     @Field({})
-    @DateTimeRange({ openStart: true, openEnd: true })
+    @DateTimeRange({ from: true, to: true })
     dateRanges?: DateTimeRangeType[];
 
     @Field({
         required: true,
     })
-    @DateTimeRange({ openStart: false, openEnd: false })
+    @DateTimeRange({ from: false, to: false })
     requiredDateRanges!: DateTimeRangeType[];
 
     @Field({})
-    @DateTimeRange({ openStart: true, openEnd: false })
+    @DateTimeRange({ from: true, to: false })
     mixedDateRanges?: DateTimeRangeType[];
 }
 
