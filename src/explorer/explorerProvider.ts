@@ -726,10 +726,16 @@ export class ExplorerProvider
   private mapPropertyToTreeItem(propData: PropertyMetadata, itemType: string, parent?: AppTreeItem): AppTreeItem {
     const upperFieldName = propData.name.charAt(0).toUpperCase() + propData.name.slice(1);
 
+    // Check if this is a reference field and adjust the itemType accordingly
+    let actualItemType = itemType;
+    if (itemType === "field" && propData.decorators.some(d => d.name === "Reference")) {
+      actualItemType = "referenceField";
+    }
+
     const item = new AppTreeItem(
       upperFieldName,
       vscode.TreeItemCollapsibleState.None,
-      itemType,
+      actualItemType,
       this.extensionUri,
       propData,
       parent

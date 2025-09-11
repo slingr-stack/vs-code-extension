@@ -111,6 +111,24 @@ export interface AddDecoratorPayload {
     isManual: boolean;
 }
 
+/**
+ * Payload interface for changing a reference field to a composition field.
+ * This involves removing the @Reference decorator and adding a @Composition decorator,
+ * potentially deleting the referenced model if it's not used elsewhere,
+ * and creating a component model in the same file.
+ * 
+ * @property {string} sourceModelName - The name of the model containing the reference field
+ * @property {string} fieldName - The name of the reference field to be changed
+ * @property {PropertyMetadata} fieldMetadata - Metadata information about the reference field
+ * @property {boolean} isManual - Whether the change was initiated manually by the user
+ */
+export interface ChangeReferenceToCompositionPayload {
+    sourceModelName: string;
+    fieldName: string;
+    fieldMetadata: PropertyMetadata;
+    isManual: boolean;
+}
+
 
 /**
  * Represents the specific type of refactoring change being applied.
@@ -122,8 +140,9 @@ export interface AddDecoratorPayload {
  * - `DELETE_FIELD`: A change that deletes a field from an model.
  * - `CHANGE_FIELD_TYPE`: A change that modifies the data type of a field.
  * - `ADD_DECORATOR`: A change that adds a decorator to a field.
+ * - `CHANGE_REFERENCE_TO_COMPOSITION`: A change that converts a reference field to a composition field.
  */
-export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR';
+export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR' | 'CHANGE_REFERENCE_TO_COMPOSITION';
 
 /**
  * Represents a single, atomic change to be applied as part of a refactoring operation.
@@ -145,7 +164,8 @@ export interface ChangeObject {
         | RenameFieldPayload
         | DeleteFieldPayload
         | ChangeFieldTypePayload
-        | AddDecoratorPayload;
+        | AddDecoratorPayload
+        | ChangeReferenceToCompositionPayload;
 }
 
 

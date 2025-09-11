@@ -4,6 +4,7 @@ import { ExplorerProvider } from '../explorer/explorerProvider';
 import { NewModelTool } from './models/newModel';
 import { DefineFieldsTool } from './fields/defineFields';
 import { AddFieldTool } from './fields/addField';
+import { ChangeReferenceToCompositionTool } from './fields/changeReferenceToComposition';
 import { NewFolderTool } from './folders/newFolder';
 import { DeleteFolderTool } from './folders/deleteFolder';
 import { RenameFolderTool } from './folders/renameFolder';

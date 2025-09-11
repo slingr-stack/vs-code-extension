@@ -53,6 +53,10 @@
         "title": "Change Field Type"
       },
       {
+        "command": "slingr-vscode-extension.changeReferenceToComposition",
+        "title": "Change Reference to Composition"
+      },
+      {
         "command": "slingr-vscode-extension.newModel",
         "title": "New Model"
       },
@@ -184,17 +188,22 @@
         },
         {
           "command": "slingr-vscode-extension.renameField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
           "group": "1_modification"
         },
         {
           "command": "slingr-vscode-extension.deleteField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
           "group": "2_modification"
         },
         {
           "command": "slingr-vscode-extension.changeFieldType",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
+          "group": "3_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.changeReferenceToComposition",
+          "when": "view == slingrExplorer && viewItem == 'referenceField'",
           "group": "3_modification"
         },
         {
@@ -288,17 +297,17 @@
         },
         {
           "command": "slingr-vscode-extension.renameField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
           "group": "1_modification"
         },
         {
           "command": "slingr-vscode-extension.deleteField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
           "group": "2_modification"
         },
         {
           "command": "slingr-vscode-extension.changeFieldType",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
           "group": "3_modification"
         }
       ]
