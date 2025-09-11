@@ -140,13 +140,13 @@ export class MetadataCache {
      * Sets up file system watchers to detect changes, creations, and deletions
      * of TypeScript files and folder structure changes in src/data.
      */
-    private setupFileWatcher(): void {
+    private async setupFileWatcher(): Promise<void> {
         // Watch for TypeScript file changes
         this.fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.ts');
 
-        this.fileWatcher.onDidCreate(uri => this.queueFileChange(uri, 'create'));
-        this.fileWatcher.onDidChange(uri => this.queueFileChange(uri, 'change'));
-        this.fileWatcher.onDidDelete(uri => this.queueFileChange(uri, 'delete'));
+        this.fileWatcher.onDidCreate(async uri => await this.queueFileChange(uri, 'create'));
+        this.fileWatcher.onDidChange(async uri => await this.queueFileChange(uri, 'change'));
+        this.fileWatcher.onDidDelete(async uri => await this.queueFileChange(uri, 'delete'));
 
         // Watch for folder structure changes in src/data directory
         // ignoreCreateEvents: false, ignoreChangeEvents: true, ignoreDeleteEvents: false
@@ -162,12 +162,12 @@ export class MetadataCache {
      * @param uri The URI of the file that changed.
      * @param type The type of change (create, change, delete).
      */
-    private queueFileChange(uri: vscode.Uri, type: FileChangeType): void {
+    private async queueFileChange(uri: vscode.Uri, type: FileChangeType): Promise<void> {
         if (uri.path.includes('/node_modules/')) {
             return;
         }
         this.fileChangeQueue.push({ uri, type });
-        this.processQueue();
+        await this.processQueue(); 
     }
 
     /**
@@ -241,7 +241,7 @@ export class MetadataCache {
             return;
         }
 
-        this.isProcessingQueue = true;
+        //this.isProcessingQueue = true;
         const { uri, type } = this.fileChangeQueue.shift()!;
         const filePath = uri.fsPath.replace(/\\/g, '/');
         try {
@@ -297,7 +297,7 @@ export class MetadataCache {
             console.error(`Error processing file change for ${uri.fsPath}:`, error);
         } finally {
             this.isProcessingQueue = false;
-            this.processQueue();
+            await this.processQueue();
         }
     }
 
