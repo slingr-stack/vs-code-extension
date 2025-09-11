@@ -458,4 +458,114 @@ export class FileSystemService {
     }
     return true;
   }
+
+  /**
+   * Removes import statements for a specific model from a document.
+   * This is useful when a model is moved from an external file to the same file,
+   * making the import unnecessary.
+   * 
+   * @param document - The document to remove imports from
+   * @param modelName - The name of the model to remove imports for
+   * @returns Promise that resolves when the import is removed
+   */
+  public async removeModelImport(document: vscode.TextDocument, modelName: string): Promise<void> {
+    const edit = new vscode.WorkspaceEdit();
+    const content = document.getText();
+    const lines = content.split("\n");
+
+    // Find and remove import lines that contain the model name
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Check for import statements that import the specific model
+      if (this.isImportLineForModel(line, modelName)) {
+        // Check if this is a single import or multiple imports
+        if (this.isSingleModelImport(line, modelName)) {
+          // Remove the entire import line
+          const lineRange = new vscode.Range(i, 0, i + 1, 0);
+          edit.delete(document.uri, lineRange);
+        } else {
+          // Remove only the specific model from a multi-import line
+          const updatedLine = this.removeModelFromImportLine(line, modelName);
+          if (updatedLine !== line) {
+            const lineRange = new vscode.Range(i, 0, i, line.length);
+            edit.replace(document.uri, lineRange, updatedLine);
+          }
+        }
+      }
+    }
+
+    if (edit.size > 0) {
+      await vscode.workspace.applyEdit(edit);
+    }
+  }
+
+  /**
+   * Checks if a line is an import statement for a specific model.
+   */
+  private isImportLineForModel(line: string, modelName: string): boolean {
+    // Must be an import line
+    if (!line.trim().startsWith('import')) {
+      return false;
+    }
+
+    // Skip slingr-framework imports
+    if (line.includes('slingr-framework')) {
+      return false;
+    }
+
+    // Check if the model name appears in the import
+    const importRegex = /import\s+\{([^}]+)\}\s+from/;
+    const match = line.match(importRegex);
+    
+    if (match) {
+      const importedItems = match[1].split(',').map(item => item.trim());
+      return importedItems.includes(modelName);
+    }
+
+    // Also check for default imports
+    const defaultImportRegex = new RegExp(`import\\s+${modelName}\\s+from`);
+    return defaultImportRegex.test(line);
+  }
+
+  /**
+   * Checks if the import line only imports a single model.
+   */
+  private isSingleModelImport(line: string, modelName: string): boolean {
+    const importRegex = /import\s+\{([^}]+)\}\s+from/;
+    const match = line.match(importRegex);
+    
+    if (match) {
+      const importedItems = match[1].split(',').map(item => item.trim()).filter(item => item.length > 0);
+      return importedItems.length === 1 && importedItems[0] === modelName;
+    }
+
+    // For default imports, it's always a single import
+    const defaultImportRegex = new RegExp(`import\\s+${modelName}\\s+from`);
+    return defaultImportRegex.test(line);
+  }
+
+  /**
+   * Removes a specific model from a multi-import line.
+   */
+  private removeModelFromImportLine(line: string, modelName: string): string {
+    const importRegex = /import\s+\{([^}]+)\}\s+from(.+)/;
+    const match = line.match(importRegex);
+    
+    if (match) {
+      const importedItems = match[1]
+        .split(',')
+        .map(item => item.trim())
+        .filter(item => item.length > 0 && item !== modelName);
+      
+      if (importedItems.length > 0) {
+        return `import { ${importedItems.join(', ')} } from${match[2]}`;
+      } else {
+        // If no items left, return empty string to indicate line should be removed
+        return '';
+      }
+    }
+
+    return line;
+  }
 }

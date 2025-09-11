@@ -71,6 +71,9 @@ export class ChangeReferenceToCompositionTool {
       // Step 6: Add the component model to the source file
       await this.addComponentModel(document, componentModelCode, sourceModel.name, cache);
 
+      // Step 6.1: Remove the import for the target model since it's now defined in the same file
+      await this.fileSystemService.removeModelImport(document, targetModel.name);
+
       // Step 7: Add the composition field
       await this.addCompositionField(document, sourceModel.name, fieldName, targetModel.name, false, cache);
 
