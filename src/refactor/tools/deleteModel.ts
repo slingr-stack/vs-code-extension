@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteModelPayload, ChangeType, RenameModelPayload } from "../refactorInterfaces";
-import { DecoratedClass, FileMetadata, MetadataCache } from "../../cache/cache";
+import { DecoratedClass, FileMetadata, MetadataCache, PropertyMetadata } from "../../cache/cache";
 import { isModel, isModelFile, isField } from "../../utils/metadata";
 
 /**
@@ -496,7 +496,7 @@ export class DeleteModelTool implements IRefactorTool {
    * 
    * It iterates through all models in the cache, checks their fields, and if a
    * relationship field points to the model being deleted, it schedules the removal
-   * of that field's decorators.
+   * of the entire field including all its decorators and the property declaration.
    * @param deletedModelName The name of the model being deleted.
    * @param workspaceEdit The workspace edit to add changes to.
    * @param cache The metadata cache to find all other models.
@@ -519,86 +519,57 @@ export class DeleteModelTool implements IRefactorTool {
         const relationshipDecorator = property.decorators.find(d => d.name === 'Relationship');
         const fieldDecorator = property.decorators.find(d => d.name === 'Field');
 
+        // If this property has both @Relationship and @Field decorators,
+        // it's a relationship field that should be removed when the referenced model is deleted
         if (relationshipDecorator && fieldDecorator) {
-          const referencedModel = this.extractModelFromFieldDecorator(fieldDecorator);
-          if (referencedModel === deletedModelName) {
-            await this.removeRelationshipField(property, workspaceEdit);
-          }
+          await this.removeRelationshipField(property, workspaceEdit);
         }
       }
     }
   }
 
   /**
-   * Extracts the model name from a Field decorator.
-   * For relationship fields, the model is often specified as the first argument
-   * to the `@Field` decorator, e.g., `@Field('OtherModel')`.
-   * @param decorator The decorator metadata object.
-   * @returns The referenced model name, or null if not found.
-   */
-  private extractModelFromFieldDecorator(decorator: any): string | null {
-    if (!decorator.arguments || decorator.arguments.length === 0) {
-      return null;
-    }
-
-    const firstArg = decorator.arguments[0];
-
-    if (firstArg.label) {
-      return firstArg.label;
-    }
-    
-    return null;
-  }
-
-  /**
-   * Removes the `@Field` and `@Relationship` decorators from a property.
+   * Removes the entire relationship field including its decorators and property declaration.
    * 
-   * This method creates edits to delete the decorators. It handles decorators that
-   * are on their own line versus those that share a line with other code.
+   * This method uses the cached metadata to identify the exact ranges of decorators and deletes them.
    * 
    * @param field The property metadata for the relationship field.
    * @param workspaceEdit The workspace edit to add changes to.
    */
   private async removeRelationshipField(
-    field: any, 
+    field: PropertyMetadata, 
     workspaceEdit: vscode.WorkspaceEdit
   ): Promise<void> {
     try {
-      if (!field.decorators || field.decorators.length === 0) {
-        console.warn(`Cannot remove relationship decorators for field '${field.name}'; no decorators found.`);
+      if (!field.declaration) {
+        console.warn(`Cannot remove relationship field '${field.name}'; no declaration found.`);
         return;
       }
 
-      // Find and remove @Field and @Relationship decorators
+      const doc = await vscode.workspace.openTextDocument(field.declaration.uri);
+      const rangesToDelete: vscode.Range[] = [];
+      // Add decorator ranges from cache
       for (const decorator of field.decorators) {
-        if (decorator.name === 'Field' || decorator.name === 'Relationship') {
-          if (decorator.position) {
-            const doc = await vscode.workspace.openTextDocument(field.declaration.uri);
-            const decoratorLine = doc.lineAt(decorator.position.start.line);
-            const lineText = decoratorLine.text.trim();
-            const decoratorText = doc.getText(decorator.position).trim();
-            
-            if (lineText === decoratorText) {
-              workspaceEdit.delete(field.declaration.uri, decoratorLine.rangeIncludingLineBreak);
-            } else {
-              workspaceEdit.delete(field.declaration.uri, decorator.position);
-            }
-            
-            console.log(`Scheduled deletion of @${decorator.name} decorator for field '${field.name}'.`);
-          }
+        const decoratorLine = doc.lineAt(decorator.position.start.line);
+        const lineText = decoratorLine.text.trim();
+        const decoratorText = doc.getText(decorator.position).trim();
+        
+        if (lineText === decoratorText) {
+          // Decorator is alone on the line, delete the entire line
+          rangesToDelete.push(decoratorLine.rangeIncludingLineBreak);
+        } else {
+          // Decorator shares the line, delete only the decorator
+          rangesToDelete.push(decorator.position);
         }
       }
+      
+      // Apply all deletions
+      for (const range of rangesToDelete) {
+        workspaceEdit.delete(field.declaration.uri, range);
+      }
+      
     } catch (e) {
-      console.error(`Could not remove relationship decorators for field '${field.name}':`, e);
-      for (const decorator of field.decorators) {
-        if ((decorator.name === 'Field' || decorator.name === 'Relationship') && decorator.position) {
-          workspaceEdit.replace(
-            field.declaration.uri, 
-            decorator.position, 
-            `/* DELETED_${decorator.name.toUpperCase()}_DECORATOR */`
-          );
-        }
-      }
+      console.error(`Could not remove relationship field '${field.name}':`, e);
     }
   }
 
