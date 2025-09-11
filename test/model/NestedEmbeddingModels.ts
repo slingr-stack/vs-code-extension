@@ -12,7 +12,7 @@ export class GeoLocation extends BaseModel {
 }
 
 @Model()
-export class Address extends PersistentModel {
+export class Address extends BaseModel {
     @Field({ required: true })
     @Text()
     street!: string;
