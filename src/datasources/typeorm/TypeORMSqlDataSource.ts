@@ -314,11 +314,14 @@ export class TypeORMSqlDataSource extends DataSource {
   /**
    * Configures an embedded field by flattening its properties into the parent entity.
    * The embedded model's fields are added as columns to the parent table with a prefix.
+   * Supports nested embedded fields by flattening the entire hierarchy.
    * 
    * @param target - The prototype of the class containing the embedded field
    * @param propertyKey - The name of the embedded property
+   * @param prefix - Optional prefix for column names (used for nested embedding)
+   * @param rootTarget - The root target where columns should be applied (used for nested embedding)
    */
-  private configureEmbeddedField(target: any, propertyKey: string): void {
+  private configureEmbeddedField(target: any, propertyKey: string, prefix: string = '', rootTarget?: any): void {
     // Get the embedded type from metadata
     const embeddedType = Reflect.getMetadata('field:embedded:type', target, propertyKey);
 
@@ -326,53 +329,68 @@ export class TypeORMSqlDataSource extends DataSource {
       throw new Error(`Cannot determine type for embedded field ${propertyKey}`);
     }
 
+    // Use the provided rootTarget or default to the current target
+    const columnTarget = rootTarget || target;
+
+    // Create the full prefix for this level
+    const currentPrefix = prefix ? `${prefix}_${propertyKey}` : propertyKey;
+
     // Get all fields from the embedded model
     const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
 
     // For each field in the embedded model, create a column in the parent entity
     for (const embeddedFieldName of embeddedFields) {
-      // Skip if this field is also embedded (nested embedding not supported yet)
+      // Check if this field is also embedded (nested embedding)
       const isNestedEmbedded = Reflect.getMetadata('field:embedded', embeddedType.prototype, embeddedFieldName);
+      
       if (isNestedEmbedded) {
-        throw new Error(`Nested embedded fields are not yet supported: ${propertyKey}.${embeddedFieldName}`);
+        // Recursively configure nested embedded field
+        // Use the embedded type's prototype as the target for metadata lookup,
+        // but keep the original root target for column application
+        this.configureEmbeddedField(embeddedType.prototype, embeddedFieldName, currentPrefix, columnTarget);
+      } else {
+        // Get field type and options from the embedded model
+        const fieldType = Reflect.getMetadata('field:type', embeddedType.prototype, embeddedFieldName);
+        const fieldOptions = Reflect.getMetadata('field:type:options', embeddedType.prototype, embeddedFieldName);
+
+        if (!fieldType) {
+          continue; // Skip fields without type information
+        }
+
+        // Create a column name with full prefix hierarchy
+        const columnName = `${currentPrefix}_${embeddedFieldName}`;
+
+        // Map the embedded field type to TypeORM column type
+        const typeMapping = TypeORMTypeMapper.getColumnType(fieldType, fieldOptions);
+
+        // Apply the TypeORM @Column decorator to the root entity
+        // The column will be mapped to a property that doesn't exist on the parent class
+        // but will be used for database storage
+        Column({ ...typeMapping, name: columnName })(columnTarget, columnName);
+
+        // Store metadata for the embedded field mapping on the root target
+        Reflect.defineMetadata(`embedded:${currentPrefix}:${embeddedFieldName}`, {
+          columnName,
+          fieldType,
+          fieldOptions,
+          typeMapping,
+          fullPath: `${currentPrefix}.${embeddedFieldName}`
+        }, columnTarget);
       }
-
-      // Get field type and options from the embedded model
-      const fieldType = Reflect.getMetadata('field:type', embeddedType.prototype, embeddedFieldName);
-      const fieldOptions = Reflect.getMetadata('field:type:options', embeddedType.prototype, embeddedFieldName);
-
-      if (!fieldType) {
-        continue; // Skip fields without type information
-      }
-
-      // Create a column name with prefix (propertyKey_fieldName)
-      const columnName = `${propertyKey}_${embeddedFieldName}`;
-
-      // Map the embedded field type to TypeORM column type
-      const typeMapping = TypeORMTypeMapper.getColumnType(fieldType, fieldOptions);
-
-      // Apply the TypeORM @Column decorator to the parent entity
-      // The column will be mapped to a property that doesn't exist on the parent class
-      // but will be used for database storage
-      Column({ ...typeMapping, name: columnName })(target, columnName);
-
-      // Store metadata for the embedded field mapping
-      Reflect.defineMetadata(`embedded:${propertyKey}:${embeddedFieldName}`, {
-        columnName,
-        fieldType,
-        fieldOptions,
-        typeMapping
-      }, target);
     }
 
     // Store that this embedded field is configured for TypeORM
-    Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
-    Reflect.defineMetadata('datasource:embedded:configured', true, target, propertyKey);
+    // Only store this metadata on the original target (not for recursive calls)
+    if (!rootTarget) {
+      Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
+      Reflect.defineMetadata('datasource:embedded:configured', true, target, propertyKey);
+    }
   }
 
   /**
    * Extracts embedded field values from an entity and sets them as flat properties.
    * This converts nested objects to the flat column structure expected by TypeORM.
+   * Supports nested embedded objects by recursively flattening the entire hierarchy.
    * 
    * @param entity - The entity instance to process
    */
@@ -387,19 +405,47 @@ export class TypeORMSqlDataSource extends DataSource {
         const embeddedValue = (entity as any)[fieldName];
 
         if (embeddedValue && typeof embeddedValue === 'object') {
-          // Get the embedded type
-          const embeddedType = Reflect.getMetadata('field:embedded:type', constructor.prototype, fieldName);
-          const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
-
-          // Extract each embedded field to its corresponding column
-          for (const embeddedFieldName of embeddedFields) {
-            const columnName = `${fieldName}_${embeddedFieldName}`;
-            const value = embeddedValue[embeddedFieldName];
-
-            // Set the flat column value on the entity
-            (entity as any)[columnName] = value;
-          }
+          this.extractEmbeddedValueRecursive(entity, fieldName, embeddedValue, fieldName);
         }
+      }
+    }
+  }
+
+  /**
+   * Recursively extracts embedded field values, handling nested embedded objects.
+   * 
+   * @param entity - The root entity instance
+   * @param fieldName - The current field name being processed
+   * @param embeddedValue - The embedded object value
+   * @param prefix - The current prefix for column naming
+   */
+  private extractEmbeddedValueRecursive<T extends object>(
+    entity: T,
+    fieldName: string,
+    embeddedValue: any,
+    prefix: string
+  ): void {
+    // Get the embedded type
+    const embeddedType = embeddedValue.constructor;
+    const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
+
+    // Extract each embedded field to its corresponding column
+    for (const embeddedFieldName of embeddedFields) {
+      const isNestedEmbedded = Reflect.getMetadata('field:embedded', embeddedType.prototype, embeddedFieldName);
+      
+      if (isNestedEmbedded) {
+        // Handle nested embedded field recursively
+        const nestedValue = embeddedValue[embeddedFieldName];
+        if (nestedValue && typeof nestedValue === 'object') {
+          this.extractEmbeddedValueRecursive(entity, embeddedFieldName, nestedValue, `${prefix}_${embeddedFieldName}`);
+        }
+      } else {
+        // Handle regular field
+        const columnName = `${prefix}_${embeddedFieldName}`;
+        const value = embeddedValue[embeddedFieldName];
+
+        // Set the flat column value on the entity
+        (entity as any)[columnName] = value;
       }
     }
   }
@@ -407,6 +453,7 @@ export class TypeORMSqlDataSource extends DataSource {
   /**
    * Restores embedded field values from flat columns back to nested objects.
    * This converts the flat column structure from TypeORM back to nested objects.
+   * Supports nested embedded objects by recursively reconstructing the entire hierarchy.
    * 
    * @param entity - The entity instance to process
    */
@@ -420,28 +467,62 @@ export class TypeORMSqlDataSource extends DataSource {
       if (isEmbedded) {
         // Get the embedded type and its fields
         const embeddedType = Reflect.getMetadata('field:embedded:type', constructor.prototype, fieldName);
-        const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
-
-        // Create a new instance of the embedded type
-        const embeddedInstance = new embeddedType();
-
-        // Restore each field from its column
-        for (const embeddedFieldName of embeddedFields) {
-          const columnName = `${fieldName}_${embeddedFieldName}`;
-          const value = (entity as any)[columnName];
-
-          if (value !== undefined) {
-            embeddedInstance[embeddedFieldName] = value;
-          }
-
-          // Clean up the flat column property (optional)
-          delete (entity as any)[columnName];
-        }
-
+        
+        // Recursively restore the embedded object
+        const embeddedInstance = this.restoreEmbeddedValueRecursive(entity, fieldName, embeddedType, fieldName);
+        
         // Set the restored embedded object
         (entity as any)[fieldName] = embeddedInstance;
       }
     }
+  }
+
+  /**
+   * Recursively restores embedded field values from flat columns, handling nested embedded objects.
+   * 
+   * @param entity - The root entity instance
+   * @param fieldName - The current field name being processed
+   * @param embeddedType - The type of the embedded object to create
+   * @param prefix - The current prefix for column naming
+   * @returns The restored embedded object instance
+   */
+  private restoreEmbeddedValueRecursive<T extends object>(
+    entity: T,
+    fieldName: string,
+    embeddedType: any,
+    prefix: string
+  ): any {
+    const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
+
+    // Create a new instance of the embedded type
+    const embeddedInstance = new embeddedType();
+
+    // Restore each field from its column
+    for (const embeddedFieldName of embeddedFields) {
+      const isNestedEmbedded = Reflect.getMetadata('field:embedded', embeddedType.prototype, embeddedFieldName);
+
+      if (isNestedEmbedded) {
+        // Handle nested embedded field recursively
+        const nestedEmbeddedType = Reflect.getMetadata('field:embedded:type', embeddedType.prototype, embeddedFieldName);
+        const nestedPrefix = `${prefix}_${embeddedFieldName}`;
+        
+        const nestedInstance = this.restoreEmbeddedValueRecursive(entity, embeddedFieldName, nestedEmbeddedType, nestedPrefix);
+        embeddedInstance[embeddedFieldName] = nestedInstance;
+      } else {
+        // Handle regular field
+        const columnName = `${prefix}_${embeddedFieldName}`;
+        const value = (entity as any)[columnName];
+
+        if (value !== undefined) {
+          embeddedInstance[embeddedFieldName] = value;
+        }
+
+        // Clean up the flat column property
+        delete (entity as any)[columnName];
+      }
+    }
+
+    return embeddedInstance;
   }
 
   /**

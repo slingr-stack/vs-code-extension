@@ -1,4 +1,6 @@
 import "reflect-metadata";
+import { Expose, Type } from "class-transformer";
+import { ValidateNested } from "class-validator";
 
 /**
  * Configuration options for the Embedded decorator.
@@ -72,6 +74,17 @@ export function Embedded(options?: EmbeddedOptions) {
     if (!existingFields.includes(propertyKey)) {
       existingFields.push(propertyKey);
       Reflect.defineMetadata('model:fields', existingFields, target.constructor);
+    }
+
+    // Make the embedded field available in JSON serialization
+    Expose()(target, propertyKey);
+
+    // Enable nested validation for the embedded object
+    ValidateNested()(target, propertyKey);
+
+    // Set the type for class-transformer to properly handle nested objects
+    if (propertyType) {
+      Type(() => propertyType)(target, propertyKey);
     }
   };
 }
