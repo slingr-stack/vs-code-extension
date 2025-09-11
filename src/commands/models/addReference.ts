@@ -77,8 +77,6 @@ export class AddReferenceTool {
       // Step 5: Add reference field to source model
       await this.addReferenceField(document, modelClass.name, fieldName, targetModelName, targetModelPath, cache);
 
-      this.explorerProvider.refresh();
-
       // Step 6: Focus on the newly created field
       await this.sourceCodeService.focusOnElement(document, fieldName);
 

@@ -56,8 +56,6 @@ export class AddCompositionTool {
       // Step 6: Add composition field to outer model
       await this.addCompositionField(document, modelClass.name, fieldName, innerModelName, isArray, cache);
 
-      this.explorerProvider.refresh();
-
       // Step 7: Focus on the newly created field
       await this.sourceCodeService.focusOnElement(document, fieldName);
 
