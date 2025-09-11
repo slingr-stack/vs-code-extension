@@ -58,7 +58,10 @@ export class AddCompositionTool {
 
       this.explorerProvider.refresh();
 
-      // Step 7: Show success message
+      // Step 7: Focus on the newly created field
+      await this.sourceCodeService.focusOnElement(document, fieldName);
+
+      // Step 8: Show success message
       vscode.window.showInformationMessage(
         `Composition relationship created successfully! Added ${innerModelName} model and ${fieldName} field.`
       );
@@ -244,7 +247,7 @@ export class AddCompositionTool {
     // Create field info for the composition field
     const fieldType: FieldTypeOption = {
       label: "Relationship",
-      decorator: "Relationship",
+      decorator: "Composition",
       tsType: isArray ? `${innerModelName}[]` : innerModelName,
       description: "Composition relationship",
     };
@@ -264,7 +267,7 @@ export class AddCompositionTool {
     const fieldCode = this.generateCompositionFieldCode(fieldInfo, innerModelName, isArray);
 
     // Insert the field
-    await this.sourceCodeService.insertField(document, outerModelName, fieldInfo, fieldCode, cache);
+    await this.sourceCodeService.insertField(document, outerModelName, fieldInfo, fieldCode, cache, false);
   }
 
   /**
@@ -285,4 +288,6 @@ export class AddCompositionTool {
 
     return lines.join("\n");
   }
+
+
 }

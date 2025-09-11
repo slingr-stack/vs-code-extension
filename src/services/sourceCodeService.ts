@@ -19,20 +19,20 @@ export class SourceCodeService {
     modelClassName: string,
     fieldInfo: FieldInfo,
     fieldCode: string,
-    cache?: MetadataCache
+    cache?: MetadataCache,
+    importModel: boolean = true
   ): Promise<void> {
     const edit = new vscode.WorkspaceEdit();
     const lines = document.getText().split("\n");
+    const newImports = new Set<string>(["Field", fieldInfo.type.decorator]);
+    if(fieldInfo.type.decorator === "Composition") {
+      newImports.add("PersistentComponentModel");
+    }
 
-    await this.ensureSlingrFrameworkImports(document, edit, new Set(["Field", fieldInfo.type.decorator]));
+    await this.ensureSlingrFrameworkImports(document, edit, newImports);
 
-    if (fieldInfo.additionalConfig?.targetModelPath !== document.uri.fsPath) {
-      if (
-        (fieldInfo.type.decorator === "Relationship" || fieldInfo.type.decorator === "Composition") &&
-        fieldInfo.additionalConfig?.targetModel
-      ) {
+    if (importModel && fieldInfo.additionalConfig) {
         await this.addModelImport(document, fieldInfo.additionalConfig.targetModel, edit, cache);
-      }
     }
 
     const { classEndLine } = this.findClassBoundaries(lines, modelClassName);
@@ -60,8 +60,12 @@ export class SourceCodeService {
         inClass = true;
       }
       if (inClass) {
-        if (line.includes("{")) braceCount++;
-        if (line.includes("}")) braceCount--;
+        if (line.includes("{")) {
+          braceCount++;
+        }
+        if (line.includes("}")) {
+          braceCount--;
+        }
         if (braceCount === 0 && classStartLine !== -1) {
           classEndLine = i;
           break;
@@ -382,6 +386,89 @@ export class SourceCodeService {
     } catch (error) {
       console.warn("Could not extract datasource import:", error);
       return null;
+    }
+  }
+
+  /**
+   * Focuses on an element in a document navigating to it and highlighting it.
+   * This method can find and focus on various types of elements including:
+   * - Class properties (fields with !: or :)
+   * - Method names
+   * - Class names
+   * - Variable declarations
+   */
+  public async focusOnElement(document: vscode.TextDocument, elementName: string): Promise<void> {
+    try {
+      // Ensure the document is visible and active
+      const editor = await vscode.window.showTextDocument(document, { preview: false });
+
+      // Find the line containing the element
+      const content = document.getText();
+      const lines = content.split("\n");
+
+      let elementLine = -1;
+      let elementIndex = -1;
+
+      // Look for different patterns in order of specificity
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Pattern 1: Property declarations (fieldName!: Type or fieldName: Type)
+        if (line.includes(`${elementName}!:`) || line.includes(`${elementName}:`)) {
+          elementLine = i;
+          elementIndex = line.indexOf(elementName);
+          break;
+        }
+        
+        // Pattern 2: Method declarations (methodName() or methodName(
+        if (line.includes(`${elementName}(`) && (line.includes('function') || line.includes('){') || line.includes(') {'))) {
+          elementLine = i;
+          elementIndex = line.indexOf(elementName);
+          break;
+        }
+        
+        // Pattern 3: Class declarations (class ClassName)
+        if (line.includes(`class ${elementName}`)) {
+          elementLine = i;
+          elementIndex = line.indexOf(elementName);
+          break;
+        }
+        
+        // Pattern 4: Variable declarations (const elementName, let elementName, var elementName)
+        if ((line.includes(`const ${elementName}`) || line.includes(`let ${elementName}`) || line.includes(`var ${elementName}`)) && 
+            (line.includes('=') || line.includes(';'))) {
+          elementLine = i;
+          elementIndex = line.indexOf(elementName);
+          break;
+        }
+        
+        // Pattern 5: General word boundary match (as fallback)
+        const wordBoundaryRegex = new RegExp(`\\b${elementName}\\b`);
+        if (wordBoundaryRegex.test(line)) {
+          const match = line.match(wordBoundaryRegex);
+          if (match && match.index !== undefined) {
+            elementLine = i;
+            elementIndex = match.index;
+            break;
+          }
+        }
+      }
+
+      if (elementLine !== -1 && elementIndex !== -1) {
+        // Position the cursor at the element name
+        const startPosition = new vscode.Position(elementLine, elementIndex);
+        const endPosition = new vscode.Position(elementLine, elementIndex + elementName.length);
+
+        // Set selection to highlight the element name
+        editor.selection = new vscode.Selection(startPosition, endPosition);
+
+        // Reveal the line in the center of the editor
+        editor.revealRange(new vscode.Range(startPosition, endPosition), vscode.TextEditorRevealType.InCenter);
+      }
+    } catch (error) {
+      console.warn("Could not focus on element:", error);
+      // Fallback: just make sure the document is visible
+      await vscode.window.showTextDocument(document, { preview: false });
     }
   }
 }

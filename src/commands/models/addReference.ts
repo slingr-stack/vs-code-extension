@@ -79,7 +79,10 @@ export class AddReferenceTool {
 
       this.explorerProvider.refresh();
 
-      // Step 6: Show success message
+      // Step 6: Focus on the newly created field
+      await this.sourceCodeService.focusOnElement(document, fieldName);
+
+      // Step 7: Show success message
       vscode.window.showInformationMessage(
         `Reference relationship created successfully! Added ${fieldName} field referencing ${targetModelName}.`
       );
@@ -309,10 +312,6 @@ export class AddReferenceTool {
     
     try {
       const targetFileUri = await this.fileSystemService.createFile(finalModelName, filePath, modelContent, false);
-      
-      // Open the new file
-      const document = await vscode.workspace.openTextDocument(targetFileUri);
-      await vscode.window.showTextDocument(document, { preview: false, viewColumn: vscode.ViewColumn.Beside });
 
       return {
         name: finalModelName,
@@ -381,7 +380,7 @@ export class AddReferenceTool {
     // Create field info for the reference field
     const fieldType: FieldTypeOption = {
       label: "Relationship",
-      decorator: "Relationship",
+      decorator: "Reference",
       tsType: targetModelName,
       description: "Reference relationship",
     };
