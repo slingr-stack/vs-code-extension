@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Transform, TransformationType, Type } from 'class-transformer';
 import { ValidateNested } from 'class-validator';
-import { BaseModel } from '../../index';
+import { BaseModel } from '../../BaseModel';
 import { FIELD_TYPE, FIELD_TYPE_RELATIONSHIP, FIELD_RELATIONSHIP_TYPE, DESIGN_TYPE } from '../../metadata/MetadataKeys';
 
 /**
