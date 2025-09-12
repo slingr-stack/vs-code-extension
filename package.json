@@ -34,23 +34,23 @@
       },
       {
         "command": "slingr-vscode-extension.renameModel",
-        "title": "Rename model"
+        "title": "Rename"
       },
       {
         "command": "slingr-vscode-extension.deleteModel",
-        "title": "Delete model"
+        "title": "Delete"
       },
       {
         "command": "slingr-vscode-extension.renameField",
-        "title": "Rename field"
+        "title": "Rename"
       },
       {
         "command": "slingr-vscode-extension.deleteField",
-        "title": "Delete field"
+        "title": "Delete"
       },
       {
         "command": "slingr-vscode-extension.changeFieldType",
-        "title": "Change field type"
+        "title": "Change type"
       },
       {
         "command": "slingr.runInfraUpdate",
@@ -74,11 +74,11 @@
       },
       {
         "command": "slingr-vscode-extension.renameFolder",
-        "title": "Rename folder"
+        "title": "Rename"
       },
       {
         "command": "slingr-vscode-extension.deleteFolder",
-        "title": "Delete folder"
+        "title": "Delete"
       },
       {
         "command": "slingr-vscode-extension.createTest",
@@ -90,7 +90,7 @@
       },
       {
         "command": "slingr-vscode-extension.modifyModel",
-        "title": "Modify model"
+        "title": "Modify with AI"
       },
       {
         "command": "slingr-vscode-extension.newDataSource",
@@ -151,74 +151,74 @@
       ],
       "view/item/context": [
         {
-          "command": "slingr-vscode-extension.newModel",
-          "when": "view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot' || viewItem == 'model')",
-          "group": "0_creation"
-        },
-        {
           "command": "slingr-vscode-extension.newFolder",
-          "when": "view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot')",
-          "group": "0_creation"
+          "when": "view == slingrExplorer && viewItem == 'dataRoot'",
+          "group": "0_creation@1"
         },
         {
-          "command": "slingr-vscode-extension.defineFields",
-          "when": "view == slingrExplorer && viewItem == 'model'",
-          "group": "0_creation"
+          "command": "slingr-vscode-extension.newModel",
+          "when": "view == slingrExplorer && viewItem == 'dataRoot'",
+          "group": "0_creation@2"
         },
         {
           "command": "slingr-vscode-extension.addField",
           "when": "view == slingrExplorer && viewItem == 'model'",
-          "group": "0_creation"
+          "group": "0_creation@1"
         },
         {
-          "command": "slingr-vscode-extension.createTest",
+          "command": "slingr-vscode-extension.defineFields",
           "when": "view == slingrExplorer && viewItem == 'model'",
-          "group": "0_creation"
+          "group": "0_creation@2"
         },
         {
           "command": "slingr-vscode-extension.renameModel",
           "when": "view == slingrExplorer && viewItem == 'model'",
-          "group": "1_modification"
-        },
-        {
-          "command": "slingr-vscode-extension.deleteModel",
-          "when": "view == slingrExplorer && viewItem == 'model'",
-          "group": "2_modification"
-        },
-        {
-          "command": "slingr-vscode-extension.renameFolder",
-          "when": "view == slingrExplorer && viewItem == 'folder'",
-          "group": "1_modification"
-        },
-        {
-          "command": "slingr-vscode-extension.deleteFolder",
-          "when": "view == slingrExplorer && viewItem == 'folder'",
-          "group": "2_modification"
-        },
-        {
-          "command": "slingr-vscode-extension.renameField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
-          "group": "1_modification"
-        },
-        {
-          "command": "slingr-vscode-extension.deleteField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
-          "group": "2_modification"
-        },
-        {
-          "command": "slingr-vscode-extension.changeFieldType",
-          "when": "view == slingrExplorer && viewItem == 'field'",
-          "group": "3_modification"
-        },
-        {
-          "command": "slingr-vscode-extension.createModelFromDescription",
-          "when": "view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot' || viewItem == 'model')",
-          "group": "0_creation"
+          "group": "1_modification@1"
         },
         {
           "command": "slingr-vscode-extension.modifyModel",
           "when": "view == slingrExplorer && viewItem == 'model'",
-          "group": "3_modification"
+          "group": "1_modification@2"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteModel",
+          "when": "view == slingrExplorer && viewItem == 'model'",
+          "group": "1_modification@3"
+        },
+        {
+          "command": "slingr-vscode-extension.renameField",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "0_modification@1"
+        },
+        {
+          "command": "slingr-vscode-extension.changeFieldType",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "0_modification@2"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteField",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "0_modification@3"
+        },
+        {
+          "command": "slingr-vscode-extension.newFolder",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "0_creation@1"
+        },
+        {
+          "command": "slingr-vscode-extension.newModel",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "0_creation@2"
+        },
+        {
+          "command": "slingr-vscode-extension.renameFolder",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "1_modification@1"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteFolder",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "1_modification@2"
         },
         {
           "command": "slingr-vscode-extension.newDataSource",
@@ -248,76 +248,71 @@
       ],
       "slingr-vscode-extension.creation": [
         {
-          "command": "slingr-vscode-extension.newModel",
-          "when": "(view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot' || viewItem == 'model')) || !viewItem",
-          "group": "0_model"
-        },
-        {
           "command": "slingr-vscode-extension.newFolder",
-          "when": "view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot')",
-          "group": "0_model"
+          "when": "(view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot')) || !viewItem",
+          "group": "0_model@1"
         },
         {
-          "command": "slingr-vscode-extension.createModelFromDescription",
-          "when": "(view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot' || viewItem == 'model')) || !viewItem",
-          "group": "0_model"
-        },
-        {
-          "command": "slingr-vscode-extension.defineFields",
-          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
-          "group": "1_field"
+          "command": "slingr-vscode-extension.newModel",
+          "when": "(view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot')) || !viewItem",
+          "group": "0_model@2"
         },
         {
           "command": "slingr-vscode-extension.addField",
           "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
-          "group": "1_field"
+          "group": "1_field@1"
+        },
+        {
+          "command": "slingr-vscode-extension.defineFields",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "1_field@2"
         },
         {
           "command": "slingr-vscode-extension.createTest",
           "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
-          "group": "2_test"
-        },
-        {
-          "command": "slingr-vscode-extension.modifyModel",
-          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
-          "group": "3_modify"
+          "group": "2_test@1"
         }
       ],
       "slingr-vscode-extension.refactorings": [
         {
           "command": "slingr-vscode-extension.renameModel",
           "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
-          "group": "1_modification"
+          "group": "1_modification@1"
+        },
+        {
+          "command": "slingr-vscode-extension.modifyModel",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "1_modification@2"
         },
         {
           "command": "slingr-vscode-extension.deleteModel",
           "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
-          "group": "2_modification"
+          "group": "2_modification@1"
         },
         {
           "command": "slingr-vscode-extension.renameFolder",
           "when": "view == slingrExplorer && viewItem == 'folder'",
-          "group": "1_modification"
+          "group": "1_modification@3"
         },
         {
           "command": "slingr-vscode-extension.deleteFolder",
           "when": "view == slingrExplorer && viewItem == 'folder'",
-          "group": "2_modification"
+          "group": "2_modification@2"
         },
         {
           "command": "slingr-vscode-extension.renameField",
           "when": "view == slingrExplorer && viewItem == 'field'",
-          "group": "1_modification"
-        },
-        {
-          "command": "slingr-vscode-extension.deleteField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
-          "group": "2_modification"
+          "group": "1_modification@4"
         },
         {
           "command": "slingr-vscode-extension.changeFieldType",
           "when": "view == slingrExplorer && viewItem == 'field'",
-          "group": "3_modification"
+          "group": "1_modification@5"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteField",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "2_modification@3"
         }
       ]
     },
