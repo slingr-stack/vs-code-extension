@@ -1,6 +1,6 @@
 import { BlogPost } from "../model/BlogPost";
 import { TypeORMSqlDataSource } from "../../src/datasources/typeorm/TypeORMSqlDataSource";
-import { MODEL_FIELDS } from "../../src/model/metadata";
+import { FIELD_REQUIRED, FIELD_TYPE, FIELD_TYPE_OPTIONS, MODEL_DATASOURCE, MODEL_FIELDS } from "../../src/model/metadata";
 
 describe("Array Persistence in SQL Databases", () => {
     let dataSource: TypeORMSqlDataSource;
@@ -18,15 +18,15 @@ describe("Array Persistence in SQL Databases", () => {
 
         // Configure the BlogPost model with the data source
         const modelOptions = { dataSource };
-        Reflect.defineMetadata("model:dataSource", dataSource, BlogPost);
+        Reflect.defineMetadata(MODEL_DATASOURCE, dataSource, BlogPost);
         dataSource.configureModel(BlogPost, modelOptions);
 
         // Configure all fields with the data source
         const fieldNames = Reflect.getMetadata(MODEL_FIELDS, BlogPost) || [];
         fieldNames.forEach((fieldName: string) => {
-            const fieldType = Reflect.getMetadata('field:type', BlogPost.prototype, fieldName);
-            const fieldTypeOptions = Reflect.getMetadata('field:type:options', BlogPost.prototype, fieldName);
-            const fieldRequired = Reflect.getMetadata('field:required', BlogPost.prototype, fieldName);
+            const fieldType = Reflect.getMetadata(FIELD_TYPE, BlogPost.prototype, fieldName);
+            const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, BlogPost.prototype, fieldName);
+            const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, BlogPost.prototype, fieldName);
 
             if (fieldType) {
                 const allFieldOptions = {

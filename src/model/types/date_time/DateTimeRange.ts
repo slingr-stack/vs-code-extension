@@ -9,7 +9,7 @@ import {
 import { Type, Transform, TransformationType, Expose } from 'class-transformer';
 import { dateToISO8601, dateFromJSON } from '../utils';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
-import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DATETIME_RANGE, DESIGN_TYPE } from '../../metadata/MetadataKeys';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DATETIME_RANGE, DESIGN_TYPE, FIELD_TYPE_ARRAY_DATETIME_RANGE } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the DateTimeRange decorator.
@@ -118,7 +118,7 @@ function storeDateTimeRangeMetadata(proto: Object, propName: string, options?: D
     
     if (designType === Array) {
         // Handle DateTimeRange array case
-        Reflect.defineMetadata('field:type', 'array:datetimerange', proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_ARRAY_DATETIME_RANGE, proto, propName);
     } else {
         // Handle single DateTimeRange case
         Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_DATETIME_RANGE, proto, propName);

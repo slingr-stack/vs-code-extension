@@ -266,7 +266,7 @@ export class TypeORMSqlDataSource extends DataSource {
     if (fieldType === 'datetimerange') {
       this.dateTimeRangeFieldManager.configureFieldColumns(target, propertyKey, fieldOptions);
       // Store that this field is configured for TypeORM
-      Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
+      Reflect.defineMetadata(DATASOURCE_FIELD_CONFIGURED, true, target, propertyKey);
       return;
     }
 

@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Column, AfterLoad } from 'typeorm';
 import { DateTimeRangeValue } from '../../model/types/date_time/DateTimeRange';
-import { DATETIME_RANGE_HIDDEN_COLUMNS, MODEL_FIELDS } from '../../model/metadata';
+import { DATETIME_RANGE_HIDDEN_COLUMNS, DATETIME_RANGE_USES_HIDDEN_COLUMNS, FIELD_TYPE, MODEL_FIELDS } from '../../model/metadata';
 
 /**
  * Manages DateTimeRange field persistence using hidden columns approach.
@@ -46,7 +46,7 @@ export class DateTimeRangeFieldManager {
         }, target, propertyKey);
         
         // Mark this field as using hidden columns approach
-        Reflect.defineMetadata('dateTimeRange:usesHiddenColumns', true, target, propertyKey);
+        Reflect.defineMetadata(DATETIME_RANGE_USES_HIDDEN_COLUMNS, true, target, propertyKey);
         
         // Store this field name in the list of DateTimeRange fields for this entity
         const { DATETIME_RANGE_FIELDS } = require('../../model/metadata/MetadataKeys');
@@ -80,7 +80,7 @@ export class DateTimeRangeFieldManager {
         const fields = Reflect.getMetadata(MODEL_FIELDS, constructor) || [];
         
         for (const fieldName of fields) {
-            const fieldType = Reflect.getMetadata('field:type', constructor.prototype, fieldName);
+            const fieldType = Reflect.getMetadata(FIELD_TYPE, constructor.prototype, fieldName);
             
             if (fieldType === 'datetimerange') {
                 const hiddenColumns = Reflect.getMetadata(DATETIME_RANGE_HIDDEN_COLUMNS, constructor.prototype, fieldName);

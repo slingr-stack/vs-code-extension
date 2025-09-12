@@ -7,7 +7,7 @@ import {
     DateTimeRangeValue,
     Text
 } from "../../index";
-import { MODEL_FIELDS } from "../../src/model/metadata";
+import { FIELD_REQUIRED, FIELD_TYPE, FIELD_TYPE_OPTIONS, MODEL_DATASOURCE, MODEL_FIELDS } from "../../src/model/metadata";
 
 // Test model for DateTimeRange array persistence
 @Model({
@@ -51,15 +51,15 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
 
         // Configure the DateTimeRangeArrayPersistenceModel with the data source
         const modelOptions = { dataSource };
-        Reflect.defineMetadata("model:dataSource", dataSource, DateTimeRangeArrayPersistenceModel);
+        Reflect.defineMetadata(MODEL_DATASOURCE, dataSource, DateTimeRangeArrayPersistenceModel);
         dataSource.configureModel(DateTimeRangeArrayPersistenceModel, modelOptions);
 
         // Configure all fields with the data source
         const fieldNames = Reflect.getMetadata(MODEL_FIELDS, DateTimeRangeArrayPersistenceModel) || [];
         fieldNames.forEach((fieldName: string) => {
-            const fieldType = Reflect.getMetadata('field:type', DateTimeRangeArrayPersistenceModel.prototype, fieldName);
-            const fieldTypeOptions = Reflect.getMetadata('field:type:options', DateTimeRangeArrayPersistenceModel.prototype, fieldName);
-            const fieldRequired = Reflect.getMetadata('field:required', DateTimeRangeArrayPersistenceModel.prototype, fieldName);
+            const fieldType = Reflect.getMetadata(FIELD_TYPE, DateTimeRangeArrayPersistenceModel.prototype, fieldName);
+            const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, DateTimeRangeArrayPersistenceModel.prototype, fieldName);
+            const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, DateTimeRangeArrayPersistenceModel.prototype, fieldName);
 
             if (fieldType) {
                 dataSource.configureField(

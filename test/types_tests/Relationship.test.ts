@@ -1,4 +1,5 @@
 import { BaseModel, Field, Model, DateTimeRangeValue, Relationship } from "../../index";
+import { FIELD_RELATIONSHIP_TYPE, FIELD_TYPE } from "../../src/model/metadata";
 import { Customer } from '../model/Customer';
 import { LineItem } from '../model/LineItem';
 import { Order } from '../model/Order';
@@ -335,15 +336,15 @@ describe('Relationship Type', () => {
         });
 
         it('should preserve metadata for relationships', () => {
-            const fieldType = Reflect.getMetadata('field:type', Order.prototype, 'customer');
-            const relationshipType = Reflect.getMetadata('field:relationship:type', Order.prototype, 'customer');
+            const fieldType = Reflect.getMetadata(FIELD_TYPE, Order.prototype, 'customer');
+            const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, Order.prototype, 'customer');
             
             expect(fieldType).toBe('relationship');
             expect(relationshipType).toBe('reference');
 
-            const lineItemsFieldType = Reflect.getMetadata('field:type', Order.prototype, 'lineItems');
-            const lineItemsRelType = Reflect.getMetadata('field:relationship:type', Order.prototype, 'lineItems');
-            
+            const lineItemsFieldType = Reflect.getMetadata(FIELD_TYPE, Order.prototype, 'lineItems');
+            const lineItemsRelType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, Order.prototype, 'lineItems');
+
             expect(lineItemsFieldType).toBe('relationship');
             expect(lineItemsRelType).toBe('composition');
         });

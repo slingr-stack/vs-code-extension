@@ -14,7 +14,7 @@ import {
 } from "../../index";
 import { validateSync } from 'class-validator';
 import number from 'financial-number';
-import { MODEL_FIELDS } from "../../src/model/metadata";
+import { FIELD_REQUIRED, FIELD_TYPE, FIELD_TYPE_OPTIONS, MODEL_DATASOURCE, MODEL_FIELDS } from "../../src/model/metadata";
 
 // Test model for complex type persistence
 @Model({
@@ -79,15 +79,15 @@ describe("Complex Types Persistence in SQL Databases", () => {
 
         // Configure the ComplexTypesModel with the data source
         const modelOptions = { dataSource };
-        Reflect.defineMetadata("model:dataSource", dataSource, ComplexTypesModel);
+        Reflect.defineMetadata(MODEL_DATASOURCE, dataSource, ComplexTypesModel);
         dataSource.configureModel(ComplexTypesModel, modelOptions);
 
         // Configure all fields with the data source
         const fieldNames = Reflect.getMetadata(MODEL_FIELDS, ComplexTypesModel) || [];
         fieldNames.forEach((fieldName: string) => {
-            const fieldType = Reflect.getMetadata('field:type', ComplexTypesModel.prototype, fieldName);
-            const fieldTypeOptions = Reflect.getMetadata('field:type:options', ComplexTypesModel.prototype, fieldName);
-            const fieldRequired = Reflect.getMetadata('field:required', ComplexTypesModel.prototype, fieldName);
+            const fieldType = Reflect.getMetadata(FIELD_TYPE, ComplexTypesModel.prototype, fieldName);
+            const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, ComplexTypesModel.prototype, fieldName);
+            const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, ComplexTypesModel.prototype, fieldName);
 
             if (fieldType) {
                 dataSource.configureField(
