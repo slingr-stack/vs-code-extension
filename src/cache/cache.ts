@@ -373,21 +373,31 @@ export class MetadataCache {
             newHash = this.parseDataSourceFile(sourceFile);
         }
 
-        if (oldHash !== newHash) {
-            this.isInfrastructureUpdateNeeded = true;
-            this.outOfSyncDataSources.add(filePath);
-            this._onInfrastructureStatusChange.fire({ status: 'change-detected', uri: uri });
-        }
-
+        // Determine if infrastructure changes occurred, but don't fire events yet
+        let hasInfrastructureChanges = false;
+        
         if (type === 'delete') {
-            this.dataSourceHashes.delete(filePath);
-            if (oldHash) { // Trigger update if there was a data source to delete
-                this.isInfrastructureUpdateNeeded = true;
-                this.outOfSyncDataSources.add(filePath);
-                this._onInfrastructureStatusChange.fire({ status: 'change-detected', uri: uri });
+            // File deleted - trigger update if there was a data source to delete
+            if (oldHash) {
+                hasInfrastructureChanges = true;
             }
-        } else if (newHash) {
-            this.dataSourceHashes.set(filePath, newHash);
+            this.dataSourceHashes.delete(filePath);
+        } else {
+            // File created or changed
+            if (newHash) {
+                // Data source found in file
+                if (oldHash !== newHash) {
+                    hasInfrastructureChanges = true;
+                }
+                this.dataSourceHashes.set(filePath, newHash);
+            } else {
+                // No data source found in file
+                if (oldHash) {
+                    // Had a data source before, now it's gone
+                    hasInfrastructureChanges = true;
+                }
+                this.dataSourceHashes.delete(filePath);
+            }
         }
         
         // --- Refactoring and Cache Logic (mirrors processQueue) ---
@@ -428,6 +438,13 @@ export class MetadataCache {
         
         this.buildAllReferences();
         this._onDidUpdate.fire();
+
+        // Fire infrastructure status change event AFTER cache has been updated
+        if (hasInfrastructureChanges) {
+            this.isInfrastructureUpdateNeeded = true;
+            this.outOfSyncDataSources.add(filePath);
+            this._onInfrastructureStatusChange.fire({ status: 'change-detected', uri: uri });
+        }
     }
 
     /**

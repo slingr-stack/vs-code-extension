@@ -83,7 +83,6 @@ async function updateSqlToolsConfig(sqlDataSources: DataSourceMetadata[]): Promi
         if (selection === 'Install') {
             await vscode.commands.executeCommand('workbench.extensions.installExtension', 'mtxr.sqltools');
         }
-        return;
     }
 
     // Check for required drivers
@@ -165,7 +164,7 @@ async function updateSqlToolsConfig(sqlDataSources: DataSourceMetadata[]): Promi
 export function setupSqlToolsIntegration(context: vscode.ExtensionContext, cache: MetadataCache) {
     const disposable = cache.onInfrastructureStatusChange(event => {
         // Only act when the infrastructure update has successfully completed
-        if (event.status === 'update-success') {
+        if (event.status === 'change-detected') {
             // The rest of the logic is the same!
             const allSqlDataSources = cache.getSqlDataSources();
             updateSqlToolsConfig(allSqlDataSources);
