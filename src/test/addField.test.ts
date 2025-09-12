@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { AddFieldTool } from '../commands/addField';
+import { AddFieldTool } from '../commands/fields/addField';
 import { MetadataCache } from '../cache/cache';
 import { FIELD_TYPE_OPTIONS } from '../commands/interfaces';
 
