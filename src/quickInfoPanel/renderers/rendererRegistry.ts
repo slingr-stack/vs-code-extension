@@ -13,4 +13,6 @@ import { FieldRenderer } from './fieldRenderer';
 export const rendererRegistry = new Map<string, IMetadataRenderer>([
     ['model', new ModelRenderer()],
     ['field', new FieldRenderer()],
+    ['referenceField', new FieldRenderer()],
+    ['compositionField', new FieldRenderer()],
 ]);
