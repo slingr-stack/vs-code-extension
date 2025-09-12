@@ -1,5 +1,6 @@
 import { BlogPost } from "../model/BlogPost";
 import { TypeORMSqlDataSource } from "../../src/datasources/typeorm/TypeORMSqlDataSource";
+import { MODEL_FIELDS } from "../../src/model/metadata";
 
 describe("Array Persistence in SQL Databases", () => {
     let dataSource: TypeORMSqlDataSource;
@@ -21,7 +22,7 @@ describe("Array Persistence in SQL Databases", () => {
         dataSource.configureModel(BlogPost, modelOptions);
 
         // Configure all fields with the data source
-        const fieldNames = Reflect.getMetadata('model:fields', BlogPost) || [];
+        const fieldNames = Reflect.getMetadata(MODEL_FIELDS, BlogPost) || [];
         fieldNames.forEach((fieldName: string) => {
             const fieldType = Reflect.getMetadata('field:type', BlogPost.prototype, fieldName);
             const fieldTypeOptions = Reflect.getMetadata('field:type:options', BlogPost.prototype, fieldName);

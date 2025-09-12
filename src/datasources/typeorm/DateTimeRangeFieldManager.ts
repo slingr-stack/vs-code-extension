@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Column, AfterLoad } from 'typeorm';
 import { DateTimeRangeValue } from '../../model/types/date_time/DateTimeRange';
+import { DATETIME_RANGE_HIDDEN_COLUMNS, MODEL_FIELDS } from '../../model/metadata';
 
 /**
  * Manages DateTimeRange field persistence using hidden columns approach.
@@ -39,7 +40,7 @@ export class DateTimeRangeFieldManager {
         })(target, toColumnName);
         
         // Store metadata about which hidden columns belong to this DateTimeRange field
-        Reflect.defineMetadata('dateTimeRange:hiddenColumns', {
+        Reflect.defineMetadata(DATETIME_RANGE_HIDDEN_COLUMNS, {
             from: fromColumnName,
             to: toColumnName
         }, target, propertyKey);
@@ -48,10 +49,11 @@ export class DateTimeRangeFieldManager {
         Reflect.defineMetadata('dateTimeRange:usesHiddenColumns', true, target, propertyKey);
         
         // Store this field name in the list of DateTimeRange fields for this entity
-        const existingFields = Reflect.getMetadata('dateTimeRange:fields', target) || [];
+        const { DATETIME_RANGE_FIELDS } = require('../../model/metadata/MetadataKeys');
+        const existingFields = Reflect.getMetadata(DATETIME_RANGE_FIELDS, target) || [];
         if (!existingFields.includes(propertyKey)) {
             existingFields.push(propertyKey);
-            Reflect.defineMetadata('dateTimeRange:fields', existingFields, target);
+            Reflect.defineMetadata(DATETIME_RANGE_FIELDS, existingFields, target);
         }
         
         // Add single @AfterLoad hook to automatically reconstruct all DateTimeRange objects
@@ -75,13 +77,13 @@ export class DateTimeRangeFieldManager {
      */
     extractDateTimeRangeValues(entity: any): void {
         const constructor = entity.constructor;
-        const fields = Reflect.getMetadata('model:fields', constructor) || [];
+        const fields = Reflect.getMetadata(MODEL_FIELDS, constructor) || [];
         
         for (const fieldName of fields) {
             const fieldType = Reflect.getMetadata('field:type', constructor.prototype, fieldName);
             
             if (fieldType === 'datetimerange') {
-                const hiddenColumns = Reflect.getMetadata('dateTimeRange:hiddenColumns', constructor.prototype, fieldName);
+                const hiddenColumns = Reflect.getMetadata(DATETIME_RANGE_HIDDEN_COLUMNS, constructor.prototype, fieldName);
                 
                 if (hiddenColumns) {
                     const dateTimeRange = entity[fieldName] as DateTimeRangeValue | undefined;
@@ -107,11 +109,12 @@ export class DateTimeRangeFieldManager {
      * @param entity - The entity being loaded
      */
     reconstructDateTimeRangeValues(entity: any): void {
-        const constructor = entity.constructor;
-        const dateTimeRangeFields = Reflect.getMetadata('dateTimeRange:fields', constructor.prototype) || [];
+    const constructor = entity.constructor;
+    const { DATETIME_RANGE_FIELDS } = require('../../model/metadata/MetadataKeys');
+    const dateTimeRangeFields = Reflect.getMetadata(DATETIME_RANGE_FIELDS, constructor.prototype) || [];
         
         for (const fieldName of dateTimeRangeFields) {
-            const hiddenColumns = Reflect.getMetadata('dateTimeRange:hiddenColumns', constructor.prototype, fieldName);
+            const hiddenColumns = Reflect.getMetadata(DATETIME_RANGE_HIDDEN_COLUMNS, constructor.prototype, fieldName);
             
             if (hiddenColumns) {
                 const fromDate = entity[hiddenColumns.from];
@@ -145,7 +148,7 @@ export class DateTimeRangeFieldManager {
      * @returns Object with 'from' and 'to' column names, or null if not found
      */
     getHiddenColumnNames(target: any, propertyKey: string): { from: string; to: string } | null {
-        return Reflect.getMetadata('dateTimeRange:hiddenColumns', target.prototype || target, propertyKey) || null;
+        return Reflect.getMetadata(DATETIME_RANGE_HIDDEN_COLUMNS, target.prototype || target, propertyKey) || null;
     }
     
     /**

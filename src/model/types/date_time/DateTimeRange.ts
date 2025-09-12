@@ -9,7 +9,7 @@ import {
 import { Type, Transform, TransformationType, Expose } from 'class-transformer';
 import { dateToISO8601, dateFromJSON } from '../utils';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
-import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DATETIME_RANGE } from '../../metadata/MetadataKeys';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DATETIME_RANGE, DESIGN_TYPE } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the DateTimeRange decorator.
@@ -97,7 +97,7 @@ type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRang
  * Validates that a property is of DateTimeRange type at runtime.
  */
 function validateDateTimeRangeValue(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     // Be more flexible with type checking since TypeScript may not preserve exact type info
     // We accept DateTimeRangeValue, Object, or undefined types
     if (
@@ -114,7 +114,7 @@ function validateDateTimeRangeValue(proto: Object, propertyKey: string): void {
  * Stores metadata for the datetime range field that can be consumed by other layers.
  */
 function storeDateTimeRangeMetadata(proto: Object, propName: string, options?: DateTimeRangeOptions): void {
-    const designType = Reflect.getMetadata('design:type', proto, propName);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propName);
     
     if (designType === Array) {
         // Handle DateTimeRange array case
@@ -162,41 +162,6 @@ function validateSingleRange(value: any, args: ValidationArguments): boolean {
 
     return true;
 }
-
-/**
- * Helper function to validate a single DateTimeRange
- */
-function validateSingleRange(value: any, args: ValidationArguments): boolean {
-    if (value == null) {
-        return true; // Allow null/undefined values in arrays
-    }
-
-    if (!(value instanceof DateTimeRangeValue)) {
-        return false;
-    }
-
-    const rangeOptions = args.constraints[0] as DateTimeRangeOptions | undefined;
-
-    // Check if from is required (when openStart is false or undefined)
-    if (!rangeOptions?.from && !value.from) {
-        return false;
-    }
-
-    // Check if to is required (when openEnd is false or undefined)
-    if (!rangeOptions?.to && !value.to) {
-        return false;
-    }
-
-    // If both dates are present, validate that from is before to
-    if (value.from && value.to) {
-        if (value.from >= value.to) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 /**
  * Custom DateTimeRange validator that validates range constraints
  */
@@ -271,7 +236,7 @@ export function DateTimeRange(options?: DateTimeRangeOptions) {
         validateDateTimeRangeValue(proto, propName);
         storeDateTimeRangeMetadata(proto, propName, options);
 
-        const designType = Reflect.getMetadata('design:type', proto, propName);
+        const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propName);
         
         if (designType === Array) {
             // Handle DateTimeRange array case

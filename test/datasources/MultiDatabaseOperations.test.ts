@@ -1,4 +1,5 @@
 import { TypeORMSqlDataSource, TypeORMSqlDataSourceOptions } from '../../index';
+import { MODEL_FIELDS } from '../../src/model/metadata';
 import { BlogPost } from '../model/BlogPost';
 import * as fs from 'fs';
 
@@ -119,7 +120,7 @@ function configureModelWithDataSource(modelClass: any, dataSource: TypeORMSqlDat
   dataSource.configureModel(modelClass, {});
   
   // Configure all fields with the data source
-  const fieldNames = Reflect.getMetadata('model:fields', modelClass) || [];
+  const fieldNames = Reflect.getMetadata(MODEL_FIELDS, modelClass) || [];
   fieldNames.forEach((fieldName: string) => {
     const fieldType = Reflect.getMetadata('field:type', modelClass.prototype, fieldName);
     const fieldTypeOptions = Reflect.getMetadata('field:type:options', modelClass.prototype, fieldName);

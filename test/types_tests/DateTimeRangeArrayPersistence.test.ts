@@ -7,6 +7,7 @@ import {
     DateTimeRangeValue,
     Text
 } from "../../index";
+import { MODEL_FIELDS } from "../../src/model/metadata";
 
 // Test model for DateTimeRange array persistence
 @Model({
@@ -54,7 +55,7 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
         dataSource.configureModel(DateTimeRangeArrayPersistenceModel, modelOptions);
 
         // Configure all fields with the data source
-        const fieldNames = Reflect.getMetadata('model:fields', DateTimeRangeArrayPersistenceModel) || [];
+        const fieldNames = Reflect.getMetadata(MODEL_FIELDS, DateTimeRangeArrayPersistenceModel) || [];
         fieldNames.forEach((fieldName: string) => {
             const fieldType = Reflect.getMetadata('field:type', DateTimeRangeArrayPersistenceModel.prototype, fieldName);
             const fieldTypeOptions = Reflect.getMetadata('field:type:options', DateTimeRangeArrayPersistenceModel.prototype, fieldName);

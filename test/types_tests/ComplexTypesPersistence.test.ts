@@ -14,6 +14,7 @@ import {
 } from "../../index";
 import { validateSync } from 'class-validator';
 import number from 'financial-number';
+import { MODEL_FIELDS } from "../../src/model/metadata";
 
 // Test model for complex type persistence
 @Model({
@@ -82,7 +83,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
         dataSource.configureModel(ComplexTypesModel, modelOptions);
 
         // Configure all fields with the data source
-        const fieldNames = Reflect.getMetadata('model:fields', ComplexTypesModel) || [];
+        const fieldNames = Reflect.getMetadata(MODEL_FIELDS, ComplexTypesModel) || [];
         fieldNames.forEach((fieldName: string) => {
             const fieldType = Reflect.getMetadata('field:type', ComplexTypesModel.prototype, fieldName);
             const fieldTypeOptions = Reflect.getMetadata('field:type:options', ComplexTypesModel.prototype, fieldName);

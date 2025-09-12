@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { BaseModel, Field, Model, Text } from '../index';
+import { MODEL_FIELDS } from '../src/model/metadata';
 
 @Model({
   docs: "Test model for Field decorator without parameters"
@@ -86,7 +87,7 @@ describe('Field Decorator Without Parameters', () => {
   describe('Metadata Tests', () => {
     
     it('should register fields with @Field() in metadata', () => {
-      const fields = Reflect.getMetadata('model:fields', TestFieldModel) || [];
+      const fields = Reflect.getMetadata(MODEL_FIELDS, TestFieldModel) || [];
       expect(fields).toContain('name');
       expect(fields).toContain('description');
       expect(fields).toContain('requiredField');

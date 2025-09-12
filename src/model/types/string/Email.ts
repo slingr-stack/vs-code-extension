@@ -3,7 +3,7 @@ import { IsEmail, IsArray } from 'class-validator';
 import { Transform, TransformationType } from 'class-transformer';
 import { validateStringType } from '../utils';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
-import { FIELD_TYPE, FIELD_TYPE_EMAIL, FIELD_TYPE_ARRAY_EMAIL } from '../../metadata/MetadataKeys';
+import { FIELD_TYPE, FIELD_TYPE_EMAIL, FIELD_TYPE_ARRAY_EMAIL, DESIGN_TYPE } from '../../metadata/MetadataKeys';
 
 /**
  * Email type decorator.
@@ -21,7 +21,7 @@ type EmailKey<T, K extends keyof T & string> = T[K] extends string | string[]
  * Validates that a property is of string or string array type at runtime.
  */
 function validateEmailType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType !== String && designType !== Array) {
         throw new Error(`@Email can only be applied to 'string' or 'string[]' properties: ${propertyKey}`);
     }
@@ -67,7 +67,7 @@ export function Email() {
 
         validateEmailType(proto, propName);
         
-        const designType = Reflect.getMetadata('design:type', proto, propName);
+        const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propName);
         
         if (designType === Array) {
             // Handle email array case

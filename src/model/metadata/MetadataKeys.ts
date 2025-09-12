@@ -74,6 +74,22 @@ export const DATASOURCE_TYPE = 'datasource:type';
 export const ARRAY_FIELD_NAMES = 'array:field:names';
 
 // =============================================================================
+// Reflection/Type metadata keys
+// =============================================================================
+
+/** Metadata key for design type (used by reflect-metadata, e.g., for TypeORM relations) */
+export const DESIGN_TYPE = 'design:type';
+
+// =============================================================================
+// DateTimeRange-related metadata keys
+// =============================================================================
+
+/** Metadata key for storing DateTimeRange field names */
+export const DATETIME_RANGE_FIELDS = 'datetimerange:fields';
+
+export const DATETIME_RANGE_HIDDEN_COLUMNS = 'datetimerange:hiddenColumns';
+
+// =============================================================================
 // TypeORM-related metadata keys
 // =============================================================================
 

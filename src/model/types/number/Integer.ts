@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { registerDecorator } from 'class-validator';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
-import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_INTEGER } from '../../metadata/MetadataKeys';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_INTEGER, DESIGN_TYPE } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the Integer decorator.
@@ -29,7 +29,7 @@ type IntegerKey<T, K extends keyof T & string> = T[K] extends number
  * Validates that a property is of number type at runtime.
  */
 function validateIntegerType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType !== Number && designType?.name !== 'Number') {
         throw new Error(`@Integer can only be applied to 'number' properties, but it was used on '${propertyKey}'.`);
     }
