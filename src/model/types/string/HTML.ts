@@ -4,6 +4,7 @@ import { Text } from './Text';
 import { IsArray, IsString } from 'class-validator';
 import { Transform, TransformationType } from 'class-transformer';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_HTML, FIELD_TYPE_ARRAY_HTML } from '../../metadata/MetadataKeys';
 
 /**
  * HTML type decorator.
@@ -71,7 +72,7 @@ export function HTML() {
         
         if (designType === Array) {
             // Handle string array case
-            Reflect.defineMetadata('field:type', 'array:html', proto, propName);
+            Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_ARRAY_HTML, proto, propName);
             
             // Use built-in class-validator decorators for array validation
             IsArray()(target as any, propName);
@@ -97,7 +98,7 @@ export function HTML() {
             })(target as any, propName);
         } else {
             // Handle single string case
-            Reflect.defineMetadata('field:type', 'html', proto, propName);
+            Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_HTML, proto, propName);
             Text()(target as any, propName as any);
         }
     };

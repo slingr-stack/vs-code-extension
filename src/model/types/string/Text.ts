@@ -11,6 +11,7 @@ import {
 import { Transform, TransformationType } from 'class-transformer';
 import { validateStringType } from '../utils';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_TEXT, FIELD_TYPE_ARRAY_TEXT } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the Text decorator.
@@ -56,9 +57,9 @@ function validateTextType(proto: Object, propertyKey: string): void {
  * @param options - Text options to store
  */
 function storeTextMetadata(proto: Object, propName: string, options?: TextOptions): void {
-    Reflect.defineMetadata('field:type', 'text', proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_TEXT, proto, propName);
     if (options) {
-        Reflect.defineMetadata('field:type:options', options, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
     }
 }
 
@@ -117,9 +118,9 @@ export function Text(options?: TextOptions) {
         
         if (designType === Array) {
             // Handle string array case
-            Reflect.defineMetadata('field:type', 'array:text', proto, propName);
+            Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_ARRAY_TEXT, proto, propName);
             if (options) {
-                Reflect.defineMetadata('field:type:options', options, proto, propName);
+                Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
             }
             
             // Validate that regex is not used with arrays
