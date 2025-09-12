@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { registerDecorator } from 'class-validator';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_INTEGER } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the Integer decorator.
@@ -38,9 +39,9 @@ function validateIntegerType(proto: Object, propertyKey: string): void {
  * Stores metadata for the integer field.
  */
 function storeIntegerMetadata(proto: Object, propName: string, options?: IntegerOptions): void {
-    Reflect.defineMetadata('field:type', 'integer', proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_INTEGER, proto, propName);
     if (options) {
-        Reflect.defineMetadata('field:type:options', options, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
     }
 }
 

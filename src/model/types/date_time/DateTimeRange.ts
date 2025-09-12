@@ -8,6 +8,7 @@ import {
 } from 'class-validator';
 import { Type, Transform, TransformationType, Expose } from 'class-transformer';
 import { dateToISO8601, dateFromJSON } from '../utils';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DATETIME_RANGE } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the DateTimeRange decorator.
@@ -72,9 +73,9 @@ function validateDateTimeRangeType(proto: Object, propertyKey: string): void {
  * Stores metadata for the datetime range field that can be consumed by other layers.
  */
 function storeDateTimeRangeMetadata(proto: Object, propName: string, options?: DateTimeRangeOptions): void {
-    Reflect.defineMetadata('field:type', 'datetimerange', proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_DATETIME_RANGE, proto, propName);
     if (options) {
-        Reflect.defineMetadata('field:type:options', options, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
     }
 }
 

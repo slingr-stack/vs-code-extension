@@ -3,6 +3,7 @@ import { registerDecorator } from 'class-validator';
 import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
 import { Expose, Transform } from 'class-transformer';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_MONEY } from '../../metadata/MetadataKeys';
 
 /**
  * Type alias for the `FinancialNumber` object, representing a monetary value.
@@ -52,8 +53,8 @@ function validateMoneyType(proto: Object, propertyKey: string): void {
 }
 
 function storeMoneyMetadata(proto: Object, propName: string, options: MoneyOptions): void {
-    Reflect.defineMetadata('field:type', 'money', proto, propName);
-    Reflect.defineMetadata('field:type:options', options, proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_MONEY, proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
 }
 
 function createOptionalValidatorAdder(proto: Object, propName: string) {

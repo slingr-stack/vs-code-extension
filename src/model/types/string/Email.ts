@@ -3,6 +3,7 @@ import { IsEmail, IsArray } from 'class-validator';
 import { Transform, TransformationType } from 'class-transformer';
 import { validateStringType } from '../utils';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_EMAIL, FIELD_TYPE_ARRAY_EMAIL } from '../../metadata/MetadataKeys';
 
 /**
  * Email type decorator.
@@ -70,7 +71,7 @@ export function Email() {
         
         if (designType === Array) {
             // Handle email array case
-            Reflect.defineMetadata('field:type', 'array:email', proto, propName);
+            Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_ARRAY_EMAIL, proto, propName);
             
             // Use built-in class-validator decorators for array validation
             IsArray()(target as any, propName);
@@ -96,7 +97,7 @@ export function Email() {
             })(target as any, propName);
         } else {
             // Handle single email case
-            Reflect.defineMetadata('field:type', 'email', proto, propName);
+            Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_EMAIL, proto, propName);
             
             // Use standard class-validator email decorator
             IsEmail()(target as any, propName);
