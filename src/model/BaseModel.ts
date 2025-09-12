@@ -1,6 +1,7 @@
 import { ValidationError, validate } from "class-validator";
 import { instanceToPlain, plainToInstance, Transform } from "class-transformer";
 import { ValidationIssue } from "./types/SharedTypes";
+import { FIELD_VALIDATION, FIELD_CALCULATION } from './metadata/MetadataKeys';
 
 /**
  * Abstract base class for all model classes in the framework.
@@ -88,7 +89,7 @@ export abstract class BaseModel {
         if (customConstraint) {
           // Get the custom validation function to extract error codes
           const customValidationFn = Reflect.getMetadata(
-            "field:validation",
+            FIELD_VALIDATION,
             this,
             error.property
           );
@@ -215,7 +216,7 @@ export abstract class BaseModel {
   public async calculate(maxIterations: number = 10): Promise<void> {
     const calculatedFields = Object.getOwnPropertyNames(
       Object.getPrototypeOf(this)
-    ).filter((key) => Reflect.hasMetadata("field:calculation", this, key));
+    ).filter((key) => Reflect.hasMetadata(FIELD_CALCULATION, this, key));
 
     if (calculatedFields.length === 0) {
       return;
@@ -228,7 +229,7 @@ export abstract class BaseModel {
       let hasChanged = false;
       for (const key of calculatedFields) {
         const originalGetter = Reflect.getMetadata(
-          "field:calculation",
+          FIELD_CALCULATION,
           this,
           key
         );
