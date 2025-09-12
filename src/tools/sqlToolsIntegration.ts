@@ -39,8 +39,8 @@ function isValidDataSource(ds: DataSourceMetadata): boolean {
 /**
  * Sanitizes a string value, returning undefined if empty or invalid
  */
-function sanitizeString(value: any): string | undefined {
-    if (typeof value === 'string' && value.trim()) {
+function sanitizeString(value: string | undefined): string | undefined {
+    if (value && value.trim()) {
         return value.trim();
     }
     return undefined;
@@ -49,7 +49,7 @@ function sanitizeString(value: any): string | undefined {
 /**
  * Sanitizes a numeric value, returning undefined if invalid
  */
-function sanitizeNumber(value: any): number | undefined {
+function sanitizeNumber(value: number | string | undefined): number | undefined {
     if (typeof value === 'number' && value > 0) {
         return value;
     }
