@@ -268,6 +268,8 @@ export function DateTimeRange(options?: DateTimeRangeOptions) {
  * Uses JSON column type with custom transformer to store DateTimeRange objects.
  */
 export const DateTimeRangeValueConfig: FieldTypeConfig = {
+    // TODO: Set type to 'datetimerange' when supported by more databases
+    // For now, we use 'text' with a transformer to store as JSON string
     getTypeORMColumnConfig(fieldOptions?: DateTimeRangeOptions, nullable: boolean = true): any {
         const { dateTimeRangeTransformer } = require('../../../datasources/typeorm/ValueTransformers');
         return {
