@@ -99,6 +99,10 @@
       {
         "command": "slingr-vscode-extension.modifyModel",
         "title": "Modify Model"
+      },
+      {
+        "command": "slingr.runInfraUpdate",
+        "title": "Run Infrastructure Update"
       }
     ],
     "submenus": [

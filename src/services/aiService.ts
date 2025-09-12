@@ -9,11 +9,11 @@ import { ProjectAnalysisService } from "./projectAnalysisService";
 
 export class AIService {
 
-  private fileSSystemService: FileSystemService;
+  private fileSystemService: FileSystemService;
   private projectAnalysisService: ProjectAnalysisService;
 
   constructor() {
-    this.fileSSystemService = new FileSystemService();
+    this.fileSystemService = new FileSystemService();
     this.projectAnalysisService = new ProjectAnalysisService();
   }
 

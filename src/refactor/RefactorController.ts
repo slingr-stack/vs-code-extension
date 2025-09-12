@@ -275,30 +275,38 @@ export class RefactorController {
       if (success) {
         await vscode.workspace.saveAll(false);
         const changesToProcess = allChanges || [changeObject];
+        // Check for compilation errors after applying changes
         const changesWithPrompts = changesToProcess.filter(change => {
           const tool = this.changeHandlerMap.get(change.type);
           return tool?.executePrompt;
         });
 
-        // Ask user if they want to execute prompts to analyze changes and fix errors
         if (changesWithPrompts.length > 0) {
-          const promptConfirmation = await vscode.window.showInformationMessage(
-            `Would you like to run AI analysis on the applied changes to help identify and fix potential errors?`,
-            { modal: false },
-            "Yes, Analyze Changes",
-            "No, Skip Analysis"
-          );
+          const modifiedUris = this.collectModifiedUris(editToApply, changesToProcess);
 
-          if (promptConfirmation === "Yes, Analyze Changes") {
-            // Execute custom prompts for the changes
-            for (const change of changesWithPrompts) {
-              const tool = this.changeHandlerMap.get(change.type);
-              if (tool?.executePrompt) {
-                try {
-                  await tool.executePrompt(change);
-                } catch (error) {
-                  console.error(`Error executing prompt for change ${change.type}:`, error);
-                  vscode.window.showWarningMessage(`Failed to execute analysis for ${change.description}: ${error}`);
+          // this catches pre-existing and new errors added by the refactor
+          const hasErrors = await this.checkForCompilationErrors(modifiedUris);
+
+          // Only prompt for AI analysis if errors are detected
+          if (hasErrors) {
+            const promptConfirmation = await vscode.window.showWarningMessage(
+              `Compilation errors were detected after applying the refactoring changes. Would you like to run AI analysis to help identify and fix these errors?`,
+              { modal: false },
+              "Yes, Analyze Errors",
+              "No, Skip Analysis"
+            );
+
+            if (promptConfirmation === "Yes, Analyze Errors") {
+              // Execute custom prompts for the changes
+              for (const change of changesWithPrompts) {
+                const tool = this.changeHandlerMap.get(change.type);
+                if (tool?.executePrompt) {
+                  try {
+                    await tool.executePrompt(change);
+                  } catch (error) {
+                    console.error(`Error executing prompt for change ${change.type}:`, error);
+                    vscode.window.showWarningMessage(`Failed to execute analysis for ${change.description}: ${error}`);
+                  }
                 }
               }
             }
@@ -421,6 +429,59 @@ export class RefactorController {
       mergedEdit.set(vscode.Uri.parse(uriString), edits);
     }
     return mergedEdit;
+  }
+
+  /**
+   * Collects all file URIs that were modified during the refactoring operation.
+   * 
+   * This method gathers URIs from both the workspace edit entries and the change objects
+   * to create a comprehensive list of files that should be checked for compilation errors.
+   * 
+   * @param workspaceEdit - The workspace edit containing text modifications
+   * @param changes - Array of change objects that triggered the refactoring
+   * @returns A Set of unique URIs representing all modified files
+   */
+  private collectModifiedUris(workspaceEdit: vscode.WorkspaceEdit, changes: ChangeObject[]): Set<vscode.Uri> {
+    const modifiedUris = new Set<vscode.Uri>();
+    for (const [uri] of workspaceEdit.entries()) {
+      modifiedUris.add(uri);
+    }
+    for (const change of changes) {
+      modifiedUris.add(change.uri);
+    }
+
+    return modifiedUris;
+  }
+
+  /**
+   * Checks for compilation errors in the specified files.
+   * 
+   * This method uses VS Code's diagnostic API to detect compilation errors
+   * in the provided file URIs. It's useful for determining whether a refactoring
+   * operation has introduced any syntax or type errors that need attention.
+   * 
+   * @param uris - Set of file URIs to check for compilation errors
+   * @returns A Promise that resolves to true if any compilation errors are found, false otherwise
+   * 
+   * @remarks
+   * - Only checks for diagnostics with Error severity level
+   * - Gracefully handles cases where diagnostics cannot be retrieved for a file
+   * - Returns false if all files are error-free or if no diagnostics can be obtained
+   */
+  private async checkForCompilationErrors(uris: Set<vscode.Uri>): Promise<boolean> {
+    for (const uri of uris) {
+      try {
+        const diagnostics = vscode.languages.getDiagnostics(uri);
+        const errors = diagnostics.filter(d => d.severity === vscode.DiagnosticSeverity.Error);
+        if (errors.length > 0) {
+          return true;
+        }
+      } catch (error) {
+        // If we can't get diagnostics, we'll skip the error check for this file
+        console.warn(`Could not get diagnostics for ${uri.fsPath}:`, error);
+      }
+    }
+    return false;
   }
 
   /**
