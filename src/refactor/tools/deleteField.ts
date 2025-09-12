@@ -295,7 +295,7 @@ export class DeleteFieldTool implements IRefactorTool {
         Please focus your analysis and modifications on the files within the current workspace, especially the ones listed below:${affectedPathsMessage}`;
 
         try {
-            await vscode.commands.executeCommand('workbench.action.chat.openAgent', prompt);
+            await vscode.commands.executeCommand('workbench.action.chat.open', prompt);
         } catch (error) {
             console.error('Failed to open chat with custom prompt:', error);
         }
