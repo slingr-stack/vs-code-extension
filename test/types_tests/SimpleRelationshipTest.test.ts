@@ -1,4 +1,12 @@
 import { PersistentModel, Field, Model, Reference, TypeORMSqlDataSource, Text } from "../../index";
+import { 
+  MODEL_FIELDS, 
+  FIELD_TYPE, 
+  FIELD_TYPE_OPTIONS, 
+  FIELD_REQUIRED, 
+  FIELD_RELATIONSHIP_TYPE,
+  FIELD_RELATIONSHIP_LOAD 
+} from "../../src/model/metadata/MetadataKeys";
 
 // Simple test models
 @Model()
@@ -36,11 +44,11 @@ describe('Simple Relationship Test', () => {
     for (const modelClass of models) {
       dataSource.configureModel(modelClass);
       
-      const fieldNames = Reflect.getMetadata('model:fields', modelClass) || [];
+      const fieldNames = Reflect.getMetadata(MODEL_FIELDS, modelClass) || [];
       for (const fieldName of fieldNames) {
-        const fieldType = Reflect.getMetadata('field:type', modelClass.prototype, fieldName);
-        const fieldTypeOptions = Reflect.getMetadata('field:type:options', modelClass.prototype, fieldName);
-        const fieldRequired = Reflect.getMetadata('field:required', modelClass.prototype, fieldName);
+        const fieldType = Reflect.getMetadata(FIELD_TYPE, modelClass.prototype, fieldName);
+        const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, modelClass.prototype, fieldName);
+        const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, modelClass.prototype, fieldName);
 
         if (fieldType) {
           const allFieldOptions = {
@@ -52,8 +60,8 @@ describe('Simple Relationship Test', () => {
           
           // Check if it's a relationship field and log additional info
           if (fieldType === 'relationship') {
-            const relationshipType = Reflect.getMetadata('field:relationship:type', modelClass.prototype, fieldName);
-            const load = Reflect.getMetadata('field:relationship:load', modelClass.prototype, fieldName);
+            const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, modelClass.prototype, fieldName);
+            const load = Reflect.getMetadata(FIELD_RELATIONSHIP_LOAD, modelClass.prototype, fieldName);
             console.log(`  Relationship details: type=${relationshipType}, load=${load}`);
           }
         }

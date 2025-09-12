@@ -2,9 +2,11 @@ import {
   OneToMany, 
   ManyToOne, 
   ManyToMany, 
+  OneToOne,
   JoinColumn, 
   JoinTable 
 } from 'typeorm';
+import { DESIGN_TYPE, TYPEORM_RELATIONSHIP, TYPEORM_RELATIONSHIP_TYPE, RELATIONSHIP_PARENT_ENTITY } from '../../model/metadata';
 
 /**
  * Manager class for handling relationship field configuration for TypeORM persistence.
@@ -32,7 +34,7 @@ export class RelationshipFieldManager {
     onDelete?: string,
     elementType?: () => any
   ): void {
-    const designType = Reflect.getMetadata('design:type', target, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, target, propertyKey);
     const isArray = designType === Array;
 
     switch (relationshipType) {
@@ -57,8 +59,8 @@ export class RelationshipFieldManager {
     }
 
     // Store metadata for testing purposes
-    Reflect.defineMetadata('typeorm:relationship', true, target, propertyKey);
-    Reflect.defineMetadata('typeorm:relationship:type', relationshipType, target, propertyKey);
+    Reflect.defineMetadata(TYPEORM_RELATIONSHIP, true, target, propertyKey);
+    Reflect.defineMetadata(TYPEORM_RELATIONSHIP_TYPE, relationshipType, target, propertyKey);
   }
 
   /**
@@ -108,7 +110,7 @@ export class RelationshipFieldManager {
         ManyToOne(elementType, undefined as any, relationOptions)(target, propertyKey);
       } else {
         // Use design type when elementType is not provided
-        const designType = Reflect.getMetadata('design:type', target, propertyKey);
+        const designType = Reflect.getMetadata(DESIGN_TYPE, target, propertyKey);
         if (designType && typeof designType === 'function') {
           ManyToOne(() => designType, undefined as any, relationOptions)(target, propertyKey);
         } else {
@@ -151,7 +153,7 @@ export class RelationshipFieldManager {
           const ChildClass = elementType();
           if (ChildClass && ChildClass.prototype) {
             // Store the parent entity constructor on the child's owner property
-            Reflect.defineMetadata('relationship:parent:entity', target.constructor, ChildClass.prototype, 'owner');
+            Reflect.defineMetadata(RELATIONSHIP_PARENT_ENTITY, target.constructor, ChildClass.prototype, 'owner');
           }
         } catch {
           // Non-fatal: if we can't resolve the element type now, parent mapping will fall back to manual handling
@@ -160,21 +162,22 @@ export class RelationshipFieldManager {
         OneToMany(() => Object, (child: any) => child.owner, relationOptions)(target, propertyKey);
       }
     } else {
-      // Single composition - treat as reference with cascade
+      // Single composition - model as OneToOne to enforce exclusive ownership
       const relationOptions: any = {
         eager,
-        cascade: ['insert', 'update'],
+        // Include remove to delete the composed entity when parent is removed via ORM
+        cascade: ['insert', 'update', 'remove'],
         nullable: true
       };
 
       if (elementType) {
-        ManyToOne(elementType, undefined as any, relationOptions)(target, propertyKey);
+        OneToOne(elementType, undefined as any, relationOptions)(target, propertyKey);
       } else {
-        const designType = Reflect.getMetadata('design:type', target, propertyKey);
+        const designType = Reflect.getMetadata(DESIGN_TYPE, target, propertyKey);
         if (designType && typeof designType === 'function') {
-          ManyToOne(() => designType, undefined as any, relationOptions)(target, propertyKey);
+          OneToOne(() => designType, undefined as any, relationOptions)(target, propertyKey);
         } else {
-          ManyToOne(() => Object, undefined as any, relationOptions)(target, propertyKey);
+          OneToOne(() => Object, undefined as any, relationOptions)(target, propertyKey);
         }
       }
       
@@ -231,7 +234,7 @@ export class RelationshipFieldManager {
     };
 
     // Try to resolve the actual parent entity (set by configureComposition)
-    const parentEntity: Function | undefined = Reflect.getMetadata('relationship:parent:entity', target, propertyKey);
+    const parentEntity: Function | undefined = Reflect.getMetadata(RELATIONSHIP_PARENT_ENTITY, target, propertyKey);
 
     if (parentEntity) {
       ManyToOne(() => parentEntity as any, undefined as any, relationOptions)(target, propertyKey);

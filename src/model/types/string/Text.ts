@@ -11,6 +11,7 @@ import {
 import { Transform, TransformationType } from 'class-transformer';
 import { validateStringType } from '../utils';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_TEXT, FIELD_TYPE_ARRAY_TEXT, DESIGN_TYPE } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the Text decorator.
@@ -42,7 +43,7 @@ type TextKey<T, K extends keyof T & string> = T[K] extends string | string[]
  * Validates that a property is of string or string array type at runtime.
  */
 function validateTextType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType !== String && designType !== Array) {
         throw new Error(`@Text can only be applied to 'string' or 'string[]' properties: ${propertyKey}`);
     }
@@ -56,9 +57,9 @@ function validateTextType(proto: Object, propertyKey: string): void {
  * @param options - Text options to store
  */
 function storeTextMetadata(proto: Object, propName: string, options?: TextOptions): void {
-    Reflect.defineMetadata('field:type', 'text', proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_TEXT, proto, propName);
     if (options) {
-        Reflect.defineMetadata('field:type:options', options, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
     }
 }
 
@@ -113,13 +114,13 @@ export function Text(options?: TextOptions) {
 
         validateTextType(proto, propName);
         
-        const designType = Reflect.getMetadata('design:type', proto, propName);
+        const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propName);
         
         if (designType === Array) {
             // Handle string array case
-            Reflect.defineMetadata('field:type', 'array:text', proto, propName);
+            Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_ARRAY_TEXT, proto, propName);
             if (options) {
-                Reflect.defineMetadata('field:type:options', options, proto, propName);
+                Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
             }
             
             // Validate that regex is not used with arrays

@@ -2,6 +2,15 @@ import { BaseModel, Field, Model, PersistentModel, PersistentComponentModel } fr
 import { Reference, Composition, SharedComposition } from "../../index";
 import { TypeORMSqlDataSource } from "../../src/datasources";
 import { Text, HTML, DateTime } from "../../index";
+import { 
+  MODEL_FIELDS, 
+  FIELD_TYPE, 
+  FIELD_TYPE_OPTIONS, 
+  FIELD_REQUIRED, 
+  FIELD_RELATIONSHIP_TYPE,
+  TYPEORM_RELATIONSHIP,
+  TYPEORM_RELATIONSHIP_TYPE
+} from "../../src/model/metadata/MetadataKeys";
 
 // Test models for relationship persistence
 @Model()
@@ -117,11 +126,11 @@ describe('Relationship Persistence', () => {
       dataSource.configureModel(modelClass);
       
       // Get all field names and configure them
-      const fieldNames = Reflect.getMetadata('model:fields', modelClass) || [];
+      const fieldNames = Reflect.getMetadata(MODEL_FIELDS, modelClass) || [];
       for (const fieldName of fieldNames) {
-        const fieldType = Reflect.getMetadata('field:type', modelClass.prototype, fieldName);
-        const fieldTypeOptions = Reflect.getMetadata('field:type:options', modelClass.prototype, fieldName);
-        const fieldRequired = Reflect.getMetadata('field:required', modelClass.prototype, fieldName);
+        const fieldType = Reflect.getMetadata(FIELD_TYPE, modelClass.prototype, fieldName);
+        const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, modelClass.prototype, fieldName);
+        const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, modelClass.prototype, fieldName);
 
         if (fieldType) {
           const allFieldOptions = {
@@ -150,32 +159,32 @@ describe('Relationship Persistence', () => {
 
   describe('Shortcut Decorators', () => {
     it('should store relationship metadata for @Reference', () => {
-      const relationshipType = Reflect.getMetadata('field:relationship:type', Task.prototype, 'project');
-      const fieldType = Reflect.getMetadata('field:type', Task.prototype, 'project');
+      const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, Task.prototype, 'project');
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, Task.prototype, 'project');
       
       expect(fieldType).toBe('relationship');
       expect(relationshipType).toBe('reference');
     });
 
     it('should store relationship metadata for @Composition', () => {
-      const relationshipType = Reflect.getMetadata('field:relationship:type', Task.prototype, 'notes');
-      const fieldType = Reflect.getMetadata('field:type', Task.prototype, 'notes');
+      const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, Task.prototype, 'notes');
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, Task.prototype, 'notes');
       
       expect(fieldType).toBe('relationship');
       expect(relationshipType).toBe('composition');
     });
 
     it('should store relationship metadata for @SharedComposition', () => {
-      const relationshipType = Reflect.getMetadata('field:relationship:type', Epic.prototype, 'notes');
-      const fieldType = Reflect.getMetadata('field:type', Epic.prototype, 'notes');
+      const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, Epic.prototype, 'notes');
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, Epic.prototype, 'notes');
       
       expect(fieldType).toBe('relationship');
       expect(relationshipType).toBe('sharedComposition');
     });
 
     it('should store relationship metadata for parent relationship in PersistentComponentModel', () => {
-      const relationshipType = Reflect.getMetadata('field:relationship:type', TaskNote.prototype, 'owner');
-      const fieldType = Reflect.getMetadata('field:type', TaskNote.prototype, 'owner');
+      const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, TaskNote.prototype, 'owner');
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, TaskNote.prototype, 'owner');
       
       expect(fieldType).toBe('relationship');
       expect(relationshipType).toBe('parent');
@@ -190,8 +199,8 @@ describe('Relationship Persistence', () => {
         { required: false }
       );
       
-      const relationshipMetadata = Reflect.getMetadata('typeorm:relationship', Task.prototype, 'project');
-      const relationshipType = Reflect.getMetadata('typeorm:relationship:type', Task.prototype, 'project');
+      const relationshipMetadata = Reflect.getMetadata(TYPEORM_RELATIONSHIP, Task.prototype, 'project');
+      const relationshipType = Reflect.getMetadata(TYPEORM_RELATIONSHIP_TYPE, Task.prototype, 'project');
       
       expect(relationshipMetadata).toBe(true);
       expect(relationshipType).toBe('reference');

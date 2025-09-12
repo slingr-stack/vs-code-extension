@@ -7,6 +7,14 @@ import type {
   CustomAvailableFunction,
   ValidationIssue
 } from "./types/SharedTypes";
+import { 
+  MODEL_FIELDS, 
+  FIELD_DOCS, 
+  FIELD_REQUIRED, 
+  FIELD_AVAILABLE, 
+  FIELD_VALIDATION, 
+  FIELD_CALCULATION 
+} from './metadata/MetadataKeys';
 
 /**
  * Configuration options for the Field decorator.
@@ -176,20 +184,20 @@ export function Field<TObject extends object = object, TValue = unknown>(options
   return function (target: Object, propertyKey: string, descriptor?: PropertyDescriptor) {
 
     // Mark this property as a field
-    const existingFields = Reflect.getMetadata('model:fields', target.constructor) || [];
+    const existingFields = Reflect.getMetadata(MODEL_FIELDS, target.constructor) || [];
     if (!existingFields.includes(propertyKey)) {
       existingFields.push(propertyKey);
-      Reflect.defineMetadata('model:fields', existingFields, target.constructor);
+      Reflect.defineMetadata(MODEL_FIELDS, existingFields, target.constructor);
     }
 
     // Add documentation metadata if provided
     if (options.docs) {
-      Reflect.defineMetadata('field:docs', options.docs, target, propertyKey);
+      Reflect.defineMetadata(FIELD_DOCS, options.docs, target, propertyKey);
     }
 
     // Store required metadata if provided
     if (options.required !== undefined) {
-      Reflect.defineMetadata('field:required', options.required, target, propertyKey);
+      Reflect.defineMetadata(FIELD_REQUIRED, options.required, target, propertyKey);
     }
 
     // Handle field availability for JSON serialization/deserialization
@@ -200,7 +208,7 @@ export function Field<TObject extends object = object, TValue = unknown>(options
       const availableFn = options.available as CustomAvailableFunction<TObject>;
 
       // Store the availability function in metadata for potential future use
-      Reflect.defineMetadata('field:available', availableFn, target, propertyKey);
+      Reflect.defineMetadata(FIELD_AVAILABLE, availableFn, target, propertyKey);
 
       // Use Transform to control the field's presence in JSON
       Transform(({ obj, key }) => {
@@ -247,7 +255,7 @@ export function Field<TObject extends object = object, TValue = unknown>(options
     // Handle custom validation logic
     if (options.validation) {
       // Store the custom validation function in metadata
-      Reflect.defineMetadata('field:validation', options.validation, target, propertyKey);
+      Reflect.defineMetadata(FIELD_VALIDATION, options.validation, target, propertyKey);
       // Apply the custom validator decorator to integrate with class-validator
       CustomValidate()(target, propertyKey);
     }
@@ -264,7 +272,7 @@ export function Field<TObject extends object = object, TValue = unknown>(options
       const memoizedSymbol = Symbol(`_memoized_${propertyKey}`); // Use a Symbol to avoid property collisions
 
       // Store the original calculation function in metadata so `calculate()` can find it
-      Reflect.defineMetadata('field:calculation', originalGetter, target, propertyKey);
+      Reflect.defineMetadata(FIELD_CALCULATION, originalGetter, target, propertyKey);
 
       // Replace the original getter with one that returns the memoized value
       descriptor.get = function () {

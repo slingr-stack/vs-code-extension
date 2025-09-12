@@ -1,7 +1,16 @@
 import 'reflect-metadata';
 import { Transform, TransformationType, Type } from 'class-transformer';
 import { ValidateNested } from 'class-validator';
-import { BaseModel } from '../../index';
+import { BaseModel } from '../../BaseModel';
+import { 
+  FIELD_TYPE, 
+  FIELD_TYPE_RELATIONSHIP, 
+  FIELD_TYPE_OPTIONS,
+  FIELD_RELATIONSHIP_TYPE, 
+  FIELD_RELATIONSHIP_LOAD,
+  FIELD_RELATIONSHIP_ON_DELETE,
+  DESIGN_TYPE 
+} from '../../metadata/MetadataKeys';
 
 /**
  * Relationship type options.
@@ -51,7 +60,7 @@ export interface RelationshipOptions {
  * Validates that a property is a BaseModel or array of BaseModel at runtime.
  */
 function validateRelationshipType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     
     // Check if it's an Array (for arrays of models)
     if (designType === Array) {
@@ -141,17 +150,17 @@ export function Relationship(options: RelationshipOptions) {
         }
         
         // Store metadata about the relationship
-        Reflect.defineMetadata('field:type', 'relationship', proto, propName);
-        Reflect.defineMetadata('field:relationship:type', options.type, proto, propName);
-        Reflect.defineMetadata('field:relationship:load', options.load, proto, propName);
-        Reflect.defineMetadata('field:relationship:onDelete', options.onDelete, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_RELATIONSHIP, proto, propName);
+        Reflect.defineMetadata(FIELD_RELATIONSHIP_TYPE, options.type, proto, propName);
+        Reflect.defineMetadata(FIELD_RELATIONSHIP_LOAD, options.load, proto, propName);
+        Reflect.defineMetadata(FIELD_RELATIONSHIP_ON_DELETE, options.onDelete, proto, propName);
         
         // Store the elementType in field type options for access in the data source
         if (options.elementType) {
-            Reflect.defineMetadata('field:type:options', { elementType: options.elementType }, proto, propName);
+            Reflect.defineMetadata(FIELD_TYPE_OPTIONS, { elementType: options.elementType }, proto, propName);
         }
 
-        const designType = Reflect.getMetadata('design:type', proto, propName);
+        const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propName);
         
         // Apply ValidateNested for nested validation of BaseModel instances
         ValidateNested()(target as any, propName);

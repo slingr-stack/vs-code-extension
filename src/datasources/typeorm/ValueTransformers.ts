@@ -1,5 +1,72 @@
 import { ValueTransformer } from 'typeorm';
 import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
+import { DateTimeRangeValue } from '../../model/types/date_time/DateTimeRange';
+
+/**
+ * TypeORM ValueTransformer for DateTimeRangeValue objects.
+ * Converts between DateTimeRangeValue objects and database JSON strings.
+ */
+export class DateTimeRangeTransformer implements ValueTransformer {
+    /**
+     * Transforms DateTimeRangeValue to database value (JSON string).
+     * @param value - DateTimeRangeValue instance
+     * @returns JSON string representation for database storage
+     */
+    to(value: DateTimeRangeValue | null | undefined): string | null {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        if (!(value instanceof DateTimeRangeValue)) {
+            console.warn('DateTimeRangeTransformer.to() received non-DateTimeRangeValue value:', value);
+            return null;
+        }
+
+        try {
+            return JSON.stringify({
+                from: value.from ? value.from.toISOString() : undefined,
+                to: value.to ? value.to.toISOString() : undefined
+            });
+        } catch (error) {
+            console.warn('Failed to serialize DateTimeRangeValue to JSON:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Transforms database value (JSON string) to DateTimeRangeValue.
+     * @param value - Database JSON string value
+     * @returns DateTimeRangeValue instance or undefined
+     */
+    from(value: string | null | undefined): DateTimeRangeValue | undefined {
+        if (value === null || value === undefined) {
+            return undefined;
+        }
+
+        try {
+            const data = JSON.parse(value);
+            const range = new DateTimeRangeValue();
+            
+            if (data.from) {
+                range.from = new Date(data.from);
+            }
+            
+            if (data.to) {
+                range.to = new Date(data.to);
+            }
+            
+            return range;
+        } catch (error) {
+            console.warn(`Failed to parse DateTimeRangeValue from database value: ${value}`, error);
+            return undefined;
+        }
+    }
+}
+
+/**
+ * Default singleton instance of the DateTimeRange transformer.
+ */
+export const dateTimeRangeTransformer = new DateTimeRangeTransformer();
 
 /**
  * TypeORM ValueTransformer for Decimal/Money types.

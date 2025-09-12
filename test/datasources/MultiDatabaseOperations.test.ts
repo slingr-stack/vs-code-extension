@@ -1,4 +1,5 @@
 import { TypeORMSqlDataSource, TypeORMSqlDataSourceOptions } from '../../index';
+import { FIELD_REQUIRED, FIELD_TYPE, FIELD_TYPE_OPTIONS, MODEL_DATASOURCE, MODEL_FIELDS, TYPEORM_ENTITY } from '../../src/model/metadata';
 import { BlogPost } from '../model/BlogPost';
 import * as fs from 'fs';
 
@@ -113,17 +114,17 @@ MySQL Setup Instructions:
  */
 function configureModelWithDataSource(modelClass: any, dataSource: TypeORMSqlDataSource): void {
   // Set the model metadata for the data source
-  Reflect.defineMetadata("model:dataSource", dataSource, modelClass);
+  Reflect.defineMetadata(MODEL_DATASOURCE, dataSource, modelClass);
   
   // Configure the model with the data source
   dataSource.configureModel(modelClass, {});
   
   // Configure all fields with the data source
-  const fieldNames = Reflect.getMetadata('model:fields', modelClass) || [];
+  const fieldNames = Reflect.getMetadata(MODEL_FIELDS, modelClass) || [];
   fieldNames.forEach((fieldName: string) => {
-    const fieldType = Reflect.getMetadata('field:type', modelClass.prototype, fieldName);
-    const fieldTypeOptions = Reflect.getMetadata('field:type:options', modelClass.prototype, fieldName);
-    const fieldRequired = Reflect.getMetadata('field:required', modelClass.prototype, fieldName);
+    const fieldType = Reflect.getMetadata(FIELD_TYPE, modelClass.prototype, fieldName);
+    const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, modelClass.prototype, fieldName);
+    const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, modelClass.prototype, fieldName);
 
     if (fieldType) {
       const allFieldOptions = {
@@ -157,10 +158,10 @@ class DatabaseTestOperations {
 
   static async testModelConfiguration(dataSource: TypeORMSqlDataSource): Promise<void> {
     // Verify the model is configured (it should already be configured in beforeAll)
-    const metadata = Reflect.getMetadata("model:dataSource", BlogPost);
+    const metadata = Reflect.getMetadata(MODEL_DATASOURCE, BlogPost);
     expect(metadata).toBe(dataSource);
     
-    const entityMetadata = Reflect.getMetadata('typeorm:entity', BlogPost);
+    const entityMetadata = Reflect.getMetadata(TYPEORM_ENTITY, BlogPost);
     expect(entityMetadata).toBe(true);
   }
 

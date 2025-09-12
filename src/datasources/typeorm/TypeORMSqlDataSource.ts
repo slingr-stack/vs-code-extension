@@ -21,6 +21,21 @@ import { DateTimeRangeFieldManager } from './DateTimeRangeFieldManager';
 import { RelationshipFieldManager } from './RelationshipFieldManager';
 // Import to ensure field type registrations happen
 import '../../model/types/TypeRegistry';
+import { 
+  DATASOURCE_TYPE, 
+  MODEL_DATASOURCE, 
+  DATASOURCE_FIELD_CONFIGURED,
+  TYPEORM_ENTITY,
+  TYPEORM_TABLE,
+  TYPEORM_COLUMN,
+  MODEL_FIELDS,
+  FIELD_TYPE,
+  FIELD_TYPE_OPTIONS,
+  FIELD_RELATIONSHIP_TYPE,
+  FIELD_RELATIONSHIP_LOAD,
+  FIELD_RELATIONSHIP_ON_DELETE,
+  DESIGN_TYPE
+} from '../../model/metadata/MetadataKeys';
 
 /**
  * Configuration options for TypeORM SQL data source.
@@ -220,16 +235,16 @@ export class TypeORMSqlDataSource extends DataSource {
     Entity(tableName)(modelClass as any);
 
     // Store metadata for testing purposes
-    Reflect.defineMetadata('typeorm:entity', true, modelClass);
+    Reflect.defineMetadata(TYPEORM_ENTITY, true, modelClass);
     if (options?.tableName) {
-      Reflect.defineMetadata('typeorm:table', options.tableName, modelClass);
+      Reflect.defineMetadata(TYPEORM_TABLE, options.tableName, modelClass);
     }
 
     // Store that this model is configured for TypeORM
-    Reflect.defineMetadata('datasource:type', 'typeorm-sql', modelClass);
+    Reflect.defineMetadata(DATASOURCE_TYPE, 'typeorm-sql', modelClass);
 
     // Store the dataSource instance in the model metadata for later access
-    Reflect.defineMetadata('model:dataSource', this, modelClass);
+    Reflect.defineMetadata(MODEL_DATASOURCE, this, modelClass);
   }
 
   /**
@@ -263,10 +278,10 @@ export class TypeORMSqlDataSource extends DataSource {
 
     // Check if this is a relationship field
     if (fieldType === 'relationship') {
-      const relationshipType = Reflect.getMetadata('field:relationship:type', target, propertyKey);
-      const load = Reflect.getMetadata('field:relationship:load', target, propertyKey);
-      const onDelete = Reflect.getMetadata('field:relationship:onDelete', target, propertyKey);
-
+      const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, target, propertyKey);
+      const load = Reflect.getMetadata(FIELD_RELATIONSHIP_LOAD, target, propertyKey);
+      const onDelete = Reflect.getMetadata(FIELD_RELATIONSHIP_ON_DELETE, target, propertyKey);
+      
       // Get elementType from field options if it exists (for array relationships)
       const elementType = fieldOptions?.elementType;
 
@@ -280,7 +295,7 @@ export class TypeORMSqlDataSource extends DataSource {
       );
 
       // Store that this field is configured for TypeORM
-      Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
+      Reflect.defineMetadata(DATASOURCE_FIELD_CONFIGURED, true, target, propertyKey);
       return;
     }
 
@@ -294,7 +309,7 @@ export class TypeORMSqlDataSource extends DataSource {
     if (fieldType === 'datetimerange') {
       this.dateTimeRangeFieldManager.configureFieldColumns(target, propertyKey, fieldOptions);
       // Store that this field is configured for TypeORM
-      Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
+      Reflect.defineMetadata(DATASOURCE_FIELD_CONFIGURED, true, target, propertyKey);
       return;
     }
 
@@ -305,10 +320,10 @@ export class TypeORMSqlDataSource extends DataSource {
     Column(typeMapping)(target, propertyKey);
 
     // Store TypeORM column metadata for testing purposes
-    Reflect.defineMetadata('typeorm:column', typeMapping, target, propertyKey);
+    Reflect.defineMetadata(TYPEORM_COLUMN, typeMapping, target, propertyKey);
 
     // Store that this field is configured for TypeORM
-    Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
+    Reflect.defineMetadata(DATASOURCE_FIELD_CONFIGURED, true, target, propertyKey);
   }
 
   /**
@@ -1056,20 +1071,20 @@ export class TypeORMSqlDataSource extends DataSource {
     console.log(`Loading eager relationships for ${entityClass.name}`);
 
     // Get relationship fields from our field metadata
-    const relationshipFields = Reflect.getMetadata('model:fields', entityClass) || [];
+    const relationshipFields = Reflect.getMetadata(MODEL_FIELDS, entityClass) || [];
     console.log(`All fields for ${entityClass.name}:`, relationshipFields);
 
     for (const fieldName of relationshipFields) {
       // Check if this field is a relationship
-      const fieldType = Reflect.getMetadata('field:type', entityClass.prototype, fieldName);
-
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, entityClass.prototype, fieldName);
+      
       if (fieldType === 'relationship') {
         console.log(`Found relationship field: ${fieldName}`);
 
         // Get relationship-specific metadata
-        const relationshipType = Reflect.getMetadata('field:relationship:type', entityClass.prototype, fieldName);
-        const relationshipLoad = Reflect.getMetadata('field:relationship:load', entityClass.prototype, fieldName);
-        const fieldTypeOptions = Reflect.getMetadata('field:type:options', entityClass.prototype, fieldName);
+        const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, entityClass.prototype, fieldName);
+        const relationshipLoad = Reflect.getMetadata(FIELD_RELATIONSHIP_LOAD, entityClass.prototype, fieldName);
+        const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, entityClass.prototype, fieldName);
         // Only load reference relationships that are eager (composition handles differently)
         if (relationshipType === 'reference' && relationshipLoad !== false) {
           console.log(`Loading reference relationship ${fieldName}`);
@@ -1112,7 +1127,7 @@ export class TypeORMSqlDataSource extends DataSource {
       } else {
         // Fall back to TypeScript's design:type metadata
         const entityClass = entity.constructor;
-        targetClass = Reflect.getMetadata('design:type', entityClass.prototype, fieldName);
+        targetClass = Reflect.getMetadata(DESIGN_TYPE, entityClass.prototype, fieldName);
       }
 
       console.log(`Target class for ${fieldName}:`, targetClass?.name);

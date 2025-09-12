@@ -3,6 +3,7 @@ import { registerDecorator } from 'class-validator';
 import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
 import { Expose, Transform } from 'class-transformer';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_MONEY, DESIGN_TYPE } from '../../metadata/MetadataKeys';
 import { createFinancialNumberTransformer } from '../../../datasources/typeorm/ValueTransformers';
 
 /**
@@ -46,15 +47,15 @@ function getRoundingStrategy(roundingType: MoneyOptions['roundingType']): Roundi
 type MoneyKey<T, K extends keyof T & string> = T[K] extends Money | undefined | null ? K : `Money: requires a property of type 'Money'`;
 
 function validateMoneyType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType && designType !== Object && designType.name !== 'Money' && designType.name !== 'Object' && designType.name !== 'FinancialNumber') {
         throw new Error(`@Money can only be applied to properties of type 'Money', but it was used on '${propertyKey}' which is of type '${designType?.name}'.`);
     }
 }
 
 function storeMoneyMetadata(proto: Object, propName: string, options: MoneyOptions): void {
-    Reflect.defineMetadata('field:type', 'money', proto, propName);
-    Reflect.defineMetadata('field:type:options', options, proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_MONEY, proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
 }
 
 function createOptionalValidatorAdder(proto: Object, propName: string) {
@@ -151,8 +152,6 @@ export function Money(options: MoneyOptions) {
             }
             return value;
         }, { toClassOnly: true })(target, propertyKey);
-
-        Expose()(target, propertyKey);
 
         const addOptionalValidator = createOptionalValidatorAdder(proto, propName);
         applyMoneyValidations(addOptionalValidator, propName, options);

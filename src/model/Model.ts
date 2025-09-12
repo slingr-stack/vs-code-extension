@@ -1,5 +1,13 @@
 import "reflect-metadata";
 import { DataSource } from "../datasources";
+import { 
+  MODEL_DOCS, 
+  MODEL_DATASOURCE, 
+  MODEL_FIELDS, 
+  FIELD_TYPE, 
+  FIELD_TYPE_OPTIONS, 
+  FIELD_REQUIRED 
+} from './metadata/MetadataKeys';
 
 /**
  * Collects all field names from a class and its parent classes in the inheritance chain.
@@ -68,11 +76,11 @@ export interface ModelOptions {
  */
 export function Model(options?: ModelOptions) {
   return function (constructor: Function) {
-    Reflect.defineMetadata("model:docs", options?.docs, constructor);
+    Reflect.defineMetadata(MODEL_DOCS, options?.docs, constructor);
 
     // If a data source is provided, configure the model for persistence
     if (options?.dataSource) {
-      Reflect.defineMetadata("model:dataSource", options.dataSource, constructor);
+      Reflect.defineMetadata(MODEL_DATASOURCE, options.dataSource, constructor);
 
       // Call configureModel on the data source
       options.dataSource.configureModel(constructor, options);
