@@ -115,7 +115,7 @@ export class RefactorController {
                 cache: this.cache,
                 uri: context,
                 range: targetDataSource.declaration.range,
-                metadata: undefined, 
+                metadata: targetDataSource, 
             };
         }
     } else if (context && 'cache' in context && 'uri' in context) {
