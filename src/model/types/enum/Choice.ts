@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { Transform, TransformationType } from 'class-transformer';
 import { validateEnumType } from '../utils';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_CHOICE } from '../../metadata/MetadataKeys';
 
 /**
  * Choice type decorator.
@@ -52,7 +53,7 @@ export function Choice() {
         const proto = target as unknown as Object;
 
         validateEnumType(proto, propName);
-        Reflect.defineMetadata('field:type', 'choice', proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_CHOICE, proto, propName);
 
         // Custom transformation for JSON serialization/deserialization
         Transform(({ value, type }) => {

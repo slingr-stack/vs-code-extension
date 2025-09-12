@@ -1,4 +1,5 @@
 import { registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
+import { FIELD_VALIDATION } from '../model/metadata/MetadataKeys';
 
 /**
  * Creates a custom validation decorator that integrates with class-validator
@@ -14,7 +15,7 @@ export function CustomValidate(validationOptions?: ValidationOptions) {
             validator: {
                 validate(value: unknown, args: ValidationArguments) {
                     const customValidationFn = Reflect.getMetadata(
-                        "field:validation",
+                        FIELD_VALIDATION,
                         args.object,
                         args.property
                     );
@@ -27,7 +28,7 @@ export function CustomValidate(validationOptions?: ValidationOptions) {
                 },
                 defaultMessage(args: ValidationArguments) {
                     const customValidationFn = Reflect.getMetadata(
-                        "field:validation",
+                        FIELD_VALIDATION,
                         args.object,
                         args.property
                     );

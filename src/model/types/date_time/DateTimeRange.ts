@@ -9,6 +9,7 @@ import {
 import { Type, Transform, TransformationType, Expose } from 'class-transformer';
 import { dateToISO8601, dateFromJSON } from '../utils';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DATETIME_RANGE } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the DateTimeRange decorator.
@@ -120,12 +121,46 @@ function storeDateTimeRangeMetadata(proto: Object, propName: string, options?: D
         Reflect.defineMetadata('field:type', 'array:datetimerange', proto, propName);
     } else {
         // Handle single DateTimeRange case
-        Reflect.defineMetadata('field:type', 'datetimerange', proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_DATETIME_RANGE, proto, propName);
     }
     
     if (options) {
-        Reflect.defineMetadata('field:type:options', options, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName); 
     }
+}
+
+/**
+ * Helper function to validate a single DateTimeRange
+ */
+function validateSingleRange(value: any, args: ValidationArguments): boolean {
+    if (value == null) {
+        return true; // Allow null/undefined values in arrays
+    }
+
+    if (!(value instanceof DateTimeRangeValue)) {
+        return false;
+    }
+
+    const rangeOptions = args.constraints[0] as DateTimeRangeOptions | undefined;
+
+    // Check if from is required (when openStart is false or undefined)
+    if (!rangeOptions?.from && !value.from) {
+        return false;
+    }
+
+    // Check if to is required (when openEnd is false or undefined)
+    if (!rangeOptions?.to && !value.to) {
+        return false;
+    }
+
+    // If both dates are present, validate that from is before to
+    if (value.from && value.to) {
+        if (value.from >= value.to) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /**

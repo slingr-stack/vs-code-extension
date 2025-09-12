@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { Transform, TransformationType, Type } from 'class-transformer';
 import { ValidateNested } from 'class-validator';
 import { BaseModel } from '../../index';
+import { FIELD_TYPE, FIELD_TYPE_RELATIONSHIP, FIELD_RELATIONSHIP_TYPE } from '../../metadata/MetadataKeys';
 
 /**
  * Relationship type options.
@@ -107,8 +108,8 @@ export function Relationship(options: RelationshipOptions) {
         validateRelationshipType(proto, propName);
         
         // Store metadata about the relationship
-        Reflect.defineMetadata('field:type', 'relationship', proto, propName);
-        Reflect.defineMetadata('field:relationship:type', options.type, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_RELATIONSHIP, proto, propName);
+        Reflect.defineMetadata(FIELD_RELATIONSHIP_TYPE, options.type, proto, propName);
 
         const designType = Reflect.getMetadata('design:type', proto, propName);
         

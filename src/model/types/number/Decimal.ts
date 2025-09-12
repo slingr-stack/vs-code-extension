@@ -3,6 +3,7 @@ import { registerDecorator } from 'class-validator';
 import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
 import { Expose, Transform } from 'class-transformer';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DECIMAL } from '../../metadata/MetadataKeys';
 import { createFinancialNumberTransformer } from '../../../datasources/typeorm/ValueTransformers';
 
 /**
@@ -55,8 +56,8 @@ function validateDecimalType(proto: Object, propertyKey: string): void {
 }
 
 function storeDecimalMetadata(proto: Object, propName: string, options: DecimalOptions): void {
-    Reflect.defineMetadata('field:type', 'decimal', proto, propName);
-    Reflect.defineMetadata('field:type:options', options, proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_DECIMAL, proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
 }
 
 function createOptionalValidatorAdder(proto: Object, propName: string) {

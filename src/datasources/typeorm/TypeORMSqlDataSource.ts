@@ -20,6 +20,14 @@ import { ArrayFieldManager } from './ArrayFieldManager';
 import { DateTimeRangeFieldManager } from './DateTimeRangeFieldManager';
 // Import to ensure field type registrations happen
 import '../../model/types/TypeRegistry';
+import { 
+  DATASOURCE_TYPE, 
+  MODEL_DATASOURCE, 
+  DATASOURCE_FIELD_CONFIGURED,
+  TYPEORM_ENTITY,
+  TYPEORM_TABLE,
+  TYPEORM_COLUMN
+} from '../../model/metadata/MetadataKeys';
 
 /**
  * Configuration options for TypeORM SQL data source.
@@ -215,16 +223,16 @@ export class TypeORMSqlDataSource extends DataSource {
     Entity(tableName)(modelClass as any);
 
     // Store metadata for testing purposes
-    Reflect.defineMetadata('typeorm:entity', true, modelClass);
+    Reflect.defineMetadata(TYPEORM_ENTITY, true, modelClass);
     if (options?.tableName) {
-      Reflect.defineMetadata('typeorm:table', options.tableName, modelClass);
+      Reflect.defineMetadata(TYPEORM_TABLE, options.tableName, modelClass);
     }
 
     // Store that this model is configured for TypeORM
-    Reflect.defineMetadata('datasource:type', 'typeorm-sql', modelClass);
+    Reflect.defineMetadata(DATASOURCE_TYPE, 'typeorm-sql', modelClass);
 
     // Store the dataSource instance in the model metadata for later access
-    Reflect.defineMetadata('model:dataSource', this, modelClass);
+    Reflect.defineMetadata(MODEL_DATASOURCE, this, modelClass);
   }
 
   /**
@@ -269,10 +277,10 @@ export class TypeORMSqlDataSource extends DataSource {
     Column(typeMapping)(target, propertyKey);
 
     // Store TypeORM column metadata for testing purposes
-    Reflect.defineMetadata('typeorm:column', typeMapping, target, propertyKey);
+    Reflect.defineMetadata(TYPEORM_COLUMN, typeMapping, target, propertyKey);
 
     // Store that this field is configured for TypeORM
-    Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
+    Reflect.defineMetadata(DATASOURCE_FIELD_CONFIGURED, true, target, propertyKey);
   }
 
   /**

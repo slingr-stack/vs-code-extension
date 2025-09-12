@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { registerDecorator } from 'class-validator';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_NUMBER } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the Number decorator.
@@ -45,9 +46,9 @@ function validateNumberType(proto: Object, propertyKey: string): void {
  * @param options - The NumberOptions to store.
  */
 function storeNumberMetadata(proto: Object, propName: string, options?: NumberOptions): void {
-    Reflect.defineMetadata('field:type', 'number', proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_NUMBER, proto, propName);
     if (options) {
-        Reflect.defineMetadata('field:type:options', options, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
     }
 }
 
