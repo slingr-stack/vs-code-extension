@@ -2,6 +2,15 @@ import { BaseModel, Field, Model, PersistentModel } from "../../index";
 import { Composition } from "../../index";
 import { TypeORMSqlDataSource } from "../../src/datasources";
 import { Text, HTML } from "../../index";
+import { 
+  MODEL_FIELDS, 
+  FIELD_TYPE, 
+  FIELD_TYPE_OPTIONS, 
+  FIELD_REQUIRED, 
+  FIELD_RELATIONSHIP_TYPE,
+  TYPEORM_RELATIONSHIP,
+  TYPEORM_RELATIONSHIP_TYPE
+} from "../../src/model/metadata/MetadataKeys";
 
 // Test models for simple composition (single, not array)
 @Model()
@@ -54,11 +63,11 @@ describe('Simple Composition (OneToOne)', () => {
       dataSource.configureModel(modelClass);
       
       // Get all field names and configure them
-      const fieldNames = Reflect.getMetadata('model:fields', modelClass) || [];
+      const fieldNames = Reflect.getMetadata(MODEL_FIELDS, modelClass) || [];
       for (const fieldName of fieldNames) {
-        const fieldType = Reflect.getMetadata('field:type', modelClass.prototype, fieldName);
-        const fieldTypeOptions = Reflect.getMetadata('field:type:options', modelClass.prototype, fieldName);
-        const fieldRequired = Reflect.getMetadata('field:required', modelClass.prototype, fieldName);
+        const fieldType = Reflect.getMetadata(FIELD_TYPE, modelClass.prototype, fieldName);
+        const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, modelClass.prototype, fieldName);
+        const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, modelClass.prototype, fieldName);
 
         if (fieldType) {
           const allFieldOptions = {
@@ -88,8 +97,8 @@ describe('Simple Composition (OneToOne)', () => {
   describe('Metadata Configuration', () => {
     it('should configure single composition as OneToOne relationship', () => {
       // Check that the relationship metadata is stored correctly
-      const relationshipType = Reflect.getMetadata('field:relationship:type', Company.prototype, 'headquarters');
-      const fieldType = Reflect.getMetadata('field:type', Company.prototype, 'headquarters');
+      const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, Company.prototype, 'headquarters');
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, Company.prototype, 'headquarters');
       
       expect(fieldType).toBe('relationship');
       expect(relationshipType).toBe('composition');
@@ -104,8 +113,8 @@ describe('Simple Composition (OneToOne)', () => {
         { required: false }
       );
       
-      const relationshipMetadata = Reflect.getMetadata('typeorm:relationship', Company.prototype, 'headquarters');
-      const relationshipType = Reflect.getMetadata('typeorm:relationship:type', Company.prototype, 'headquarters');
+      const relationshipMetadata = Reflect.getMetadata(TYPEORM_RELATIONSHIP, Company.prototype, 'headquarters');
+      const relationshipType = Reflect.getMetadata(TYPEORM_RELATIONSHIP_TYPE, Company.prototype, 'headquarters');
       
       expect(relationshipMetadata).toBe(true);
       expect(relationshipType).toBe('composition');

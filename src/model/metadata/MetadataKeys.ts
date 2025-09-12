@@ -43,6 +43,15 @@ export const FIELD_AVAILABLE = 'field:available';
 /** Metadata key for storing field relationship type information */
 export const FIELD_RELATIONSHIP_TYPE = 'field:relationship:type';
 
+/** Metadata key for storing field relationship load configuration */
+export const FIELD_RELATIONSHIP_LOAD = 'field:relationship:load';
+
+/** Metadata key for storing field relationship onDelete configuration */
+export const FIELD_RELATIONSHIP_ON_DELETE = 'field:relationship:onDelete';
+
+/** Metadata key for storing parent entity relationship information */
+export const RELATIONSHIP_PARENT_ENTITY = 'relationship:parent:entity';
+
 // =============================================================================
 // Model-related metadata keys
 // =============================================================================
@@ -105,6 +114,11 @@ export const TYPEORM_ENTITY = 'typeorm:entity';
 
 /** Metadata key for TypeORM table configuration */
 export const TYPEORM_TABLE = 'typeorm:table';
+
+export const TYPEORM_RELATIONSHIP = 'typeorm:relationship';
+
+/** Metadata key for TypeORM relationship type configuration */
+export const TYPEORM_RELATIONSHIP_TYPE = 'typeorm:relationship:type';
 
 /** Metadata key for TypeORM array field configuration */
 export const TYPEORM_ARRAY_FIELD = 'typeorm:array-field';
