@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { DecoratedClass, PropertyMetadata } from "../cache/cache";
+import { DataSourceMetadata, DecoratedClass, PropertyMetadata } from "../cache/cache";
 
 export class AppTreeItem extends vscode.TreeItem {
   public folderPath?: string; // Add folder path property for folder items
@@ -9,7 +9,7 @@ export class AppTreeItem extends vscode.TreeItem {
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     public readonly itemType: string,
     private readonly extensionUri: vscode.Uri,
-    public readonly metadata?: DecoratedClass | PropertyMetadata,
+    public readonly metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata,
     public readonly parent?: AppTreeItem,
     folderPath?: string
   ) {
@@ -39,17 +39,18 @@ export class AppTreeItem extends vscode.TreeItem {
         case "modelFieldsFolder":
           iconFileName = "folder.svg";
           break;
-        case "field":
-          iconFileName = "field.svg";
-          break;
-        case "modelActionsFolder":
-          iconFileName = "action.svg";
-          break;
+
         case "dataSourcesRoot":
           iconFileName = "database.svg";
           break;
         case "dataSource": 
           iconFileName = "database.svg";
+          break;
+        case "field":
+          iconFileName = "field.svg";
+          break;
+        case "modelActionsFolder":
+          iconFileName = "action.svg";
           break;
         case "actionsFolder":
           iconFileName = "action.svg";
@@ -97,7 +98,6 @@ export class AppTreeItem extends vscode.TreeItem {
         case "modelLinkForActions":
           iconFileName = "folder.svg";
           break;
-
         case "uiRoot":
           iconFileName = "eye.svg";
           break;

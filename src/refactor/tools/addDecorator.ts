@@ -110,7 +110,10 @@ export class AddDecoratorTool implements IRefactorTool {
      * @returns Promise<vscode.WorkspaceEdit> A workspace edit ready to be applied
      */
     public async prepareEdit(change: ChangeObject): Promise<vscode.WorkspaceEdit> {
-        const payload = change.payload as AddDecoratorPayload;
+        if (change.type !== 'ADD_DECORATOR') {
+            throw new Error(`AddDecoratorTool can only handle ADD_DECORATOR changes, received: ${change.type}`);
+        }
+        const payload = change.payload;
         const { fieldMetadata, decoratorName } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
         const document = await vscode.workspace.openTextDocument(fieldMetadata.declaration.uri);

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DecoratedClass, PropertyMetadata } from '../cache/cache';
+import { DataSourceMetadata, DecoratedClass, PropertyMetadata } from '../cache/cache';
 import { IRendererContext } from '../quickInfoPanel/renderers/iMetadataRenderer';
 
 /**
@@ -65,6 +65,26 @@ export class TestMetadataFactory {
             isDataModel: true
         };
         
+        return { ...defaults, ...overrides };
+    }
+
+    static createDataSource(overrides: Partial<DataSourceMetadata> = {}): DataSourceMetadata {
+        const defaults: DataSourceMetadata = {
+            name: 'TestDataSource',
+            type: 'postgres',
+            declaration: {
+                uri: vscode.Uri.file('/test/dataSource.ts'),
+                range: new vscode.Range(0, 0, 10, 0)
+            },
+            references: [],
+            options: {
+                host: 'localhost',
+                port: 5432,
+                database: 'test',
+                username: 'user',
+                password: 'password',
+            },
+        };
         return { ...defaults, ...overrides };
     }
 
@@ -201,6 +221,13 @@ export class TestContextFactory {
                 // Return a basic model for common test model names
                 if (name === 'TestModel' || name === 'UserModel') {
                     return TestMetadataFactory.createModel({ name });
+                }
+                return undefined;
+            },
+            findDataSource: (name: string) => {
+                // Return a basic data source for common test data source names
+                if (name === 'TestDataSource' || name === 'UserDataSource') {
+                    return TestMetadataFactory.createDataSource({ name });
                 }
                 return undefined;
             }

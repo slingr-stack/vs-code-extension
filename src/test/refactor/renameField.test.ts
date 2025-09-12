@@ -593,7 +593,7 @@ if (typeof suite !== 'undefined') {
                         modelName: 'User',
                         oldFieldMetadata: oldField,
                         isManual: true
-                    } as RenameFieldPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -626,7 +626,7 @@ if (typeof suite !== 'undefined') {
                         modelName: 'User',
                         oldFieldMetadata: oldField,
                         isManual: true
-                    } as RenameFieldPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);

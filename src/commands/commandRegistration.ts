@@ -12,6 +12,7 @@ import { AppTreeItem } from '../explorer/appTreeItem';
 import { CreateModelFromDescriptionTool } from './models/createModelFromDesc';
 import { ModifyModelTool } from './models/modifyModel';
 import { AIService } from '../services/aiService';
+import { NewDataSourceTool } from './newDataSource';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -87,7 +88,7 @@ export function registerGeneralCommands(
         });
 
         if (!fieldsDescription) {
-            return; // User cancelled
+            return; 
         }
 
         try {
@@ -191,6 +192,13 @@ export function registerGeneralCommands(
         return modifyModelTool.modifyModel(cache);
     });
     disposables.push(modifyModelCommand);
+    
+    // New Data Source Tool
+    const newDataSourceTool = new NewDataSourceTool();
+    const newDataSourceCommand = vscode.commands.registerCommand('slingr-vscode-extension.newDataSource', () => {
+        return newDataSourceTool.createNewDataSource();
+    });
+    disposables.push(newDataSourceCommand);
 
     return disposables;
 }
