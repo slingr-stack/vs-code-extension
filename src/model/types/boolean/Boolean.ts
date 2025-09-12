@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { validateBooleanType } from '../utils';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_BOOLEAN } from '../../metadata/MetadataKeys';
 
 /**
  * Boolean type decorator.
@@ -48,7 +49,7 @@ export function Boolean() {
         const proto = target as unknown as Object;
 
         validateBooleanType(proto, propName);
-        Reflect.defineMetadata('field:type', 'boolean', proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_BOOLEAN, proto, propName);
     };
 }
 
