@@ -7,6 +7,7 @@ import {
 import { Transform, TransformationType } from 'class-transformer';
 import { validateDateType, dateToISO8601, dateFromJSON } from '../utils';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DATETIME } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the DateTime decorator.
@@ -27,9 +28,9 @@ type DateTimeKey<T, K extends keyof T & string> = T[K] extends Date | undefined
  * Stores metadata for the datetime field that can be consumed by other layers.
  */
 function storeDateTimeMetadata(proto: Object, propName: string, options?: DateTimeOptions): void {
-    Reflect.defineMetadata('field:type', 'datetime', proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_DATETIME, proto, propName);
     if (options) {
-        Reflect.defineMetadata('field:type:options', options, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
     }
 }
 

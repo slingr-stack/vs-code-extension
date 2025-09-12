@@ -6,13 +6,15 @@ import {
     Decimal, 
     Money, 
     DateTimeRange, 
-    DateTimeRangeType,
+    DateTimeRangeValue,
     Text,
-    type Decimal as DecimalType,
-    type Money as MoneyType
+    DecimalNumber,
+    MoneyNumber,
+    dateTimeRange
 } from "../../index";
 import { validateSync } from 'class-validator';
 import number from 'financial-number';
+import { FIELD_REQUIRED, FIELD_TYPE, FIELD_TYPE_OPTIONS, MODEL_DATASOURCE, MODEL_FIELDS } from "../../src/model/metadata";
 
 // Test model for complex type persistence
 @Model({
@@ -32,7 +34,7 @@ class ComplexTypesModel extends PersistentModel {
         min: '0.01',
         max: '1000.00',
     })
-    priceDecimal?: DecimalType | undefined;
+    priceDecimal?: DecimalNumber | undefined;
 
     @Field({})
     @Money({
@@ -42,23 +44,23 @@ class ComplexTypesModel extends PersistentModel {
         min: '0.01',
         max: '10000.00'
     })
-    priceMoney?: MoneyType | undefined;
+    priceMoney?: MoneyNumber | undefined;
 
     @Field({
         required: true,
     })
     @DateTimeRange({
-        openStart: false,
-        openEnd: false,
+        from: false,
+        to: false,
     })
-    activeRange!: DateTimeRangeType;
+    activeRange!: DateTimeRangeValue;
 
     @Field({})
     @DateTimeRange({
-        openStart: true,
-        openEnd: true,
+        from: true,
+        to: true,
     })
-    flexibleRange?: DateTimeRangeType | undefined;
+    flexibleRange?: DateTimeRangeValue | undefined;
 }
 
 describe("Complex Types Persistence in SQL Databases", () => {
@@ -77,15 +79,15 @@ describe("Complex Types Persistence in SQL Databases", () => {
 
         // Configure the ComplexTypesModel with the data source
         const modelOptions = { dataSource };
-        Reflect.defineMetadata("model:dataSource", dataSource, ComplexTypesModel);
+        Reflect.defineMetadata(MODEL_DATASOURCE, dataSource, ComplexTypesModel);
         dataSource.configureModel(ComplexTypesModel, modelOptions);
 
         // Configure all fields with the data source
-        const fieldNames = Reflect.getMetadata('model:fields', ComplexTypesModel) || [];
+        const fieldNames = Reflect.getMetadata(MODEL_FIELDS, ComplexTypesModel) || [];
         fieldNames.forEach((fieldName: string) => {
-            const fieldType = Reflect.getMetadata('field:type', ComplexTypesModel.prototype, fieldName);
-            const fieldTypeOptions = Reflect.getMetadata('field:type:options', ComplexTypesModel.prototype, fieldName);
-            const fieldRequired = Reflect.getMetadata('field:required', ComplexTypesModel.prototype, fieldName);
+            const fieldType = Reflect.getMetadata(FIELD_TYPE, ComplexTypesModel.prototype, fieldName);
+            const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, ComplexTypesModel.prototype, fieldName);
+            const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, ComplexTypesModel.prototype, fieldName);
 
             if (fieldType) {
                 dataSource.configureField(
@@ -115,15 +117,11 @@ describe("Complex Types Persistence in SQL Databases", () => {
         testEntity.priceMoney = number("999.99");
         
         // Set up required DateTimeRange
-        const activeRange = new DateTimeRangeType();
-        activeRange.from = new Date('2024-01-01T00:00:00Z');
-        activeRange.to = new Date('2024-12-31T23:59:59Z');
+        const activeRange = dateTimeRange('2024-01-01T00:00:00Z', '2024-12-31T23:59:59Z');
         testEntity.activeRange = activeRange;
         
         // Set up optional DateTimeRange
-        const flexibleRange = new DateTimeRangeType();
-        flexibleRange.from = new Date('2024-06-01T00:00:00Z');
-        flexibleRange.to = new Date('2024-08-31T23:59:59Z');
+        const flexibleRange = dateTimeRange('2024-06-01T00:00:00Z', '2024-08-31T23:59:59Z');
         testEntity.flexibleRange = flexibleRange;
     });
 
@@ -253,7 +251,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
 
         it("should handle partial DateTimeRange values (open ranges)", async () => {
             // Create a range with only 'from' date
-            const partialRange = new DateTimeRangeType();
+            const partialRange = new DateTimeRangeValue();
             partialRange.from = new Date('2024-01-01T00:00:00Z');
             // partialRange.to remains undefined
             testEntity.flexibleRange = partialRange;
@@ -271,7 +269,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
             
             expect(retrievedEntity).not.toBeNull();
             expect(retrievedEntity!.activeRange).toBeDefined();
-            expect(retrievedEntity!.activeRange).toBeInstanceOf(DateTimeRangeType);
+            expect(retrievedEntity!.activeRange).toBeInstanceOf(DateTimeRangeValue);
             expect(retrievedEntity!.activeRange.from).toBeInstanceOf(Date);
             expect(retrievedEntity!.activeRange.to).toBeInstanceOf(Date);
             
@@ -297,10 +295,8 @@ describe("Complex Types Persistence in SQL Databases", () => {
             entity1.name = "Entity 1";
             entity1.priceDecimal = number("100.00");
             entity1.priceMoney = number("200.00");
-            
-            const range1 = new DateTimeRangeType();
-            range1.from = new Date('2024-01-01T00:00:00Z');
-            range1.to = new Date('2024-06-30T23:59:59Z');
+
+            const range1 = dateTimeRange('2024-01-01T00:00:00Z', '2024-06-30T23:59:59Z');
             entity1.activeRange = range1;
             
             savedEntity1 = await dataSource.save(entity1);
@@ -310,10 +306,8 @@ describe("Complex Types Persistence in SQL Databases", () => {
             entity2.name = "Entity 2";
             entity2.priceDecimal = number("150.00");
             entity2.priceMoney = number("300.00");
-            
-            const range2 = new DateTimeRangeType();
-            range2.from = new Date('2024-07-01T00:00:00Z');
-            range2.to = new Date('2024-12-31T23:59:59Z');
+
+            const range2 = dateTimeRange('2024-07-01T00:00:00Z', '2024-12-31T23:59:59Z');
             entity2.activeRange = range2;
             
             savedEntity2 = await dataSource.save(entity2);
@@ -328,7 +322,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
                 expect(entity.priceDecimal).toBeDefined();
                 expect(entity.priceMoney).toBeDefined();
                 expect(entity.activeRange).toBeDefined();
-                expect(entity.activeRange).toBeInstanceOf(DateTimeRangeType);
+                expect(entity.activeRange).toBeInstanceOf(DateTimeRangeValue);
                 expect(typeof entity.priceDecimal!.toString).toBe('function');
                 expect(typeof entity.priceMoney!.toString).toBe('function');
             }
@@ -378,9 +372,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
         });
 
         it("should update DateTimeRange values correctly", async () => {
-            const newRange = new DateTimeRangeType();
-            newRange.from = new Date('2025-01-01T00:00:00Z');
-            newRange.to = new Date('2025-12-31T23:59:59Z');
+            const newRange = dateTimeRange('2025-01-01T00:00:00Z', '2025-12-31T23:59:59Z');
             savedEntity.activeRange = newRange;
             
             const updatedEntity = await dataSource.save(savedEntity);
@@ -416,9 +408,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
 
         it("should validate DateTimeRange constraints", async () => {
             // Test invalid range (from > to)
-            const invalidRange = new DateTimeRangeType();
-            invalidRange.from = new Date('2024-12-31T23:59:59Z');
-            invalidRange.to = new Date('2024-01-01T00:00:00Z');
+            const invalidRange = dateTimeRange('2024-12-31T23:59:59Z', '2024-01-01T00:00:00Z');
             testEntity.activeRange = invalidRange;
             
             const errors = validateSync(testEntity);

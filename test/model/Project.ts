@@ -1,4 +1,4 @@
-import { BaseModel, Field, Model, Text, DateTime, DateTimeRange, DateTimeRangeType } from "../../index";
+import { BaseModel, Field, Model, Text, DateTime, DateTimeRange, DateTimeRangeValue } from "../../index";
 
 @Model({
   docs: "Represents a project with date-related fields",
@@ -35,20 +35,20 @@ export class Project extends BaseModel {
     required: true,
   })
   @DateTimeRange({
-    openStart: false,
-    openEnd: false,
+    from: false,
+    to: false,
   })
-  activeRange!: DateTimeRangeType;
+  activeRange!: DateTimeRangeValue;
 
 
   @Field({
     required: false,
   })
   @DateTimeRange({
-    openStart: true,
-    openEnd: true,
+    from: true,
+    to: true,
   })
-  flexibleRange?: DateTimeRangeType;
+  flexibleRange?: DateTimeRangeValue;
 
 
   @Field({

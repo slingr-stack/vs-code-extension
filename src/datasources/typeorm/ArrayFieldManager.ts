@@ -1,5 +1,12 @@
 import { OneToMany, AfterLoad, BeforeInsert, BeforeUpdate } from 'typeorm';
 import { ArrayEntityFactory } from './ArrayEntityFactory';
+import { 
+  ARRAY_FIELD_NAMES, 
+  DATASOURCE_FIELD_CONFIGURED, 
+  TYPEORM_ARRAY_RELATION_CONFIGURED,
+  TYPEORM_ARRAY_FIELD, 
+  DESIGN_TYPE
+} from '../../model/metadata/MetadataKeys';
 
 /**
  * Interface for array field metadata.
@@ -85,7 +92,7 @@ export class ArrayFieldManager {
 
     // Only configure the relation once per model class + property. Additional
     // data source instances should reuse the same relation metadata.
-    if (!Reflect.getMetadata('typeorm:array:relation:configured', target, relationPropertyName)) {
+    if (!Reflect.getMetadata(TYPEORM_ARRAY_RELATION_CONFIGURED, target, relationPropertyName)) {
       // Ensure TypeORM can discover the relation property type. Since the relation
       // property is added dynamically (not declared in the class), reflect-metadata
       // does not have a "design:type" entry for it. TypeORM relies on this metadata
@@ -93,8 +100,8 @@ export class ArrayFieldManager {
       //   Entity metadata for BlogPost#_<field>_elements was not found
       // We explicitly define the design type as Array which matches what a
       // OneToMany relation expects.
-      if (!Reflect.getMetadata('design:type', target, relationPropertyName)) {
-        Reflect.defineMetadata('design:type', Array, target, relationPropertyName);
+      if (!Reflect.getMetadata(DESIGN_TYPE, target, relationPropertyName)) {
+        Reflect.defineMetadata(DESIGN_TYPE, Array, target, relationPropertyName);
       }
 
       OneToMany(() => ArrayElementEntity as any, (element: any) => element.parent, {
@@ -103,7 +110,7 @@ export class ArrayFieldManager {
         orphanedRowAction: 'delete'     // remove missing children when saving parent
       })(target, relationPropertyName);
 
-      Reflect.defineMetadata('typeorm:array:relation:configured', true, target, relationPropertyName);
+      Reflect.defineMetadata(TYPEORM_ARRAY_RELATION_CONFIGURED, true, target, relationPropertyName);
     }
 
     // Add @AfterLoad hook to automatically transform array element entities to arrays
@@ -123,10 +130,10 @@ export class ArrayFieldManager {
     if (!target._transformArrayFields) {
       target._transformArrayFields = function () {
         const entityClass = this.constructor as Function;
-        const arrayFieldNames = Reflect.getMetadata('array:field:names', entityClass) || [];
+        const arrayFieldNames = Reflect.getMetadata(ARRAY_FIELD_NAMES, entityClass) || [];
 
         for (const fieldName of arrayFieldNames) {
-          const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
+          const arrayMetadata: ArrayFieldMetadata = Reflect.getMetadata(TYPEORM_ARRAY_FIELD, entityClass.prototype, fieldName);
           if (arrayMetadata?.relationPropertyName) {
             const relationPropertyName = arrayMetadata.relationPropertyName;
             const arrayElements = this[relationPropertyName];
@@ -166,10 +173,10 @@ export class ArrayFieldManager {
     if (!target._prepareArrayRelations) {
       target._prepareArrayRelations = function () {
         const entityClass = this.constructor as Function;
-        const arrayFieldNames: string[] = Reflect.getMetadata('array:field:names', entityClass) || [];
+        const arrayFieldNames: string[] = Reflect.getMetadata(ARRAY_FIELD_NAMES, entityClass) || [];
 
         for (const fieldName of arrayFieldNames) {
-          const meta: ArrayFieldMetadata = Reflect.getMetadata('typeorm:array-field', entityClass.prototype, fieldName);
+          const meta: ArrayFieldMetadata = Reflect.getMetadata(TYPEORM_ARRAY_FIELD, entityClass.prototype, fieldName);
           if (!meta || !meta.relationPropertyName) continue;
 
           const relationProp = meta.relationPropertyName as string;
@@ -195,13 +202,13 @@ export class ArrayFieldManager {
     }
 
     // Keep track of array field names for this entity class
-    const existingArrayFields = Reflect.getMetadata('array:field:names', target.constructor) || [];
+    const existingArrayFields = Reflect.getMetadata(ARRAY_FIELD_NAMES, target.constructor) || [];
     if (!existingArrayFields.includes(propertyKey)) {
-      Reflect.defineMetadata('array:field:names', [...existingArrayFields, propertyKey], target.constructor);
+      Reflect.defineMetadata(ARRAY_FIELD_NAMES, [...existingArrayFields, propertyKey], target.constructor);
     }
 
     // Store metadata about this array field
-    const existingMeta: ArrayFieldMetadata | undefined = Reflect.getMetadata('typeorm:array-field', target, propertyKey);
+    const existingMeta: ArrayFieldMetadata | undefined = Reflect.getMetadata(TYPEORM_ARRAY_FIELD, target, propertyKey);
     const metadata: ArrayFieldMetadata = {
       elementEntityKey: arrayEntityKey,
       elementEntityClass: ArrayElementEntity as Function,
@@ -211,9 +218,9 @@ export class ArrayFieldManager {
     };
     // Overwrite / define fresh metadata ensuring elementEntityClass points to the globally cached class
     if (!existingMeta || existingMeta.elementEntityClass !== ArrayElementEntity) {
-      Reflect.defineMetadata('typeorm:array-field', metadata, target, propertyKey);
+      Reflect.defineMetadata(TYPEORM_ARRAY_FIELD, metadata, target, propertyKey);
     }
-    Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
+    Reflect.defineMetadata(DATASOURCE_FIELD_CONFIGURED, true, target, propertyKey);
 
     // Invalidate cached array field names for this class so future calls recompute once
     this.arrayFieldNamesCache.delete(target.constructor);

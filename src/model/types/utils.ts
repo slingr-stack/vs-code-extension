@@ -1,10 +1,11 @@
 import 'reflect-metadata';
+import { DESIGN_TYPE } from '../metadata';
 
 /**
  * Validates that a property is of string type at runtime.
  */
 export function validateStringType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType !== String) {
         throw new Error(`Decorator can only be applied to 'string' properties: ${propertyKey}`);
     }
@@ -14,7 +15,7 @@ export function validateStringType(proto: Object, propertyKey: string): void {
  * Validates that a property is of Date type at runtime.
  */
 export function validateDateType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType !== Date) {
         throw new Error(`@DateTime can only be applied to 'Date' properties: ${propertyKey}`);
     }
@@ -24,7 +25,7 @@ export function validateDateType(proto: Object, propertyKey: string): void {
  * Validates that a property is of boolean type at runtime.
  */
 export function validateBooleanType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType !== Boolean) {
         throw new Error(`@Boolean can only be applied to 'boolean' properties: ${propertyKey}`);
     }
@@ -36,7 +37,7 @@ export function validateBooleanType(proto: Object, propertyKey: string): void {
  * has been initialized with an enum value.
  */
 export function validateEnumType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     // For enums, TypeScript emits Object as the design type
     // We can't easily validate the enum type at runtime since enums are compiled to objects
     // The validation will happen during actual usage when the enum values are checked

@@ -3,6 +3,7 @@ import { registerDecorator } from 'class-validator';
 import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
 import { Expose, Transform } from 'class-transformer';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DECIMAL, DESIGN_TYPE } from '../../metadata/MetadataKeys';
 import { createFinancialNumberTransformer } from '../../../datasources/typeorm/ValueTransformers';
 
 /**
@@ -48,15 +49,15 @@ function getRoundingStrategy(roundingType: DecimalOptions['roundingType']): Roun
 type DecimalKey<T, K extends keyof T & string> = T[K] extends Decimal | undefined | null ? K : `Decimal: requires a property of type 'Decimal'`;
 
 function validateDecimalType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType && designType !== Object && designType.name !== 'Decimal' && designType.name !== 'Object') {
         throw new Error(`@Decimal can only be applied to properties of type 'Decimal', but it was used on '${propertyKey}' which is of type '${designType?.name}'.`);
     }
 }
 
 function storeDecimalMetadata(proto: Object, propName: string, options: DecimalOptions): void {
-    Reflect.defineMetadata('field:type', 'decimal', proto, propName);
-    Reflect.defineMetadata('field:type:options', options, proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_DECIMAL, proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
 }
 
 function createOptionalValidatorAdder(proto: Object, propName: string) {
@@ -157,9 +158,6 @@ export function Decimal(options: DecimalOptions) {
             }
             return value;
         }, { toClassOnly: true })(target, propertyKey);
-
-        // Expose the property for serialization/deserialization
-        Expose()(target, propertyKey);
 
         const addOptionalValidator = createOptionalValidatorAdder(proto, propName);
         applyDecimalValidations(addOptionalValidator, propName, options);

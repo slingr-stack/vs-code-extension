@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { registerDecorator } from 'class-validator';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_NUMBER, DESIGN_TYPE } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the Number decorator.
@@ -32,7 +33,7 @@ type NumberKey<T, K extends keyof T & string> = T[K] extends number
  * @throws {Error} When the property is not of type 'number'.
  */
 function validateNumberType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType !== Number && designType?.name !== 'Number') {
         throw new Error(`@Number can only be applied to 'number' properties, but it was used on '${propertyKey}'.`);
     }
@@ -45,9 +46,9 @@ function validateNumberType(proto: Object, propertyKey: string): void {
  * @param options - The NumberOptions to store.
  */
 function storeNumberMetadata(proto: Object, propName: string, options?: NumberOptions): void {
-    Reflect.defineMetadata('field:type', 'number', proto, propName);
+    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_NUMBER, proto, propName);
     if (options) {
-        Reflect.defineMetadata('field:type:options', options, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
     }
 }
 
