@@ -480,14 +480,14 @@ export class ExplorerProvider
     if (element.itemType === "dataSourcesRoot") {
         const dataSources = this.cache.getDataSources();
         return dataSources.map(ds => {
-            const item = new AppTreeItem(ds.name, vscode.TreeItemCollapsibleState.None, "dataSource", this.extensionUri, ds);
-            item.command = {
-                command: 'slingr-vscode-extension.handleTreeItemClick',
-                title: 'Handle Click',
-                arguments: [item]
-            };
+            const item = new AppTreeItem(ds.name, vscode.TreeItemCollapsibleState.Collapsed, "dataSource", this.extensionUri, ds);
             return item;
         });
+    }
+
+    // --- DATA SOURCE ---
+    if (element.itemType === "dataSource") {
+        return this.getDataSourceChildren(element);
     }
 
     // --- Children of a specific Model ---
@@ -535,6 +535,26 @@ export class ExplorerProvider
     }
 
     return []; // Default empty
+  }
+
+  private getDataSourceChildren(element: AppTreeItem): AppTreeItem[] {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        return [];
+    }
+    const datasetsPath = path.join(workspaceFolder.uri.fsPath, 'datasets');
+    if (!fs.existsSync(datasetsPath)) {
+        return [];
+    }
+    const dataSourceName = element.label;
+    const datasets = fs.readdirSync(datasetsPath).filter(file => {
+        const filePath = path.join(datasetsPath, file);
+        return fs.statSync(filePath).isDirectory() && file.startsWith(`${dataSourceName}-`);
+    });
+    return datasets.map(dataset => {
+        const datasetName = dataset.substring(dataSourceName.length + 1);
+        return new AppTreeItem(datasetName, vscode.TreeItemCollapsibleState.None, "dataset", this.extensionUri);
+    });
   }
 
   /**

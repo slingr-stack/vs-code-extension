@@ -103,6 +103,18 @@
       {
         "command": "slingr-vscode-extension.deleteDataSource",
         "title": "Delete data source"
+      },
+      {
+        "command": "slingr-vscode-extension.newDataset",
+        "title": "New dataset"
+      },
+      {
+        "command": "slingr-vscode-extension.regenerateDataset",
+        "title": "Regenerate"
+      },
+      {
+        "command": "slingr-vscode-extension.updateDataset",
+        "title": "Update"
       }
     ],
     "submenus": [
@@ -234,6 +246,21 @@
           "command": "slingr-vscode-extension.deleteDataSource",
           "when": "view == slingrExplorer && viewItem == 'dataSource'",
           "group": "2_modification"
+        },
+        {
+            "command": "slingr-vscode-extension.newDataset",
+            "when": "view == slingrExplorer && viewItem == 'dataSource'",
+            "group": "3_dataset"
+        },
+        {
+            "command": "slingr-vscode-extension.regenerateDataset",
+            "when": "view == slingrExplorer && viewItem == 'dataset'",
+            "group": "3_dataset"
+        },
+        {
+            "command": "slingr-vscode-extension.updateDataset",
+            "when": "view == slingrExplorer && viewItem == 'dataset'",
+            "group": "3_dataset"
         }
       ],
       "slingr-vscode-extension.actions": [

@@ -13,6 +13,9 @@ import { CreateModelFromDescriptionTool } from './models/createModelFromDesc';
 import { ModifyModelTool } from './models/modifyModel';
 import { AIService } from '../services/aiService';
 import { NewDataSourceTool } from './newDataSource';
+import { NewDatasetTool } from './datasets/newDataset';
+import { RegenerateDatasetTool } from './datasets/regenerateDataset';
+import { UpdateDatasetTool } from './datasets/updateDataset';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -199,6 +202,27 @@ export function registerGeneralCommands(
         return newDataSourceTool.createNewDataSource();
     });
     disposables.push(newDataSourceCommand);
+
+     // New Dataset Tool
+    const newDatasetTool = new NewDatasetTool();
+    const newDatasetCommand = vscode.commands.registerCommand('slingr-vscode-extension.newDataset', (item: AppTreeItem) => {
+        return newDatasetTool.newDataset(item);
+    });
+    disposables.push(newDatasetCommand);
+
+    // Regenerate Dataset Tool
+    const regenerateDatasetTool = new RegenerateDatasetTool();
+    const regenerateDatasetCommand = vscode.commands.registerCommand('slingr-vscode-extension.regenerateDataset', (item: AppTreeItem) => {
+        return regenerateDatasetTool.regenerateDataset(item);
+    });
+    disposables.push(regenerateDatasetCommand);
+
+    // Update Dataset Tool
+    const updateDatasetTool = new UpdateDatasetTool();
+    const updateDatasetCommand = vscode.commands.registerCommand('slingr-vscode-extension.updateDataset', (item: AppTreeItem) => {
+        return updateDatasetTool.updateDataset(item);
+    });
+    disposables.push(updateDatasetCommand);
 
     return disposables;
 }

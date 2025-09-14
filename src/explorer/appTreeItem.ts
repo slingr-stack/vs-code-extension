@@ -39,12 +39,14 @@ export class AppTreeItem extends vscode.TreeItem {
         case "modelFieldsFolder":
           iconFileName = "folder.svg";
           break;
-
         case "dataSourcesRoot":
           iconFileName = "database.svg";
           break;
         case "dataSource": 
           iconFileName = "database.svg";
+          break;
+        case "dataset":
+          iconFileName = "dataset.svg";
           break;
         case "field":
           iconFileName = "field.svg";
