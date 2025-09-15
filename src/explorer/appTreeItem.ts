@@ -11,11 +11,17 @@ export class AppTreeItem extends vscode.TreeItem {
     private readonly extensionUri: vscode.Uri,
     public readonly metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata,
     public readonly parent?: AppTreeItem,
-    folderPath?: string
+    folderPath?: string,
+    public readonly isDesynchronized: boolean = false 
   ) {
     super(label, collapsibleState);
     this.contextValue = itemType;
     this.folderPath = folderPath;
+
+    if (this.isDesynchronized) {
+      this.description = "⚠️ Desynchronized";
+      this.tooltip = "Datasets are out of sync with the data model.";
+    }
 
     // Icon logic
     if (!this.extensionUri) {
@@ -40,11 +46,17 @@ export class AppTreeItem extends vscode.TreeItem {
           iconFileName = "folder.svg";
           break;
         case "dataSourcesRoot":
-          iconFileName = "database.svg";
-          break;
-        case "dataSource": 
-          iconFileName = "database.svg";
-          break;
+            iconFileName = "database.svg";
+            if (this.isDesynchronized) {
+                iconFileName = "database-warning.svg";
+            }
+            break;
+        case "dataSource":
+            iconFileName = "database.svg";
+            if (this.isDesynchronized) {
+                iconFileName = "database-warning.svg";
+            }
+            break;
         case "dataset":
           iconFileName = "dataset.svg";
           break;

@@ -4,13 +4,15 @@ import { ExplorerProvider } from './explorerProvider';
 import { QuickInfoProvider } from '../quickInfoPanel/quickInfoProvider';
 import { AppTreeItem } from './appTreeItem';
 
+let explorerProvider: ExplorerProvider;
+
 export function registerExplorer(
     context: vscode.ExtensionContext, 
     cache: MetadataCache, 
     quickInfoProvider: QuickInfoProvider
 ): { treeView: vscode.TreeView<AppTreeItem>, provider: ExplorerProvider } {
     
-    const explorerProvider = new ExplorerProvider(cache, context.extensionUri);
+    explorerProvider = new ExplorerProvider(cache, context.extensionUri);
 
     const treeView = vscode.window.createTreeView('slingrExplorer', {
         treeDataProvider: explorerProvider,
@@ -73,6 +75,10 @@ function getItemKey(item: AppTreeItem): string {
     const metadataKey = item.metadata && 'name' in item.metadata ? item.metadata.name : '';
     const parentKey = item.parent ? item.parent.label : '';
     return `${item.itemType}:${item.label}:${metadataKey}:${parentKey}`;
+}
+
+export function getExplorerProvider(): ExplorerProvider {
+    return explorerProvider;
 }
 
 /**

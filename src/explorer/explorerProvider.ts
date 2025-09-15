@@ -27,12 +27,27 @@ export class ExplorerProvider
 
   public dragMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
   public dropMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
+  isDatasetDesynchronized: boolean = false;
 
   constructor(private cache: MetadataCache, private extensionUri: vscode.Uri) {
     // --- Listen for the cache's update event ---
     this.cache.onDidUpdate(() => {
       this.refresh();
     });
+
+    this.cache.onDidUpdate(() => {
+      if (!this.isDatasetDesynchronized) {
+        this.isDatasetDesynchronized = true;
+        this.refresh();
+      }
+    });
+  }
+
+  public markDatasetsAsSynced() {
+    if (this.isDatasetDesynchronized) {
+      this.isDatasetDesynchronized = false;
+      this.refresh();
+    }
   }
 
   refresh(): void {
@@ -462,7 +477,7 @@ export class ExplorerProvider
       // Root level: Data and Data Sources
       return [
           new AppTreeItem("Data", vscode.TreeItemCollapsibleState.Expanded, "dataRoot", this.extensionUri),
-          new AppTreeItem("Data Sources", vscode.TreeItemCollapsibleState.Collapsed, "dataSourcesRoot", this.extensionUri)
+          new AppTreeItem("Data Sources", vscode.TreeItemCollapsibleState.Collapsed, "dataSourcesRoot", this.extensionUri, undefined, undefined, undefined, this.isDatasetDesynchronized)
       ];
     }
 
@@ -480,7 +495,7 @@ export class ExplorerProvider
     if (element.itemType === "dataSourcesRoot") {
         const dataSources = this.cache.getDataSources();
         return dataSources.map(ds => {
-            const item = new AppTreeItem(ds.name, vscode.TreeItemCollapsibleState.Collapsed, "dataSource", this.extensionUri, ds);
+            const item = new AppTreeItem(ds.name, vscode.TreeItemCollapsibleState.Collapsed, "dataSource", this.extensionUri, ds, undefined, undefined, this.isDatasetDesynchronized);
             return item;
         });
     }
@@ -542,7 +557,7 @@ export class ExplorerProvider
     if (!workspaceFolder) {
         return [];
     }
-    const datasetsPath = path.join(workspaceFolder.uri.fsPath, 'datasets');
+    const datasetsPath = path.join(workspaceFolder.uri.fsPath, 'src', 'datasets');
     if (!fs.existsSync(datasetsPath)) {
         return [];
     }
