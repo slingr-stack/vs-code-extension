@@ -176,7 +176,7 @@ export class RefactorController {
     allChanges?: ChangeObject[] 
   ): Promise<void> {
     const anchorUri = changeObject.uri;
-    const isDelete = changeObject.type === "DELETE_MODEL";
+    const isDelete = changeObject.type.startsWith('DELETE_');
 
     let uriForDummyChange = anchorUri;
 

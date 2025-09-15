@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteModelPayload, ChangeType, RenameModelPayload } from "../refactorInterfaces";
 import { DecoratedClass, FileMetadata, MetadataCache, PropertyMetadata } from "../../cache/cache";
-import { isModel, isModelFile, isField } from "../../utils/metadata";
+import { isModel, isModelFile, isField, isPositionWithinRange } from "../../utils/metadata";
 
 /**
  * Tool for handling model deletion in TypeScript applications.
@@ -243,6 +243,11 @@ export class DeleteModelTool implements IRefactorTool {
         return false;
       }
       
+      // Filter out references within the model's own decorators to avoid conflicts
+      if (this.isReferenceWithinModelDecorators(ref, oldModelMetadata)) {
+        return false;
+      }
+      
       return true; 
     });
 
@@ -438,6 +443,46 @@ export class DeleteModelTool implements IRefactorTool {
   }
 
   /**
+   * Checks if a reference is within the model's own decorators or any of its field decorators.
+   * This prevents conflicts when deleting a model that has references to itself
+   * in its class decorators or field decorators.
+   * 
+   * @param reference The reference to check
+   * @param modelMetadata The model being deleted
+   * @returns True if the reference is within the model's decorators, false otherwise
+   */
+  private isReferenceWithinModelDecorators(reference: vscode.Location, modelMetadata: DecoratedClass): boolean {
+    // If the reference is not in the same file as the model, it can't be in the decorators
+    if (reference.uri.fsPath !== modelMetadata.declaration.uri.fsPath) {
+      return false;
+    }
+
+    // Check if the reference is within the model's class decorators
+    if (modelMetadata.decorators && modelMetadata.decorators.length > 0) {
+      for (const decorator of modelMetadata.decorators) {
+        if (decorator.position && isPositionWithinRange(reference.range.start, decorator.position)) {
+          return true;
+        }
+      }
+    }
+
+    // Check if the reference is within any field's decorators
+    if (modelMetadata.properties) {
+      for (const property of Object.values(modelMetadata.properties)) {
+        if (property.decorators && property.decorators.length > 0) {
+          for (const decorator of property.decorators) {
+            if (decorator.position && isPositionWithinRange(reference.range.start, decorator.position)) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Executes a custom prompt in VS Code's chat interface after a successful refactoring operation.
    * This allows each tool to provide context-specific guidance or information about the refactoring.
    */
@@ -462,29 +507,90 @@ export class DeleteModelTool implements IRefactorTool {
     }
     
     const payload = change.payload as DeleteModelPayload;
-    const { oldModelMetadata } = payload;
+    const { oldModelMetadata, urisToDelete } = payload;
     const modelName = oldModelMetadata?.name || 'unknown';
     
-    // Note: modifiedRanges was not part of the original payload interface
-    // If this functionality is needed, it should be added to DeleteModelPayload interface
-    let affectedPathsMessage = '';
+    // Build decorator information for context
+    let decoratorInfo = '';
+    if (oldModelMetadata?.decorators && oldModelMetadata.decorators.length > 0) {
+      const decoratorNames = oldModelMetadata.decorators.map(d => `@${d.name}`).join(', ');
+      decoratorInfo = `\n\nThe deleted model had the following decorators: ${decoratorNames}`;
+    }
 
-    const prompt = `I have just deleted the model "${modelName}".
-    This action has removed the model's source file, related directories (like actions and UI components), and cleaned up relationship fields in other models.
+    // Count references and properties for better context
+    const referenceCount = oldModelMetadata?.references?.length || 0;
+    const propertyCount = Object.keys(oldModelMetadata?.properties || {}).length;
+    const referenceInfo = referenceCount > 0 
+      ? `\n\nThis model was referenced in ${referenceCount} location(s) throughout the codebase.`
+      : '';
+    
+    const propertyInfo = propertyCount > 0 
+      ? ` It had ${propertyCount} field(s).`
+      : '';
 
-    However, some broken references might remain, marked with comments like "/* DELETED_REFERENCE */", "/* DELETED_FIELD_DECORATOR */", or "/* DELETED_RELATIONSHIP_DECORATOR */".
+    // Build information about deleted files and directories
+    let deletedFilesInfo = '';
+    if (urisToDelete && urisToDelete.length > 0) {
+      const deletedPaths = urisToDelete.map(uri => uri.fsPath).join('\n- ');
+      deletedFilesInfo = `\n\n**Files and directories that were deleted:**\n- ${deletedPaths}`;
+    }
 
-    Your task is to help me fix these remaining issues by proposing concrete code modifications and asking the user if it wants you to apply them.
+    const prompt = `## Model Deletion - Code Cleanup Required
 
-    Please do the following:
-    1.  Analyze the code where these "/* DELETED_... */" comments appear.
-    2.  For each occurrence, provide a corrected code block. This usually means suggesting the removal of the entire line, statement, or import if it's now obsolete.
-    3.  Present your suggestions as code diffs or complete, corrected code snippets that I can easily apply.
+I have deleted the model **\`${modelName}\`**.${decoratorInfo}${referenceInfo}${propertyInfo}${deletedFilesInfo}
 
-    Please focus your analysis and modifications on the files within the current workspace, especially the ones listed below:${affectedPathsMessage}`;
+**What was automatically cleaned up:**
+- Model source file and related directories (actions, UI components)
+- Relationship fields in other models that referenced this model
+- Most direct references to the model class
+
+**Problem:** Some broken references may still remain, marked with these comments:
+- \`/* DELETED_REFERENCE */\` - General references to the deleted model
+- \`/* DELETED_MODEL */\` - Field decorators that referenced the model
+
+**Your Task:** Help me identify and fix these remaining broken references.
+
+### Instructions:
+
+1. **Search for all occurrences** of the following comment patterns:
+   - \`/* DELETED_REFERENCE */\`
+   - \`/* DELETED_MODEL */\`
+
+2. **For each occurrence, analyze the context** and determine the best fix:
+   - **Remove import statements** if the model was being imported
+   - **Remove entire lines/statements** if they're no longer needed
+   - **Update type definitions** if the model was used as a type
+   - **Fix API endpoints** that were returning or accepting the model
+   - **Remove or update tests** that were testing the deleted model
+   - **Clean up configuration files** that referenced the model
+
+3. **Provide specific, actionable solutions** for each broken reference:
+   - Show the **exact file and line number**
+   - Provide **before/after code snippets**
+   - Explain **why** each change is recommended
+
+4. **Ask for confirmation** before applying any changes
+
+### Common Areas to Check:
+- **Import/Export statements**: Remove imports of the deleted model
+- **Type annotations**: Replace with appropriate alternatives
+- **API routes**: Remove endpoints that handled the model
+- **Database migrations**: Clean up related migration files
+- **Test files**: Remove or update tests for the deleted model
+- **Configuration files**: Remove model references from configs
+- **Documentation**: Update docs that mentioned the model
+- **Service classes**: Remove methods that operated on the model
+
+### Priority Order:
+1. **Critical**: Import statements and type errors that break compilation
+2. **High**: API endpoints and service methods that would cause runtime errors
+3. **Medium**: Tests and documentation references
+4. **Low**: Comments and non-functional references
+
+Please analyze each broken reference systematically and provide clear, implementable solutions.`;
     
     try {
-      await vscode.commands.executeCommand('workbench.action.chat.openAgent', prompt);
+      await vscode.commands.executeCommand('workbench.action.chat.open', prompt );
     } catch (error) {
       console.error('Failed to open chat with custom prompt:', error);
     }
