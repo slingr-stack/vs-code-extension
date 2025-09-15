@@ -51,7 +51,7 @@ export interface DecoratedClass {
  */
 export interface DataSourceMetadata {
     name: string;
-    type: string; // e.g., 'TypeOrmSqlDataSource'
+    type: string; // e.g., 'TypeORMSqlDataSource'
     declaration: vscode.Location;
     references: vscode.Location[];
     options: { [key: string]: any };
@@ -168,7 +168,7 @@ export class MetadataCache {
      */
     public getSqlDataSources(): DataSourceMetadata[] {
         return this.getDataSources().filter(
-            ds => ds.type === 'TypeOrmSqlDataSource'
+            ds => ds.type === 'TypeORMSqlDataSource'
         );
     }
 
