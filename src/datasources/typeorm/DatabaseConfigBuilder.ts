@@ -23,7 +23,7 @@ export class DatabaseConfigBuilder {
     const config: any = {
       type: options.type,
       logging: options.logging ?? false,
-      synchronize: options.synchronize ?? options.managed,
+      synchronize: DatabaseConfigBuilder.determineSynchronizeFlag(options),
       entities: entities,
   // Only include dropSchema when explicitly requested (typically in tests)
   ...(options.dropSchema ? { dropSchema: true } : {})
@@ -45,6 +45,34 @@ export class DatabaseConfigBuilder {
     }
 
     return config as TypeORMDataSourceOptions;
+  }
+
+  /**
+   * Determines the correct synchronize flag value based on options.
+   * 
+   * For managed schemas:
+   * - If synchronize is explicitly set, use that value
+   * - If managed=true and synchronize is not set, enable it for development
+   * 
+   * For non-managed schemas:
+   * - Use the explicit synchronize value or default to false
+   * 
+   * @param options - Framework data source options
+   * @returns The synchronize flag value to use
+   */
+  private static determineSynchronizeFlag(options: TypeORMSqlDataSourceOptions): boolean {
+    // If synchronize is explicitly provided, always respect it
+    if (options.synchronize !== undefined) {
+      return options.synchronize;
+    }
+
+    // For managed schemas, enable synchronize by default (for development)
+    if (options.managed) {
+      return true;
+    }
+
+    // For non-managed schemas, default to false
+    return false;
   }
 
   /**

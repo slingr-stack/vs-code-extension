@@ -8,6 +8,9 @@ export interface DataSourceOptions {
   /**
    * Indicates if schema migrations have to be managed by Slingr.
    * When true, the framework will handle schema creation and updates automatically.
+   * 
+   * For development environments, this enables automatic schema synchronization.
+   * For production environments, this will use proper migration scripts (future implementation).
    */
   managed: boolean;
 }
@@ -48,6 +51,30 @@ export abstract class DataSource {
    */
   public getInitializationStatus(): boolean {
     return this.isInitialized;
+  }
+
+  /**
+   * Check if this data source supports managed schemas.
+   * Subclasses should override this method if they don't support managed schemas.
+   * 
+   * @returns true if managed schemas are supported, false otherwise
+   */
+  public supportsManagedSchemas(): boolean {
+    return true; // Default to true, subclasses can override
+  }
+
+  /**
+   * Validate data source configuration.
+   * Checks if managed schemas are supported when requested.
+   * 
+   * @throws Error if configuration is invalid
+   */
+  protected validateConfiguration(): void {
+    if (this.options.managed && !this.supportsManagedSchemas()) {
+      throw new Error(
+        `This data source does not support managed schemas. Set 'managed: false' or use a different data source.`
+      );
+    }
   }
 
   /**
