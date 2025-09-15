@@ -56,3 +56,14 @@ export function areRangesEqual(
            r1.end.line === r2.end.line &&
            r1.end.character === r2.end.character;
 }
+
+/**
+   * Checks if a position is within a given range.
+   * 
+   * @param position The position to check
+   * @param range The range to check against
+   * @returns True if the position is within the range, false otherwise
+   */
+export function isPositionWithinRange(position: vscode.Position, range: vscode.Range): boolean {
+    return range.contains(position);
+}
