@@ -15,6 +15,32 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+     "tasks": [
+      {
+        "type": "slingr",
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "The Slingr task to run (e.g., 'run')."
+          }
+        },
+        "required": ["task"]
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "slingr-runner",
+        "owner": "slingr-runner",
+        "pattern": {
+          "regexp": "^(.*)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^(Starting Slingr application environment...)$",
+          "endsPattern": "^(Environment is ready. Attaching debugger...|Error starting environment.)$"
+        }
+      }
+    ],
     "commands": [
       {
         "command": "slingr-vscode-extension.helloWorld",

@@ -13,6 +13,7 @@ import { CreateModelFromDescriptionTool } from './models/createModelFromDesc';
 import { ModifyModelTool } from './models/modifyModel';
 import { AIService } from '../services/aiService';
 import { NewDataSourceTool } from './newDataSource';
+import { createLaunchConfiguration } from './setupLaunchConfig';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -30,6 +31,11 @@ export function registerGeneralCommands(
         });
     });
     disposables.push(navigateToCodeCommand);
+
+     // Register the command to set up the launch configuration
+    const setupCommand = vscode.commands.registerCommand('slingr.createDebugConfig', createLaunchConfiguration);
+    createLaunchConfiguration();
+    disposables.push(setupCommand);
 
     // Hello World command (placeholder/example)
     const helloWorldCommand = vscode.commands.registerCommand('slingr-vscode-extension.helloWorld', () => {
