@@ -2,6 +2,7 @@ import {
   TypeORMSqlDataSource, 
   TypeORMSqlDataSourceOptions 
 } from '../../index';
+import { FIELD_REQUIRED, FIELD_TYPE, FIELD_TYPE_OPTIONS, MODEL_FIELDS } from '../../src/model/metadata';
 import { BlogPost } from '../model/BlogPost';
 import { FindOptionsWhere, FindManyOptions, FindOneOptions } from 'typeorm';
 
@@ -26,11 +27,11 @@ describe('TypeORM Repository-Style Methods', () => {
     dataSource.configureModel(BlogPost);
     
     // Configure all fields with the data source (needed for array field handling)
-    const fieldNames = Reflect.getMetadata('model:fields', BlogPost) || [];
+    const fieldNames = Reflect.getMetadata(MODEL_FIELDS, BlogPost) || [];
     fieldNames.forEach((fieldName: string) => {
-      const fieldType = Reflect.getMetadata('field:type', BlogPost.prototype, fieldName);
-      const fieldTypeOptions = Reflect.getMetadata('field:type:options', BlogPost.prototype, fieldName);
-      const fieldRequired = Reflect.getMetadata('field:required', BlogPost.prototype, fieldName);
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, BlogPost.prototype, fieldName);
+      const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, BlogPost.prototype, fieldName);
+      const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, BlogPost.prototype, fieldName);
 
       if (fieldType) {
         const allFieldOptions = {

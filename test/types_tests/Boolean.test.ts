@@ -1,3 +1,4 @@
+import { FIELD_TYPE } from "../../src/model/metadata";
 import { Person } from "../model/Person";
 
 describe("Boolean Field Type", () => {
@@ -106,7 +107,7 @@ describe("Boolean Field Type", () => {
 
     it("should store correct metadata for Boolean field", () => {
       const person = new Person();
-      const fieldType = Reflect.getMetadata('field:type', person, 'isActive');
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, person, 'isActive');
       expect(fieldType).toBe('boolean');
     });
   });

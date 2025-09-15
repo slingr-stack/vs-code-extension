@@ -8,23 +8,24 @@ import {
 } from 'class-validator';
 import { Type, Transform, TransformationType, Expose } from 'class-transformer';
 import { dateToISO8601, dateFromJSON } from '../utils';
-import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DATETIME_RANGE } from '../../metadata/MetadataKeys';
+import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_DATETIME_RANGE, DESIGN_TYPE, FIELD_TYPE_ARRAY_DATETIME_RANGE } from '../../metadata/MetadataKeys';
 
 /**
  * Options for the DateTimeRange decorator.
  */
 export interface DateTimeRangeOptions {
     /** If set to true, the 'from' field can be empty (open start). */
-    openStart?: boolean;
+    from?: boolean;
     /** If set to true, the 'to' field can be empty (open end). */
-    openEnd?: boolean;
+    to?: boolean;
 }
 
 /**
  * DateTimeRange class that represents a range between two dates.
  * Used as a nested object in models that need date ranges.
  */
-export class DateTimeRangeType {
+export class DateTimeRangeValue {
     @IsOptional()
     @Expose()
     @Transform(({ value, type }) => {
@@ -54,18 +55,58 @@ export class DateTimeRangeType {
     to?: Date;
 }
 
+/**
+ * Convenience function to create a DateTimeRangeValue instance.
+ * 
+ * @param from - The start date (can be a Date object, ISO string, or timestamp)
+ * @param to - The end date (can be a Date object, ISO string, or timestamp)
+ * @returns A new DateTimeRangeValue instance
+ * 
+ * @example
+ * ```typescript
+ * // Using ISO strings
+ * const range1 = dateTimeRange('2024-01-01T00:00:00Z', '2024-12-31T23:59:59Z');
+ * 
+ * // Using Date objects
+ * const range2 = dateTimeRange(new Date('2024-01-01'), new Date('2024-12-31'));
+ * 
+ * // Mixed types
+ * const range3 = dateTimeRange('2024-01-01', new Date('2024-12-31'));
+ * ```
+ */
+export function dateTimeRange(from?: string | Date | number, to?: string | Date | number): DateTimeRangeValue {
+    const range = new DateTimeRangeValue();
+    
+    if (from !== undefined) {
+        range.from = from instanceof Date ? from : new Date(from);
+    }
+    
+    if (to !== undefined) {
+        range.to = to instanceof Date ? to : new Date(to);
+    }
+    
+    return range;
+}
+
 // Custom key types for clearer IntelliSense errors
-type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRangeType | undefined
+type DateTimeRangeKey<T, K extends keyof T & string> = T[K] extends DateTimeRangeValue | DateTimeRangeValue[] | undefined
     ? K
     : `DateTimeRange: requires DateTimeRange field`;
 
 /**
  * Validates that a property is of DateTimeRange type at runtime.
  */
-function validateDateTimeRangeType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
-    if (designType !== DateTimeRangeType) {
-        throw new Error(`@DateTimeRange can only be applied to 'DateTimeRange' properties: ${propertyKey}`);
+function validateDateTimeRangeValue(proto: Object, propertyKey: string): void {
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
+    // Be more flexible with type checking since TypeScript may not preserve exact type info
+    // We accept DateTimeRangeValue, Object, or undefined types
+    if (
+        designType &&
+        designType !== DateTimeRangeValue &&
+        designType !== Object &&
+        designType !== Array
+    ) {
+        throw new Error(`@DateTimeRange can only be applied to 'DateTimeRange' or 'DateTimeRange[]' properties: ${propertyKey}`);
     }
 }
 
@@ -73,12 +114,54 @@ function validateDateTimeRangeType(proto: Object, propertyKey: string): void {
  * Stores metadata for the datetime range field that can be consumed by other layers.
  */
 function storeDateTimeRangeMetadata(proto: Object, propName: string, options?: DateTimeRangeOptions): void {
-    Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_DATETIME_RANGE, proto, propName);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propName);
+    
+    if (designType === Array) {
+        // Handle DateTimeRange array case
+        Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_ARRAY_DATETIME_RANGE, proto, propName);
+    } else {
+        // Handle single DateTimeRange case
+        Reflect.defineMetadata(FIELD_TYPE, FIELD_TYPE_DATETIME_RANGE, proto, propName);
+    }
+    
     if (options) {
-        Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName);
+        Reflect.defineMetadata(FIELD_TYPE_OPTIONS, options, proto, propName); 
     }
 }
 
+/**
+ * Helper function to validate a single DateTimeRange
+ */
+function validateSingleRange(value: any, args: ValidationArguments): boolean {
+    if (value == null) {
+        return true; // Allow null/undefined values in arrays
+    }
+
+    if (!(value instanceof DateTimeRangeValue)) {
+        return false;
+    }
+
+    const rangeOptions = args.constraints[0] as DateTimeRangeOptions | undefined;
+
+    // Check if from is required (when openStart is false or undefined)
+    if (!rangeOptions?.from && !value.from) {
+        return false;
+    }
+
+    // Check if to is required (when openEnd is false or undefined)
+    if (!rangeOptions?.to && !value.to) {
+        return false;
+    }
+
+    // If both dates are present, validate that from is before to
+    if (value.from && value.to) {
+        if (value.from >= value.to) {
+            return false;
+        }
+    }
+
+    return true;
+}
 /**
  * Custom DateTimeRange validator that validates range constraints
  */
@@ -96,30 +179,13 @@ function IsValidDateTimeRange(options?: DateTimeRangeOptions, validationOptions?
                         return true; // Allow null/undefined values
                     }
 
-                    if (!(value instanceof DateTimeRangeType)) {
-                        return false;
+                    // Handle arrays of DateTimeRangeValue
+                    if (Array.isArray(value)) {
+                        return value.every(item => validateSingleRange(item, args));
                     }
 
-                    const rangeOptions = args.constraints[0] as DateTimeRangeOptions | undefined;
-
-                    // Check if from is required (when openStart is false or undefined)
-                    if (!rangeOptions?.openStart && !value.from) {
-                        return false;
-                    }
-
-                    // Check if to is required (when openEnd is false or undefined)
-                    if (!rangeOptions?.openEnd && !value.to) {
-                        return false;
-                    }
-
-                    // If both dates are present, validate that from is before to
-                    if (value.from && value.to) {
-                        if (value.from >= value.to) {
-                            return false;
-                        }
-                    }
-
-                    return true;
+                    // Handle single DateTimeRangeValue
+                    return validateSingleRange(value, args);
                 },
                 defaultMessage(args: ValidationArguments) {
                     return `${args.property} must be a valid date range where 'from' is before 'to'`;
@@ -167,14 +233,61 @@ export function DateTimeRange(options?: DateTimeRangeOptions) {
         const propName = propertyKey as unknown as string;
         const proto = target as unknown as Object;
 
-        validateDateTimeRangeType(proto, propName);
+        validateDateTimeRangeValue(proto, propName);
         storeDateTimeRangeMetadata(proto, propName, options);
 
-        // Apply nested validation for DateTimeRange
-        ValidateNested()(target as any, propName);
-        Type(() => DateTimeRangeType)(target as any, propName);
+        const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propName);
+        
+        if (designType === Array) {
+            // Handle DateTimeRange array case
+            const { IsArray } = require('class-validator');
+            
+            // Apply array validation
+            IsArray()(target as any, propName);
+            
+            // Apply nested validation for each array element
+            ValidateNested({ each: true })(target as any, propName);
+            Type(() => DateTimeRangeValue)(target as any, propName);
+            
+            // Apply custom range validation for each array element
+            IsValidDateTimeRange(options)(target as any, propName);
+        } else {
+            // Handle single DateTimeRange case
+            // Apply nested validation for DateTimeRange
+            ValidateNested()(target as any, propName);
+            Type(() => DateTimeRangeValue)(target as any, propName);
 
-        // Apply custom range validation
-        IsValidDateTimeRange(options)(target as any, propName);
+            // Apply custom range validation
+            IsValidDateTimeRange(options)(target as any, propName);
+        }
     };
 }
+
+/**
+ * DateTimeRange field configuration for TypeORM persistence.
+ * Uses JSON column type with custom transformer to store DateTimeRange objects.
+ */
+export const DateTimeRangeValueConfig: FieldTypeConfig = {
+    // TODO: Set type to 'datetimerange' when supported by more databases
+    // For now, we use 'text' with a transformer to store as JSON string
+    getTypeORMColumnConfig(fieldOptions?: DateTimeRangeOptions, nullable: boolean = true): any {
+        const { dateTimeRangeTransformer } = require('../../../datasources/typeorm/ValueTransformers');
+        return {
+            type: 'text',
+            nullable: nullable,
+            transformer: dateTimeRangeTransformer
+        };
+    },
+
+    getArrayElementColumnConfig(fieldOptions?: DateTimeRangeOptions): any {
+        const { dateTimeRangeTransformer } = require('../../../datasources/typeorm/ValueTransformers');
+        return {
+            type: 'text', 
+            nullable: false,
+            transformer: dateTimeRangeTransformer
+        };
+    }
+};
+
+// Register the datetime range type configuration
+FieldTypeRegistry.register('datetimerange', DateTimeRangeValueConfig);

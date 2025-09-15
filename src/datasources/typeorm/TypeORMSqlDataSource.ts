@@ -17,6 +17,7 @@ import { DataSource, DataSourceOptions } from '../DataSource';
 import { TypeORMTypeMapper } from './TypeORMTypeMapper';
 import { DatabaseConfigBuilder } from './DatabaseConfigBuilder';
 import { ArrayFieldManager } from './ArrayFieldManager';
+import { DateTimeRangeFieldManager } from './DateTimeRangeFieldManager';
 // Import to ensure field type registrations happen
 import '../../model/types/TypeRegistry';
 import { 
@@ -108,6 +109,7 @@ export class TypeORMSqlDataSource extends DataSource {
   private typeormDataSource: TypeORMDataSource | null = null;
   private registeredModels: Set<Function> = new Set();
   private arrayFieldManager: ArrayFieldManager = new ArrayFieldManager();
+  private dateTimeRangeFieldManager: DateTimeRangeFieldManager = new DateTimeRangeFieldManager();
 
   constructor(options: TypeORMSqlDataSourceOptions) {
     super(options);
@@ -236,6 +238,7 @@ export class TypeORMSqlDataSource extends DataSource {
   /**
    * Configures a field with appropriate TypeORM column decorators.
    * For array fields, delegates to the array field manager.
+   * For DateTimeRange fields, delegates to the DateTimeRange field manager.
    * 
    * @param target - The prototype of the class containing the field
    * @param propertyKey - The name of the property/field
@@ -259,6 +262,14 @@ export class TypeORMSqlDataSource extends DataSource {
       return;
     }
 
+    // Check if this is a DateTimeRange field  
+    if (fieldType === 'datetimerange') {
+      this.dateTimeRangeFieldManager.configureFieldColumns(target, propertyKey, fieldOptions);
+      // Store that this field is configured for TypeORM
+      Reflect.defineMetadata(DATASOURCE_FIELD_CONFIGURED, true, target, propertyKey);
+      return;
+    }
+
     // Map framework field types to TypeORM column types using the type mapper
     const typeMapping = TypeORMTypeMapper.getColumnType(fieldType, fieldOptions);
 
@@ -274,7 +285,7 @@ export class TypeORMSqlDataSource extends DataSource {
 
   /**
    * Save an entity to the database.
-   * Handles array field conversion before saving using the array field manager.
+   * Handles array field conversion and DateTimeRange field conversion before saving.
    * 
    * @param entity - The entity instance to save
    * @returns Promise resolving to the saved entity with generated id
@@ -291,8 +302,20 @@ export class TypeORMSqlDataSource extends DataSource {
       (entity as any)._prepareArrayRelations();
     }
 
+    this.dateTimeRangeFieldManager.extractDateTimeRangeValues(entity);
+
     // Single save with cascades will insert/update parent and children.
     const saved = await repository.save(entity as any) as T;
+
+    // Reload the entity from the database to ensure all transformers are applied correctly.
+    // This is necessary because TypeORM's save() method returns the original entity object,
+    // not one that has been loaded back with transformers applied.
+    if ((saved as any).id) {
+      const reloaded = await repository.findOneBy({ id: (saved as any).id } as any) as T | null;
+      if (reloaded) {
+        return reloaded;
+      }
+    }
 
     return saved as T;
   }
@@ -726,7 +749,7 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
-    const entity = await repository.findOneById(id as any) as T | null;
+    const entity = await repository.findOneBy({ id: id as any } as any) as T | null;
 
     if (!entity) {
       return null;

@@ -4,7 +4,8 @@ import {
   ARRAY_FIELD_NAMES, 
   DATASOURCE_FIELD_CONFIGURED, 
   TYPEORM_ARRAY_RELATION_CONFIGURED,
-  TYPEORM_ARRAY_FIELD 
+  TYPEORM_ARRAY_FIELD, 
+  DESIGN_TYPE
 } from '../../model/metadata/MetadataKeys';
 
 /**
@@ -99,8 +100,8 @@ export class ArrayFieldManager {
       //   Entity metadata for BlogPost#_<field>_elements was not found
       // We explicitly define the design type as Array which matches what a
       // OneToMany relation expects.
-      if (!Reflect.getMetadata('design:type', target, relationPropertyName)) {
-        Reflect.defineMetadata('design:type', Array, target, relationPropertyName);
+      if (!Reflect.getMetadata(DESIGN_TYPE, target, relationPropertyName)) {
+        Reflect.defineMetadata(DESIGN_TYPE, Array, target, relationPropertyName);
       }
 
       OneToMany(() => ArrayElementEntity as any, (element: any) => element.parent, {

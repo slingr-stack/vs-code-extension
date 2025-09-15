@@ -4,7 +4,7 @@ import { Text } from './Text';
 import { IsArray, IsString } from 'class-validator';
 import { Transform, TransformationType } from 'class-transformer';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
-import { FIELD_TYPE, FIELD_TYPE_HTML, FIELD_TYPE_ARRAY_HTML } from '../../metadata/MetadataKeys';
+import { FIELD_TYPE, FIELD_TYPE_HTML, FIELD_TYPE_ARRAY_HTML, DESIGN_TYPE } from '../../metadata/MetadataKeys';
 
 /**
  * HTML type decorator.
@@ -21,7 +21,7 @@ type HtmlKey<T, K extends keyof T & string> = T[K] extends string | string[]
  * Validates that a property is of string or string array type at runtime.
  */
 function validateHtmlType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType !== String && designType !== Array) {
         throw new Error(`@HTML can only be applied to 'string' or 'string[]' properties: ${propertyKey}`);
     }
@@ -68,7 +68,7 @@ export function HTML() {
 
         validateHtmlType(proto, propName);
         
-        const designType = Reflect.getMetadata('design:type', proto, propName);
+        const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propName);
         
         if (designType === Array) {
             // Handle string array case

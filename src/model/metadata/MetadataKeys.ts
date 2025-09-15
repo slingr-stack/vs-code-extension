@@ -74,6 +74,26 @@ export const DATASOURCE_TYPE = 'datasource:type';
 export const ARRAY_FIELD_NAMES = 'array:field:names';
 
 // =============================================================================
+// Reflection/Type metadata keys
+// =============================================================================
+
+/** Metadata key for design type (used by reflect-metadata, e.g., for TypeORM relations) */
+export const DESIGN_TYPE = 'design:type';
+
+// =============================================================================
+// DateTimeRange-related metadata keys
+// =============================================================================
+
+/** Metadata key for storing DateTimeRange field names */
+export const DATETIME_RANGE_FIELDS = 'datetimerange:fields';
+
+/** Metadata key for storing hidden column names for DateTimeRange fields */
+export const DATETIME_RANGE_HIDDEN_COLUMNS = 'datetimerange:hiddenColumns';
+
+/** Metadata key for marking DateTimeRange fields as using hidden columns */
+export const DATETIME_RANGE_USES_HIDDEN_COLUMNS = 'datetimerange:usesHiddenColumns';
+
+// =============================================================================
 // TypeORM-related metadata keys
 // =============================================================================
 
@@ -134,6 +154,8 @@ export const FIELD_TYPE_ARRAY_EMAIL = 'array:email';
 
 /** Field type constant for array html fields */
 export const FIELD_TYPE_ARRAY_HTML = 'array:html';
+
+export const FIELD_TYPE_ARRAY_DATETIME_RANGE = 'array:datetimerange';
 
 /** Field type constant for html fields */
 export const FIELD_TYPE_HTML = 'html';

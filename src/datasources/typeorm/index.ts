@@ -3,6 +3,8 @@ export { TypeORMTypeMapper } from './TypeORMTypeMapper';
 export { DatabaseConfigBuilder } from './DatabaseConfigBuilder';
 export { ArrayEntityFactory } from './ArrayEntityFactory';
 export { ArrayFieldManager } from './ArrayFieldManager';
+export { DateTimeRangeFieldManager } from './DateTimeRangeFieldManager';
+export { financialNumberTransformer } from './ValueTransformers';
 
 // Export main data source class and types
 export { TypeORMSqlDataSource } from './TypeORMSqlDataSource';

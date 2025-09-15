@@ -8,6 +8,7 @@ import {
   Integer,
   TypeORMSqlDataSource
 } from '../../index';
+import { DATASOURCE_TYPE, MODEL_DATASOURCE, TYPEORM_COLUMN, TYPEORM_ENTITY } from '../../src/model/metadata';
 
 describe('Data Source Integration', () => {
 
@@ -100,9 +101,9 @@ describe('Data Source Integration', () => {
       }
 
       // Check that the model has been configured with TypeORM metadata
-      const isEntity = Reflect.getMetadata('typeorm:entity', User);
-      const dataSourceType = Reflect.getMetadata('datasource:type', User);
-      const storedDataSource = Reflect.getMetadata('model:dataSource', User);
+      const isEntity = Reflect.getMetadata(TYPEORM_ENTITY, User);
+      const dataSourceType = Reflect.getMetadata(DATASOURCE_TYPE, User);
+      const storedDataSource = Reflect.getMetadata(MODEL_DATASOURCE, User);
 
       expect(isEntity).toBe(true);
       expect(dataSourceType).toBe('typeorm-sql');
@@ -136,9 +137,9 @@ describe('Data Source Integration', () => {
       }
 
       // Check field configurations
-      const nameColumn = Reflect.getMetadata('typeorm:column', User.prototype, 'name');
-      const ageColumn = Reflect.getMetadata('typeorm:column', User.prototype, 'age');
-      const createdAtColumn = Reflect.getMetadata('typeorm:column', User.prototype, 'createdAt');
+      const nameColumn = Reflect.getMetadata(TYPEORM_COLUMN, User.prototype, 'name');
+      const ageColumn = Reflect.getMetadata(TYPEORM_COLUMN, User.prototype, 'age');
+      const createdAtColumn = Reflect.getMetadata(TYPEORM_COLUMN, User.prototype, 'createdAt');
 
       expect(nameColumn).toEqual({
         type: 'varchar',
@@ -166,8 +167,8 @@ describe('Data Source Integration', () => {
       }
 
       // Check that no TypeORM metadata was added
-      const isEntity = Reflect.getMetadata('typeorm:entity', User);
-      const nameColumn = Reflect.getMetadata('typeorm:column', User.prototype, 'name');
+      const isEntity = Reflect.getMetadata(TYPEORM_ENTITY, User);
+      const nameColumn = Reflect.getMetadata(TYPEORM_COLUMN, User.prototype, 'name');
 
       expect(isEntity).toBeUndefined();
       expect(nameColumn).toBeUndefined();
@@ -205,10 +206,10 @@ describe('Data Source Integration', () => {
         timestamp!: Date;
       }
 
-      const shortTextColumn = Reflect.getMetadata('typeorm:column', TestEntity.prototype, 'shortText');
-      const longTextColumn = Reflect.getMetadata('typeorm:column', TestEntity.prototype, 'longText');
-      const countColumn = Reflect.getMetadata('typeorm:column', TestEntity.prototype, 'count');
-      const timestampColumn = Reflect.getMetadata('typeorm:column', TestEntity.prototype, 'timestamp');
+      const shortTextColumn = Reflect.getMetadata(TYPEORM_COLUMN, TestEntity.prototype, 'shortText');
+      const longTextColumn = Reflect.getMetadata(TYPEORM_COLUMN, TestEntity.prototype, 'longText');
+      const countColumn = Reflect.getMetadata(TYPEORM_COLUMN, TestEntity.prototype, 'count');
+      const timestampColumn = Reflect.getMetadata(TYPEORM_COLUMN, TestEntity.prototype, 'timestamp');
 
       expect(shortTextColumn.type).toBe('varchar');
       expect(shortTextColumn.length).toBe(100);
@@ -239,7 +240,7 @@ describe('Data Source Integration', () => {
       }
 
       // The field should not have TypeORM column metadata since there's no type info
-      const plainFieldColumn = Reflect.getMetadata('typeorm:column', TestEntity.prototype, 'plainField');
+      const plainFieldColumn = Reflect.getMetadata(TYPEORM_COLUMN, TestEntity.prototype, 'plainField');
       expect(plainFieldColumn).toBeUndefined();
     });
   });

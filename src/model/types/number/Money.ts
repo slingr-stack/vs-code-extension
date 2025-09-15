@@ -3,7 +3,8 @@ import { registerDecorator } from 'class-validator';
 import number, { FinancialNumber, RoundingStrategy } from 'financial-number';
 import { Expose, Transform } from 'class-transformer';
 import { FieldTypeConfig, FieldTypeRegistry } from '../FieldTypeConfig';
-import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_MONEY } from '../../metadata/MetadataKeys';
+import { FIELD_TYPE, FIELD_TYPE_OPTIONS, FIELD_TYPE_MONEY, DESIGN_TYPE } from '../../metadata/MetadataKeys';
+import { createFinancialNumberTransformer } from '../../../datasources/typeorm/ValueTransformers';
 
 /**
  * Type alias for the `FinancialNumber` object, representing a monetary value.
@@ -46,7 +47,7 @@ function getRoundingStrategy(roundingType: MoneyOptions['roundingType']): Roundi
 type MoneyKey<T, K extends keyof T & string> = T[K] extends Money | undefined | null ? K : `Money: requires a property of type 'Money'`;
 
 function validateMoneyType(proto: Object, propertyKey: string): void {
-    const designType = Reflect.getMetadata('design:type', proto, propertyKey);
+    const designType = Reflect.getMetadata(DESIGN_TYPE, proto, propertyKey);
     if (designType && designType !== Object && designType.name !== 'Money' && designType.name !== 'Object' && designType.name !== 'FinancialNumber') {
         throw new Error(`@Money can only be applied to properties of type 'Money', but it was used on '${propertyKey}' which is of type '${designType?.name}'.`);
     }
@@ -152,8 +153,6 @@ export function Money(options: MoneyOptions) {
             return value;
         }, { toClassOnly: true })(target, propertyKey);
 
-        Expose()(target, propertyKey);
-
         const addOptionalValidator = createOptionalValidatorAdder(proto, propName);
         applyMoneyValidations(addOptionalValidator, propName, options);
     };
@@ -164,11 +163,24 @@ export function Money(options: MoneyOptions) {
  */
 export const MoneyTypeConfig: FieldTypeConfig = {
     getTypeORMColumnConfig(fieldOptions?: MoneyOptions, nullable: boolean = true): any {
+        const transformer = createFinancialNumberTransformer(
+            fieldOptions?.decimals || 2, 
+            fieldOptions?.roundingType || 'truncate'
+        );
+        
+        let precision = 19;
+        if (fieldOptions?.max) {
+            // Remove decimal point and count total digits
+            const maxDigits = fieldOptions.max.replace('.', '').length;
+            precision = maxDigits;
+        }
+
         return {
             type: 'decimal',
-            precision: 19,
+            precision: precision,
             scale: fieldOptions?.decimals || 2,
-            nullable: nullable
+            nullable: nullable,
+            transformer: transformer
         };
     },
 
