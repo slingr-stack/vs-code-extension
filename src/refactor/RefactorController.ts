@@ -153,19 +153,20 @@ export class RefactorController {
   /**
    * Presents workspace changes to the user for approval and handles post-approval analysis.
    * 
-   * This method applies the workspace edit with proper confirmation metadata on existing edits
-   * to trigger VS Code's refactoring preview UI, and optionally runs AI analysis on the changes
-   * after user approval to help identify and fix potential errors.
+   * This method applies the workspace edit with confirmation metadata to ensure
+   * users must review and approve all changes before they are applied.
+   * Optionally runs AI analysis on the changes after user approval to help identify
+   * and fix potential errors.
    * 
    * @param workspaceEdit - The VS Code WorkspaceEdit containing all file changes to be applied
-   * @param changeObject - The primary change object being processed, used as an anchor for the preview
+   * @param changeObject - The primary change object being processed
    * @param allChanges - Optional array of all changes for automatic refactors with multiple operations
    * 
    * @returns A Promise that resolves when the approval process and any follow-up analysis is complete
    * 
    * @remarks
-   * - Annotates existing text edits with confirmation metadata to trigger VS Code's preview UI
-   * - Prefers to annotate edits on the anchor URI when available, otherwise uses the first available edit
+   * - Creates a new workspace edit with confirmation metadata to trigger VS Code's review UI
+   * - All text edits are marked as needing confirmation before application
    * - Includes file operations (deletions and renames) from the change payloads in the workspace edit
    * - After successful application, saves all documents and optionally runs AI analysis
    * - Uses a timeout to reset the `isApplyingEdit` flag to prevent race conditions
@@ -175,103 +176,43 @@ export class RefactorController {
     changeObject: ChangeObject,
     allChanges?: ChangeObject[] 
   ): Promise<void> {
-    const anchorUri = changeObject.uri;
-    const isDelete = changeObject.type === "DELETE_MODEL";
+    // Create a new workspace edit with confirmation metadata
+    const confirmedEdit = new vscode.WorkspaceEdit();
+    const metadata: vscode.WorkspaceEditEntryMetadata = {
+      needsConfirmation: true,
+      label: "Review Refactoring Changes",
+    };
 
-    let uriForDummyChange = anchorUri;
-
-    if (isDelete) {
-      const safeUriFromEdit = workspaceEdit.entries().find(([uri]) => uri.toString() !== anchorUri.toString())?.[0];
-      if (safeUriFromEdit) {
-        uriForDummyChange = safeUriFromEdit;
-      } else {
-        const safeDocument = vscode.workspace.textDocuments.find(
-          (doc) => !doc.isClosed && doc.uri.toString() !== anchorUri.toString()
-        );
-        if (safeDocument) {
-          uriForDummyChange = safeDocument.uri;
-        }
+    // Copy all text edits with confirmation metadata
+    for (const [uri, textEdits] of workspaceEdit.entries()) {
+      for (const edit of textEdits) {
+        confirmedEdit.replace(uri, edit.range, edit.newText, metadata);
       }
     }
 
-    // Try to mark one real edit with confirmation metadata instead of adding a dummy edit.
-    // We will copy all existing edits into a new WorkspaceEdit and annotate the first suitable
-    // text edit (preferably on the same URI as the anchor change) with `needsConfirmation`.
-    const metadata: vscode.WorkspaceEditEntryMetadata = {
-      needsConfirmation: true,
-      label: "Review All Refactoring Changes",
-    };
-
-    let editToApply: vscode.WorkspaceEdit = workspaceEdit;
-    try {
-      // Find a candidate edit to annotate
-      let chosenUri: vscode.Uri | undefined;
-      let chosenIndex = -1;
-
-      // Prefer an edit on the anchorUri
-      for (const [uri, textEdits] of workspaceEdit.entries()) {
-        if (textEdits.length > 0 && uri.toString() === anchorUri.toString()) {
-          chosenUri = uri;
-          chosenIndex = 0;
-          break;
-        }
-      }
-
-      // Otherwise pick the first available edit
-      if (!chosenUri) {
-        for (const [uri, textEdits] of workspaceEdit.entries()) {
-          if (textEdits.length > 0) {
-            chosenUri = uri;
-            chosenIndex = 0;
-            break;
+    // Add file operations from change payloads to the workspace edit
+    const changesToProcess = allChanges || [changeObject];
+    for (const change of changesToProcess) {
+      if (change.type === 'DELETE_MODEL') {
+        const deletePayload = change.payload as DeleteModelPayload;
+        if (Array.isArray(deletePayload.urisToDelete)) {
+          for (const uri of deletePayload.urisToDelete) {
+            confirmedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
           }
         }
       }
-
-      if (chosenUri) {
-        // Build a new WorkspaceEdit copying all edits, but annotate the chosen edit
-        const annotated = new vscode.WorkspaceEdit();
-        for (const [uri, textEdits] of workspaceEdit.entries()) {
-          for (let i = 0; i < textEdits.length; i++) {
-            const te = textEdits[i];
-            const isChosen = uri.toString() === chosenUri!.toString() && i === chosenIndex;
-            if (isChosen) {
-              annotated.replace(uri, te.range, te.newText, metadata);
-              // remember which uri we annotated so we can use it if needed (for logging/fallback)
-              uriForDummyChange = uri;
-            } else {
-              annotated.replace(uri, te.range, te.newText);
-            }
-          }
+      
+      if (change.type === 'RENAME_MODEL') {
+        const renamePayload = change.payload as RenameModelPayload;
+        if (renamePayload.newUri) {
+          confirmedEdit.renameFile(change.uri, renamePayload.newUri);
         }
-        // We have to add the file renames and deletions from the original changes
-        const changesToProcess = allChanges || [changeObject];
-        for (const change of changesToProcess) {
-          if (change.type === 'DELETE_MODEL') {
-            const deletePayload = change.payload as DeleteModelPayload;
-            if (Array.isArray(deletePayload.urisToDelete)) {
-              for (const uri of deletePayload.urisToDelete) {
-                annotated.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
-              }
-            }
-          }
-          
-          if (change.type === 'RENAME_MODEL') {
-            const renamePayload = change.payload as RenameModelPayload;
-            if (renamePayload.newUri) {
-              annotated.renameFile(change.uri, renamePayload.newUri);
-            }
-          }
-        }
-        editToApply = annotated;
-      } 
-    } catch (e) {
-      console.error("Error while annotating workspace edits for review:", e);
+      }
     }
 
     this.isApplyingEdit = true;
     try {
-      const success = await vscode.workspace.applyEdit(editToApply);
+      const success = await vscode.workspace.applyEdit(confirmedEdit);
       if (success) {
         await vscode.workspace.saveAll(false);
         const changesToProcess = allChanges || [changeObject];
@@ -282,7 +223,7 @@ export class RefactorController {
         });
 
         if (changesWithPrompts.length > 0) {
-          const modifiedUris = this.collectModifiedUris(editToApply, changesToProcess);
+          const modifiedUris = this.collectModifiedUris(workspaceEdit, changesToProcess);
 
           // this catches pre-existing and new errors added by the refactor
           const hasErrors = await this.checkForCompilationErrors(modifiedUris);
