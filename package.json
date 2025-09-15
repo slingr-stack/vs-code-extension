@@ -2,8 +2,9 @@
   "name": "slingr-framework",
   "version": "1.0.0",
   "description": "Slingr Framework - Smart Business Apps",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./index.js" 
+    ".": "./dist/index.js" 
   },
   "scripts": {
     "test": "jest --verbose",
@@ -16,7 +17,6 @@
   },
   "author": "Slingr",
   "license": "Apache-2.0",
-  "type": "module",
   "bugs": {
     "url": "https://github.com/slingr-stack/framework/issues"
   },
@@ -39,6 +39,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "financial-number": "^4.0.4",
+    "financial-arithmetic-functions": "https://github.com/slingr-stack/financial-arithmetic-functions",
     "typeorm": "^0.3.26"
   }
 }
