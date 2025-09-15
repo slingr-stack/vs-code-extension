@@ -254,6 +254,36 @@ export class DeleteFieldTool implements IRefactorTool {
     }
 
     /**
+     * Deletes a field programmatically without user interaction.
+     * This is useful for automated refactoring operations.
+     * 
+     * @param fieldMetadata The metadata of the field to delete
+     * @param modelName The name of the model containing the field
+     * @param cache The metadata cache
+     * @returns A promise that resolves to a WorkspaceEdit for the deletion
+     */
+    public async deleteFieldProgrammatically(
+        fieldMetadata: PropertyMetadata,
+        modelName: string,
+        cache: MetadataCache
+    ): Promise<vscode.WorkspaceEdit> {
+        const payload: DeleteFieldPayload = {
+            oldFieldMetadata: fieldMetadata,
+            modelName: modelName,
+            isManual: true // Use manual mode to actually remove the field declaration
+        };
+
+        const change: ChangeObject = {
+            type: 'DELETE_FIELD',
+            uri: fieldMetadata.declaration.uri,
+            description: `Delete field '${fieldMetadata.name}' programmatically.`,
+            payload
+        };
+
+        return await this.prepareEdit(change, cache);
+    }
+
+    /**
      * Executes a prompt to help fix broken field references after a field deletion.
      * 
      * This method generates and executes a chat prompt that guides the user through

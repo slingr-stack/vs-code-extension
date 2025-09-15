@@ -390,6 +390,172 @@ export class SourceCodeService {
   }
 
   /**
+   * Extracts the complete class body (everything between the class braces) from a model.
+   * 
+   * @param document - The document containing the model
+   * @param className - The name of the class to extract from
+   * @returns The class body content including proper indentation
+   */
+  public extractClassBody(document: vscode.TextDocument, className: string): string {
+    const lines = document.getText().split("\n");
+    const { classStartLine, classEndLine } = this.findClassBoundaries(lines, className);
+    
+    // Find the opening brace of the class
+    let openBraceIndex = -1;
+    for (let i = classStartLine; i <= classEndLine; i++) {
+      if (lines[i].includes("{")) {
+        openBraceIndex = i;
+        break;
+      }
+    }
+    
+    if (openBraceIndex === -1) {
+      throw new Error(`Could not find opening brace for class ${className}`);
+    }
+    
+    // Extract content between the braces (excluding the braces themselves)
+    const classBodyLines = lines.slice(openBraceIndex + 1, classEndLine);
+    
+    // Remove any empty lines at the end
+    while (classBodyLines.length > 0 && classBodyLines[classBodyLines.length - 1].trim() === "") {
+      classBodyLines.pop();
+    }
+    
+    return classBodyLines.join("\n");
+  }
+
+  /**
+   * Creates a complete model file with the given class body content.
+   * 
+   * @param modelName - The name of the new model class
+   * @param classBody - The complete class body content
+   * @param baseClass - The base class to extend (default: "PersistentModel")
+   * @param dataSource - Optional datasource for the model
+   * @param existingImports - Set of imports that should be included
+   * @param isComponent - Whether this is a component model (affects export and class declaration)
+   * @returns The complete model file content
+   */
+  public generateModelFileContent(
+    modelName: string,
+    classBody: string,
+    baseClass: string = "PersistentModel",
+    dataSource?: string,
+    existingImports?: Set<string>,
+    isComponent: boolean = false
+  ): string {
+    const lines: string[] = [];
+    
+    // Determine required imports
+    const imports = new Set(["Model", "Field"]);
+    
+    // Add base class to imports (handle complex base classes like PersistentComponentModel<ParentModel>)
+    const baseClassCore = baseClass.split('<')[0]; // Extract base class name before generic
+    imports.add(baseClassCore);
+    
+    // Add existing imports if provided
+    if (existingImports) {
+      existingImports.forEach(imp => imports.add(imp));
+    }
+    
+    // Analyze the class body to determine additional needed imports
+    const bodyImports = this.extractImportsFromClassBody(classBody);
+    bodyImports.forEach(imp => imports.add(imp));
+    
+    // Add import statement
+    const sortedImports = Array.from(imports).sort();
+    lines.push(`import { ${sortedImports.join(", ")} } from "slingr-framework";`);
+    lines.push('');
+    
+    // Add model decorator
+    if (dataSource) {
+      lines.push(`@Model({`);
+      lines.push(`\tdataSource: ${dataSource}`);
+      lines.push(`})`);
+    } else {
+      lines.push(`@Model()`);
+    }
+    
+    // Add class declaration (export only if not a component model)
+    const exportKeyword = isComponent ? "" : "export ";
+    lines.push(`${exportKeyword}class ${modelName} extends ${baseClass} {`);
+    
+    // Add class body (if not empty)
+    if (classBody.trim()) {
+      lines.push('');
+      lines.push(classBody);
+      lines.push('');
+    }
+    
+    lines.push(`}`);
+    
+    return lines.join("\n");
+  }
+
+  /**
+   * Analyzes class body content to determine which imports are needed.
+   * 
+   * @param classBody - The class body content to analyze
+   * @returns Set of import names that should be included
+   */
+  private extractImportsFromClassBody(classBody: string): Set<string> {
+    const imports = new Set<string>();
+    
+    // Look for decorator patterns
+    const decoratorPatterns = [
+      /@Text\b/g, /@LongText\b/g, /@Email\b/g, /@Html\b/g,
+      /@Integer\b/g, /@Money\b/g, /@Number\b/g, /@Boolean\b/g,
+      /@Date\b/g, /@DateRange\b/g, /@Choice\b/g,
+      /@Reference\b/g, /@Composition\b/g, /@Relationship\b/g
+    ];
+    
+    const decoratorNames = [
+      "Text", "LongText", "Email", "Html",
+      "Integer", "Money", "Number", "Boolean", 
+      "Date", "DateRange", "Choice",
+      "Reference", "Composition", "Relationship"
+    ];
+    
+    decoratorPatterns.forEach((pattern, index) => {
+      if (pattern.test(classBody)) {
+        imports.add(decoratorNames[index]);
+      }
+    });
+    
+    // Always include Field if there are any field declarations
+    if (classBody.includes("!:") || classBody.includes(":")) {
+      imports.add("Field");
+    }
+    
+    return imports;
+  }
+
+  /**
+   * Extracts all model imports from a document (excluding slingr-framework imports).
+   * 
+   * @param document - The document to extract imports from
+   * @returns Array of import statements for other models
+   */
+  public extractModelImports(document: vscode.TextDocument): string[] {
+    const content = document.getText();
+    const lines = content.split("\n");
+    const modelImports: string[] = [];
+    
+    for (const line of lines) {
+      // Look for import statements that are not from slingr-framework
+      if (line.includes("import") && 
+          line.includes("from") && 
+          !line.includes("slingr-framework") &&
+          !line.includes("vscode") &&
+          !line.includes("path") &&
+          line.trim().startsWith("import")) {
+        modelImports.push(line);
+      }
+    }
+    
+    return modelImports;
+  }
+
+  /**
    * Focuses on an element in a document navigating to it and highlighting it.
    * This method can find and focus on various types of elements including:
    * - Class properties (fields with !: or :)

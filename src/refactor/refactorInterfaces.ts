@@ -142,7 +142,7 @@ export interface ChangeReferenceToCompositionPayload {
  * - `ADD_DECORATOR`: A change that adds a decorator to a field.
  * - `CHANGE_REFERENCE_TO_COMPOSITION`: A change that converts a reference field to a composition field.
  */
-export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR' | 'CHANGE_REFERENCE_TO_COMPOSITION';
+export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR' | 'CHANGE_REFERENCE_TO_COMPOSITION' | 'CHANGE_COMPOSITION_TO_REFERENCE';
 
 /**
  * Represents a single, atomic change to be applied as part of a refactoring operation.

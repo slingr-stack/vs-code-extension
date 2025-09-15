@@ -368,6 +368,48 @@ export class NewModelTool implements AIEnhancedTool {
     );
   }
 
+  /**
+   * Creates a new model file programmatically without user interaction.
+   *
+   * @param modelName - The name of the model to create
+   * @param targetFilePath - The full file path where the model should be created
+   * @param docs - Optional documentation for the model
+   * @param dataSource - Optional datasource configuration
+   * @returns Promise that resolves when the model is created
+   */
+  public async createModelProgrammatically(
+    modelName: string,
+    targetFilePath: string,
+    docs?: string,
+    dataSource?: string
+  ): Promise<vscode.Uri> {
+    try {
+      // Generate model content
+      const modelContent = this.generateModelContent(modelName, docs);
+
+      // Modify the content to include datasource if provided
+      let finalContent = modelContent;
+      if (dataSource) {
+        finalContent = finalContent.replace(
+          '@Model()',
+          `@Model({\n\tdataSource: ${dataSource}\n})`
+        );
+      }
+
+      // Create the file
+      const targetFileUri = await this.fileSystemService.createFile(
+        modelName, 
+        targetFilePath, 
+        finalContent, 
+        false // Don't handle overwrite since we control the path
+      );
+
+      return targetFileUri;
+    } catch (error) {
+      throw new Error(`Failed to create model programmatically: ${error}`);
+    }
+  }
+
   public toCamelCase(str: string): string {
     return str.charAt(0).toLowerCase() + str.slice(1);
   }

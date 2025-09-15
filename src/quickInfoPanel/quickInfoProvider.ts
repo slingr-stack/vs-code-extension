@@ -162,7 +162,7 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
         const { itemType, name, parentClassName } = data;
         let foundMetadata: MetadataItem | undefined;
 
-        if (itemType === 'field' && parentClassName) {
+        if ((itemType === 'field' || itemType === 'referenceField') && parentClassName) {
             const [parentClass] = this.cache.findMetadata(
                 item => 'properties' in item && item.name === parentClassName
             ) as DecoratedClass[];

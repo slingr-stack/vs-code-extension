@@ -57,6 +57,10 @@
         "title": "Change Reference to Composition"
       },
       {
+        "command": "slingr-vscode-extension.changeCompositionToReference",
+        "title": "Change Composition to Reference"
+      },
+      {
         "command": "slingr-vscode-extension.newModel",
         "title": "New Model"
       },
@@ -137,7 +141,7 @@
       "view/item/context": [
         {
           "command": "slingr-vscode-extension.newModel",
-          "when": "view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot' || viewItem == 'model')",
+          "when": "view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot' || viewItem == 'model' || viewItem == 'compositionField')",
           "group": "0_creation"
         },
         {
@@ -147,37 +151,37 @@
         },
         {
           "command": "slingr-vscode-extension.defineFields",
-          "when": "view == slingrExplorer && viewItem == 'model'",
+          "when": "view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')",
           "group": "0_creation"
         },
         {
           "command": "slingr-vscode-extension.addField",
-          "when": "view == slingrExplorer && viewItem == 'model'",
+          "when": "view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')",
           "group": "0_creation"
         },
         {
           "command": "slingr-vscode-extension.addComposition",
-          "when": "view == slingrExplorer && viewItem == 'model'",
+          "when": "view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')",
           "group": "0_creation"
         },
         {
           "command": "slingr-vscode-extension.addReference",
-          "when": "view == slingrExplorer && viewItem == 'model'",
+          "when": "view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')",
           "group": "0_creation"
         },
         {
           "command": "slingr-vscode-extension.createTest",
-          "when": "view == slingrExplorer && viewItem == 'model'",
+          "when": "view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')",
           "group": "0_creation"
         },
         {
           "command": "slingr-vscode-extension.renameModel",
-          "when": "view == slingrExplorer && viewItem == 'model'",
+          "when": "view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')",
           "group": "1_modification"
         },
         {
           "command": "slingr-vscode-extension.deleteModel",
-          "when": "view == slingrExplorer && viewItem == 'model'",
+          "when": "view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')",
           "group": "2_modification"
         },
         {
@@ -211,13 +215,18 @@
           "group": "3_modification"
         },
         {
+          "command": "slingr-vscode-extension.changeCompositionToReference",
+          "when": "view == slingrExplorer && viewItem == 'compositionField'",
+          "group": "3_modification"
+        },
+        {
           "command": "slingr-vscode-extension.createModelFromDescription",
-          "when": "view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot' || viewItem == 'model')",
+          "when": "view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot' || viewItem == 'model' || viewItem == 'compositionField')",
           "group": "0_creation"
         },
         {
           "command": "slingr-vscode-extension.modifyModel",
-          "when": "view == slingrExplorer && viewItem == 'model'",
+          "when": "view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')",
           "group": "3_modification"
         }
       ],
@@ -234,7 +243,7 @@
       "slingr-vscode-extension.creation": [
         {
           "command": "slingr-vscode-extension.newModel",
-          "when": "(view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot' || viewItem == 'model')) || !viewItem",
+          "when": "(view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot' || viewItem == 'model' || viewItem == 'compositionField')) || !viewItem",
           "group": "0_model"
         },
         {
@@ -249,44 +258,44 @@
         },
         {
           "command": "slingr-vscode-extension.defineFields",
-          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "when": "(view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')) || !viewItem",
           "group": "1_field"
         },
         {
           "command": "slingr-vscode-extension.addField",
-          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "when": "(view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')) || !viewItem",
           "group": "1_field"
         },
         {
           "command": "slingr-vscode-extension.addComposition",
-          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "when": "(view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')) || !viewItem",
           "group": "1_field"
         },
         {
           "command": "slingr-vscode-extension.addReference",
-          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "when": "(view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')) || !viewItem",
           "group": "1_field"
         },
         {
           "command": "slingr-vscode-extension.createTest",
-          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "when": "(view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')) || !viewItem",
           "group": "2_test"
         },
         {
           "command": "slingr-vscode-extension.modifyModel",
-          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "when": "(view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')) || !viewItem",
           "group": "3_modify"
         }
       ],
       "slingr-vscode-extension.refactorings": [
         {
           "command": "slingr-vscode-extension.renameModel",
-          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "when": "(view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')) || !viewItem",
           "group": "1_modification"
         },
         {
           "command": "slingr-vscode-extension.deleteModel",
-          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "when": "(view == slingrExplorer && (viewItem == 'model' || viewItem == 'compositionField')) || !viewItem",
           "group": "2_modification"
         },
         {

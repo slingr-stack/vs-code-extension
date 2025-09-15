@@ -11,6 +11,7 @@ import { cache } from '../extension';
 import { AppTreeItem } from '../explorer/appTreeItem';
 import { AddDecoratorTool } from './tools/addDecorator';
 import { ChangeReferenceToCompositionRefactorTool } from './tools/changeReferenceToComposition';
+import { ChangeCompositionToReferenceRefactorTool } from './tools/changeCompositionToReference';
 import { isModelFile } from '../utils/metadata';
 import { PropertyMetadata } from '../cache/cache';
 import { fieldTypeConfig } from '../utils/fieldTypes';
@@ -38,6 +39,7 @@ export function getAllRefactorTools(): IRefactorTool[] {
         new ChangeFieldTypeTool(),
         new AddDecoratorTool(),
         new ChangeReferenceToCompositionRefactorTool(),
+        new ChangeCompositionToReferenceRefactorTool(),
     ];
 }
 

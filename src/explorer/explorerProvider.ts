@@ -487,20 +487,26 @@ export class ExplorerProvider
 
     // --- DATA SOURCES ROOT ---
     if (element.itemType === "dataSourcesRoot") {
-        const dataSources = this.cache.getDataSources();
-        return dataSources.map(ds => {
-            const item = new AppTreeItem(ds.name, vscode.TreeItemCollapsibleState.None, "dataSource", this.extensionUri, ds as any);
-            item.command = {
-                command: 'slingr-vscode-extension.handleTreeItemClick',
-                title: 'Handle Click',
-                arguments: [item]
-            };
-            return item;
-        });
+      const dataSources = this.cache.getDataSources();
+      return dataSources.map((ds) => {
+        const item = new AppTreeItem(
+          ds.name,
+          vscode.TreeItemCollapsibleState.None,
+          "dataSource",
+          this.extensionUri,
+          ds as any
+        );
+        item.command = {
+          command: "slingr-vscode-extension.handleTreeItemClick",
+          title: "Handle Click",
+          arguments: [item],
+        };
+        return item;
+      });
     }
 
     // --- Children of a specific Model ---
-    if (element.itemType === "model" && this.isDecoratedClass(element.metadata)) {
+    if ((element.itemType === "model" || element.itemType === "compositionField") && this.isDecoratedClass(element.metadata)) {
       const modelClass = element.metadata;
 
       const fields = Object.values(element.metadata.properties).filter((prop) =>
@@ -522,7 +528,7 @@ export class ExplorerProvider
           const compositionItem = new AppTreeItem(
             upperFieldName,
             vscode.TreeItemCollapsibleState.Collapsed,
-            "model",
+            "compositionField",
             this.extensionUri,
             relatedModel,
             element
@@ -743,8 +749,13 @@ export class ExplorerProvider
 
     // Check if this is a reference field and adjust the itemType accordingly
     let actualItemType = itemType;
-    if (itemType === "field" && propData.decorators.some(d => d.name === "Reference")) {
-      actualItemType = "referenceField";
+    if (itemType === "field") {
+      if (propData.decorators.some((d) => d.name === "Reference")) {
+        actualItemType = "referenceField";
+      }
+      else if (propData.decorators.some((d) => d.name === "Composition")) {
+        actualItemType = "compositionField";
+      }
     }
 
     const item = new AppTreeItem(

@@ -45,6 +45,9 @@ export class AppTreeItem extends vscode.TreeItem {
         case "referenceField":
           iconFileName = "field.svg"; // You could create a specific icon for reference fields
           break;
+        case "compositionField":
+          iconFileName = "model-type.svg"; // You could create a specific icon for composition fields
+          break;
         case "modelActionsFolder":
           iconFileName = "action.svg";
           break;
