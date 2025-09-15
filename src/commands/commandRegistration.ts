@@ -4,7 +4,6 @@ import { ExplorerProvider } from '../explorer/explorerProvider';
 import { NewModelTool } from './models/newModel';
 import { DefineFieldsTool } from './fields/defineFields';
 import { AddFieldTool } from './fields/addField';
-import { ChangeReferenceToCompositionTool } from './fields/changeReferenceToComposition';
 import { NewFolderTool } from './folders/newFolder';
 import { DeleteFolderTool } from './folders/deleteFolder';
 import { RenameFolderTool } from './folders/renameFolder';
@@ -16,6 +15,7 @@ import { AddCompositionTool } from './models/addComposition';
 import { AddReferenceTool } from './models/addReference';
 import { AIService } from '../services/aiService';
 import { ProjectAnalysisService } from '../services/projectAnalysisService';
+import { registerCommand, URI_OPTIONS, UriResolutionResult } from './commandHelpers';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -25,6 +25,8 @@ export function registerGeneralCommands(
     const disposables: vscode.Disposable[] = [];
     const aiService = new AIService();
     const projectAnalysisService = new ProjectAnalysisService();
+
+
 
     // Navigation command
     const navigateToCodeCommand = vscode.commands.registerCommand('slingr-vscode-extension.navigateToCode', (location: vscode.Location) => {
@@ -50,218 +52,87 @@ export function registerGeneralCommands(
 
     // New Model Tool
     const newModelTool = new NewModelTool();
-    const newModelCommand = vscode.commands.registerCommand('slingr-vscode-extension.newModel', (uri?: vscode.Uri | AppTreeItem) => {
-        // If no URI provided, use the current workspace folder
-        const targetUri = uri || (vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri.file(''));
-        return newModelTool.createNewModel(targetUri, cache);
-    });
-    disposables.push(newModelCommand);
+    registerCommand(
+        disposables,
+        'slingr-vscode-extension.newModel',
+        async (result: UriResolutionResult) => {
+            await newModelTool.createNewModel(result.targetUri, cache);
+        },
+        URI_OPTIONS.ANY_FILE
+    );
 
     // Define Fields Tool
     const defineFieldsTool = new DefineFieldsTool();
-    const defineFieldsCommand = vscode.commands.registerCommand('slingr-vscode-extension.defineFields', async (uri?: vscode.Uri | AppTreeItem) => {
-        let targetUri: vscode.Uri;
-
-        if (uri) {
-            // URI provided from context menu (right-click on file in explorer)
-            if (uri instanceof vscode.Uri) {
-                targetUri = uri;
-            } else {
-                // AppTreeItem case - check if it's a model with metadata
-                if (uri.itemType === 'model' && uri.metadata?.declaration?.uri) {
-                    targetUri = uri.metadata.declaration.uri;
-                } else {
-                    vscode.window.showErrorMessage('Please select a model file to define fields for.');
-                    return;
-                }
+    registerCommand(
+        disposables,
+        'slingr-vscode-extension.defineFields',
+        async (result: UriResolutionResult) => {
+            const document = result.document || await vscode.workspace.openTextDocument(result.targetUri);
+            
+            const model = await projectAnalysisService.findModelClass(document, cache);
+            if (!model) {
+                throw new Error('Could not identify a model class in the selected file.');
             }
-        } else {
-            // Fallback to active editor if no URI provided
-            const activeEditor = vscode.window.activeTextEditor;
-            if (!activeEditor) {
-                vscode.window.showErrorMessage('Please select a model file or open one in the editor to define fields.');
-                return;
+            
+            // Get field descriptions from user
+            const fieldsDescription = await vscode.window.showInputBox({
+                prompt: "Enter field descriptions to be processed by AI",
+                placeHolder: "e.g., title, description, project (relationship to Project), status (enum: todo, in-progress, done)",
+                ignoreFocusOut: true
+            });
+
+            if (!fieldsDescription) {
+                return; // User cancelled
             }
-            targetUri = activeEditor.document.uri;
-        }
 
-        // Validate that it's a TypeScript file
-        if (!targetUri.fsPath.endsWith('.ts')) {
-            vscode.window.showErrorMessage('Please select a TypeScript model file (.ts).');
-            return;
-        }
-
-        // Open the document to extract model information
-        const document = await vscode.workspace.openTextDocument(targetUri);
-        const content = document.getText();
-        
-        // Check if this is a model file
-        if (!content.includes('@Model')) {
-            vscode.window.showErrorMessage('The selected file does not appear to be a model file.');
-            return;
-        }
-
-        const model = await projectAnalysisService.findModelClass(document, cache);
-
-        if (!model) {
-            vscode.window.showErrorMessage('Could not identify a model class in the selected file.');
-            return;
-        }
-        const modelName = model?.name;
-        
-        // Get field descriptions from user
-        const fieldsDescription = await vscode.window.showInputBox({
-            prompt: "Enter field descriptions to be processed by AI",
-            placeHolder: "e.g., title, description, project (relationship to Project), status (enum: todo, in-progress, done)",
-            ignoreFocusOut: true
-        });
-
-        if (!fieldsDescription) {
-            return; // User cancelled
-        }
-
-        try {
             await defineFieldsTool.processFieldDescriptions(
                 fieldsDescription,
-                targetUri,
+                result.targetUri,
                 cache,
-                modelName
+                model.name
             );
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to process field descriptions: ${error}`);
-        }
-    });
-    disposables.push(defineFieldsCommand);
+        },
+        URI_OPTIONS.MODEL_FILE
+    );
 
     // Add Field Tool
     const addFieldTool = new AddFieldTool();
-    const addFieldCommand = vscode.commands.registerCommand('slingr-vscode-extension.addField', async (uri?: vscode.Uri | AppTreeItem) => {
-        let targetUri: vscode.Uri;
-
-        if (uri) {
-            // URI provided from context menu (right-click on file in explorer)
-            if (uri instanceof vscode.Uri) {
-                targetUri = uri;
-            } else {
-                // AppTreeItem case - check if it's a model with metadata
-                if (uri.itemType === 'model' && uri.metadata?.declaration?.uri) {
-                    targetUri = uri.metadata.declaration.uri;
-                } else {
-                    vscode.window.showErrorMessage('Please select a model file to add a field to.');
-                    return;
-                }
-            }
-        } else {
-            // Fallback to active editor if no URI provided
-            const activeEditor = vscode.window.activeTextEditor;
-            if (!activeEditor) {
-                vscode.window.showErrorMessage('Please select a model file or open one in the editor to add a field.');
-                return;
-            }
-            targetUri = activeEditor.document.uri;
-        }
-
-        // Validate that it's a TypeScript file
-        if (!targetUri.fsPath.endsWith('.ts')) {
-            vscode.window.showErrorMessage('Please select a TypeScript model file (.ts).');
-            return;
-        }
-
-        try {
-            await addFieldTool.addField(targetUri, cache);
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to add field: ${error}`);
-        }
-    });
-    disposables.push(addFieldCommand);
+    registerCommand(
+        disposables,
+        'slingr-vscode-extension.addField',
+        async (result: UriResolutionResult) => {
+            await addFieldTool.addField(result.targetUri, cache);
+        },
+        URI_OPTIONS.MODEL_FILE
+    );
 
     // Add Composition Tool
     const addCompositionTool = new AddCompositionTool(explorerProvider);
-    const addCompositionCommand = vscode.commands.registerCommand('slingr-vscode-extension.addComposition', async (uri?: vscode.Uri | AppTreeItem) => {
-        let targetUri: vscode.Uri;
-        let modelName: string | undefined;
-
-        if (uri) {
-            // URI provided from context menu (right-click on file in explorer)
-            if (uri instanceof vscode.Uri) {
-                targetUri = uri;
-            } else {
-                // AppTreeItem case - check if it's a model with metadata
-                if (uri.itemType === 'model' && uri.metadata?.declaration?.uri) {
-                    targetUri = uri.metadata.declaration.uri;
-                    modelName = uri.metadata?.name;
-                } else {
-                    vscode.window.showErrorMessage('Please select a model file to add a composition to.');
-                    return;
-                }
+    registerCommand(
+        disposables,
+        'slingr-vscode-extension.addComposition',
+        async (result: UriResolutionResult) => {
+            if (!result.modelName) {
+                throw new Error('Model name could not be determined.');
             }
-        } else {
-            throw new Error('URI must be provided to add a composition.');
-        }
-
-        // Validate that it's a TypeScript file
-        if (!targetUri.fsPath.endsWith('.ts')) {
-            vscode.window.showErrorMessage('Please select a TypeScript model file (.ts).');
-            return;
-        }
-
-        try {
-            if (modelName) {
-                await addCompositionTool.addComposition(cache, modelName);
-            }
-            else{
-                vscode.window.showErrorMessage('Model name could not be determined.');
-            }
-            
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to add composition: ${error}`);
-        }
-    });
-    disposables.push(addCompositionCommand);
+            await addCompositionTool.addComposition(cache, result.modelName);
+        },
+        URI_OPTIONS.EXPLICIT_MODEL_SELECTION
+    );
 
     // Add Reference Tool
-    const addReferenceTool = new AddReferenceTool(explorerProvider); 
-    const addReferenceCommand = vscode.commands.registerCommand('slingr-vscode-extension.addReference', async (uri?: vscode.Uri | AppTreeItem) => {
-        let targetUri: vscode.Uri;
-        let modelName: string | undefined;
-
-        if (uri) {
-            // URI provided from context menu (right-click on file in explorer)
-            if (uri instanceof vscode.Uri) {
-                targetUri = uri;
-            } else {
-                // AppTreeItem case - check if it's a model with metadata
-                if (uri.itemType === 'model' && uri.metadata?.declaration?.uri) {
-                    targetUri = uri.metadata.declaration.uri;
-                    modelName = uri.metadata?.name;
-                } else {
-                    vscode.window.showErrorMessage('Please select a model file to add a reference to.');
-                    return;
-                }
+    const addReferenceTool = new AddReferenceTool(explorerProvider);
+    registerCommand(
+        disposables,
+        'slingr-vscode-extension.addReference',
+        async (result: UriResolutionResult) => {
+            if (!result.modelName) {
+                throw new Error('Model name could not be determined.');
             }
-        } else {
-            throw new Error('URI must be provided to add a reference.');
-        }
-
-        // Validate that it's a TypeScript file
-        if (!targetUri.fsPath.endsWith('.ts')) {
-            vscode.window.showErrorMessage('Please select a TypeScript model file (.ts).');
-            return;
-        }
-
-        try {
-            if (modelName) {
-                await addReferenceTool.addReference(cache, modelName);
-            }
-            else{
-                vscode.window.showErrorMessage('Model name could not be determined.');
-            }
-            
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to add reference: ${error}`);
-        }
-    });
-    disposables.push(addReferenceCommand);
+            await addReferenceTool.addReference(cache, result.modelName);
+        },
+        URI_OPTIONS.EXPLICIT_MODEL_SELECTION
+    );
 
     // New Folder Tool
     const newFolderTool = new NewFolderTool();
@@ -286,45 +157,14 @@ export function registerGeneralCommands(
 
     // Create Test Tool
     const createTestTool = new CreateTestTool(aiService);
-    const createTestCommand = vscode.commands.registerCommand('slingr-vscode-extension.createTest', async (uri?: vscode.Uri | AppTreeItem) => {
-        let targetUri: vscode.Uri;
-
-        if (uri) {
-            // URI provided from context menu (right-click on file in explorer)
-            if (uri instanceof vscode.Uri) {
-                targetUri = uri;
-            } else {
-                // AppTreeItem case - check if it's a model with metadata
-                if (uri.itemType === 'model' && uri.metadata?.declaration?.uri) {
-                    targetUri = uri.metadata.declaration.uri;
-                } else {
-                    vscode.window.showErrorMessage('Please select a model file to create a test for.');
-                    return;
-                }
-            }
-        } else {
-            // Fallback to active editor if no URI provided
-            const activeEditor = vscode.window.activeTextEditor;
-            if (!activeEditor) {
-                vscode.window.showErrorMessage('Please select a model file or open one in the editor to create a test.');
-                return;
-            }
-            targetUri = activeEditor.document.uri;
-        }
-
-        // Validate that it's a TypeScript file
-        if (!targetUri.fsPath.endsWith('.ts')) {
-            vscode.window.showErrorMessage('Please select a TypeScript model file (.ts).');
-            return;
-        }
-
-        try {
-            await createTestTool.createTest(targetUri, cache);
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to create test: ${error}`);
-        }
-    });
-    disposables.push(createTestCommand);
+    registerCommand(
+        disposables,
+        'slingr-vscode-extension.createTest',
+        async (result: UriResolutionResult) => {
+            await createTestTool.createTest(result.targetUri, cache);
+        },
+        URI_OPTIONS.TYPESCRIPT_FILE
+    );
 
     // General refactor command (placeholder for refactor controller integration)
     const refactorCommand = vscode.commands.registerCommand('slingr-vscode-extension.refactor', () => {
