@@ -65,7 +65,8 @@ export abstract class DataSource {
 
   /**
    * Validate data source configuration.
-   * Checks if managed schemas are supported when requested.
+   * Checks if managed schemas are supported when requested and validates
+   * configuration consistency.
    * 
    * @throws Error if configuration is invalid
    */
@@ -75,6 +76,20 @@ export abstract class DataSource {
         `This data source does not support managed schemas. Set 'managed: false' or use a different data source.`
       );
     }
+    
+    // Allow subclasses to perform additional validation
+    this.validateSpecificConfiguration();
+  }
+
+  /**
+   * Validate data source specific configuration.
+   * Override this method in subclasses to add data source specific validation.
+   * This is called during construction to catch configuration issues early.
+   * 
+   * @throws Error if configuration is invalid
+   */
+  protected validateSpecificConfiguration(): void {
+    // Default implementation - no additional validation
   }
 
   /**

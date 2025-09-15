@@ -128,6 +128,57 @@ export class TypeORMSqlDataSource extends DataSource {
   }
 
   /**
+   * Validate TypeORM-specific configuration.
+   * Performs early validation of synchronize flag settings to prevent
+   * configuration issues that could bypass validation.
+   * 
+   * @throws Error if configuration is invalid
+   */
+  protected validateSpecificConfiguration(): void {
+    const options = this.options as TypeORMSqlDataSourceOptions;
+    
+    // Validate synchronize flag consistency with managed schemas
+    // This mirrors the logic in DatabaseConfigBuilder.determineSynchronizeFlag()
+    // to catch configuration issues early
+    const wouldEnableSynchronize = this.wouldEnableSynchronization(options);
+    
+    if (wouldEnableSynchronize && !options.managed) {
+      // If synchronize would be enabled but managed=false, warn about potential issues
+      if (options.synchronize === true) {
+        console.warn(
+          'Warning: synchronize=true with managed=false. This bypasses Slingr schema management. ' +
+          'Consider setting managed=true for automatic schema management.'
+        );
+      }
+    }
+    
+    // Additional validation can be added here for other TypeORM-specific configurations
+  }
+
+  /**
+   * Determines if synchronization would be enabled based on current options.
+   * This mirrors the logic in DatabaseConfigBuilder.determineSynchronizeFlag()
+   * for early validation purposes.
+   * 
+   * @param options - TypeORM data source options
+   * @returns true if synchronization would be enabled
+   */
+  private wouldEnableSynchronization(options: TypeORMSqlDataSourceOptions): boolean {
+    // If synchronize is explicitly provided, use that value
+    if (options.synchronize !== undefined) {
+      return options.synchronize;
+    }
+
+    // For managed schemas, enable synchronize by default (for development)
+    if (options.managed) {
+      return true;
+    }
+
+    // For non-managed schemas, default to false
+    return false;
+  }
+
+  /**
    * Initialize the TypeORM data source.
    * Sets up the TypeORM DataSource, establishes database connection,
    * and configures connection pooling.
