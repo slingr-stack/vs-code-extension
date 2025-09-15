@@ -6,6 +6,7 @@ import { ProjectAnalysisService } from "../../services/projectAnalysisService";
 import { SourceCodeService } from "../../services/sourceCodeService";
 import { FileSystemService } from "../../services/fileSystemService";
 import { ExplorerProvider } from "../../explorer/explorerProvider";
+import { DeleteFieldTool } from "../../refactor/tools/deleteField";
 import * as path from "path";
 
 /**
@@ -23,6 +24,7 @@ export class ChangeReferenceToCompositionTool {
   private sourceCodeService: SourceCodeService;
   private fileSystemService: FileSystemService;
   private explorerProvider: ExplorerProvider;
+  private deleteFieldTool: DeleteFieldTool;
 
   constructor(explorerProvider: ExplorerProvider) {
     this.userInputService = new UserInputService();
@@ -30,6 +32,7 @@ export class ChangeReferenceToCompositionTool {
     this.sourceCodeService = new SourceCodeService();
     this.fileSystemService = new FileSystemService();
     this.explorerProvider = explorerProvider;
+    this.deleteFieldTool = new DeleteFieldTool();
   }
 
   /**
@@ -66,7 +69,7 @@ export class ChangeReferenceToCompositionTool {
       const componentModelCode = await this.generateComponentModelCode(targetModel, sourceModel, cache);
 
       // Step 5: Remove the reference field decorators
-      await this.removeReferenceField(document, referenceField);
+      await this.removeReferenceField(document, referenceField, cache);
 
       // Step 6: Add the component model to the source file
       await this.addComponentModel(document, componentModelCode, sourceModel.name, cache);
@@ -224,86 +227,226 @@ export class ChangeReferenceToCompositionTool {
   }
 
   /**
-   * Generates the TypeScript code for the new component model.
+   * Generates the TypeScript code for the new component model by copying the target model's class body.
    */
   private async generateComponentModelCode(
     targetModel: DecoratedClass,
     sourceModel: DecoratedClass,
     cache: MetadataCache
   ): Promise<string> {
-    const lines: string[] = [];
-
-    // Get datasource from source model
+    // Step 1: Get the target model document to extract the class body
+    const targetDocument = await vscode.workspace.openTextDocument(targetModel.declaration.uri);
+    
+    // Step 2: Extract the complete class body from the target model
+    const classBody = this.sourceCodeService.extractClassBody(targetDocument, targetModel.name);
+    
+    // Step 3: Get datasource from source model
     const sourceModelDecorator = cache.getModelDecoratorByName("Model", sourceModel);
     const dataSource = sourceModelDecorator?.arguments?.[0]?.dataSource;
-
-    // Add model decorator
-    if (dataSource) {
-      lines.push(`@Model({`);
-      lines.push(`\tdataSource: ${dataSource}`);
-      lines.push(`})`);
-    } else {
-      lines.push(`@Model()`);
+    
+    // Step 4: Extract any enums from the target model file
+    const enumDefinitions = this.extractEnumDefinitions(targetDocument);
+    
+    // Step 5: Check for enum name conflicts and resolve them
+    const sourceDocument = await vscode.workspace.openTextDocument(sourceModel.declaration.uri);
+    const resolvedEnums = await this.resolveEnumConflicts(enumDefinitions, sourceDocument, classBody, sourceModel.name);
+    
+    // Step 6: Generate the complete component model content
+    let componentModelCode = this.sourceCodeService.generateModelFileContent(
+      targetModel.name,
+      resolvedEnums.updatedClassBody,
+      `PersistentComponentModel<${sourceModel.name}>`, // Use component model base class
+      dataSource,
+      new Set(["Field", "PersistentComponentModel"]), // Ensure required imports
+      true // This is a component model (no export keyword)
+    );
+    
+    // Step 7: Extract only the component model part (remove imports and add enums)
+    const componentModelParts = this.extractComponentModelFromFileContent(componentModelCode);
+    
+    // Step 8: Add enum definitions if any exist
+    if (resolvedEnums.enumDefinitions.length > 0) {
+      const enumsContent = resolvedEnums.enumDefinitions.join('\n\n');
+      return `${enumsContent}\n\n${componentModelParts}`;
     }
+    
+    return componentModelParts;
+  }
 
-    // Add class declaration as component model
-    lines.push(`class ${targetModel.name} extends PersistentComponentModel<${sourceModel.name}> {`);
-    lines.push(``);
-
-    // Copy fields from the original model (except decorators that might not be compatible)
-    for (const [fieldName, field] of Object.entries(targetModel.properties)) {
-      // Add field decorators (filter out any that might be problematic)
-      const validDecorators = field.decorators.filter(d => 
-        d.name === "Field" || 
-        d.name === "Text" || 
-        d.name === "Integer" || 
-        d.name === "Number" || 
-        d.name === "Boolean" ||
-        d.name === "Date" ||
-        d.name === "Email" ||
-        d.name === "LongText" ||
-        d.name === "Html"
-      );
-
-      // If no Field decorator, add one
-      if (!validDecorators.some(d => d.name === "Field")) {
-        lines.push(`\t@Field({})`);
+  /**
+   * Extracts enum definitions from a document.
+   */
+  private extractEnumDefinitions(document: vscode.TextDocument): string[] {
+    const content = document.getText();
+    const lines = content.split('\n');
+    const enumDefinitions: string[] = [];
+    
+    let currentEnum: string[] = [];
+    let inEnum = false;
+    let braceCount = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Check if we're starting an enum
+      if (line.trim().startsWith('export enum ') || line.trim().startsWith('enum ')) {
+        inEnum = true;
+        braceCount = 0;
       }
-
-      // Add other decorators
-      for (const decorator of validDecorators) {
-        if (decorator.name !== "Field") {
-          lines.push(`\t@${decorator.name}()`);
-        } else {
-          lines.push(`\t@Field({})`);
+      
+      if (inEnum) {
+        currentEnum.push(line);
+        
+        // Count braces
+        const openBraces = (line.match(/{/g) || []).length;
+        const closeBraces = (line.match(/}/g) || []).length;
+        braceCount += openBraces - closeBraces;
+        
+        // If we've closed all braces, we're done with this enum
+        if (braceCount === 0 && line.includes('}')) {
+          inEnum = false;
+          enumDefinitions.push(currentEnum.join('\n'));
+          currentEnum = [];
         }
       }
-
-      // Add property declaration
-      lines.push(`\t${fieldName}!: ${field.type};`);
-      lines.push(``);
     }
+    
+    return enumDefinitions;
+  }
 
-    lines.push(`}`);
+  /**
+   * Resolves enum name conflicts between target and source files.
+   */
+  private async resolveEnumConflicts(
+    enumDefinitions: string[],
+    sourceDocument: vscode.TextDocument,
+    classBody: string,
+    sourceModelName: string
+  ): Promise<{ enumDefinitions: string[]; updatedClassBody: string }> {
+    if (enumDefinitions.length === 0) {
+      return { enumDefinitions: [], updatedClassBody: classBody };
+    }
+    
+    const sourceContent = sourceDocument.getText();
+    const existingEnums = this.extractEnumNames(sourceContent);
+    const resolvedEnums: string[] = [];
+    let updatedClassBody = classBody;
+    
+    for (const enumDef of enumDefinitions) {
+      const enumName = this.extractEnumName(enumDef);
+      
+      if (enumName && existingEnums.includes(enumName)) {
+        // Conflict detected, rename the enum
+        const newEnumName = `${sourceModelName}${enumName}`;
+        existingEnums.push(newEnumName); // Add to list to avoid future conflicts
+        
+        // Update enum definition
+        const updatedEnumDef = enumDef.replace(
+          new RegExp(`enum\\s+${enumName}\\b`),
+          `enum ${newEnumName}`
+        );
+        
+        // Update class body to use new enum name
+        updatedClassBody = updatedClassBody.replace(
+          new RegExp(`\\b${enumName}\\b`, 'g'),
+          newEnumName
+        );
+        
+        resolvedEnums.push(updatedEnumDef);
+      } else {
+        resolvedEnums.push(enumDef);
+        if (enumName) {
+          existingEnums.push(enumName);
+        }
+      }
+    }
+    
+    return { enumDefinitions: resolvedEnums, updatedClassBody };
+  }
 
-    return lines.join("\n");
+  /**
+   * Extracts enum names from file content.
+   */
+  private extractEnumNames(content: string): string[] {
+    const enumRegex = /(?:export\s+)?enum\s+(\w+)/g;
+    const enumNames: string[] = [];
+    let match;
+    
+    while ((match = enumRegex.exec(content)) !== null) {
+      enumNames.push(match[1]);
+    }
+    
+    return enumNames;
+  }
+
+  /**
+   * Extracts enum name from an enum definition.
+   */
+  private extractEnumName(enumDefinition: string): string | null {
+    const match = enumDefinition.match(/(?:export\s+)?enum\s+(\w+)/);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * Extracts only the component model part from full file content (removes imports).
+   */
+  private extractComponentModelFromFileContent(fileContent: string): string {
+    const lines = fileContent.split('\n');
+    const result: string[] = [];
+    let foundModel = false;
+    
+    for (const line of lines) {
+      // Skip import lines
+      if (line.trim().startsWith('import ')) {
+        continue;
+      }
+      
+      // Skip empty lines before the model
+      if (!foundModel && line.trim() === '') {
+        continue;
+      }
+      
+      // Once we find the model decorator or class, include everything
+      if (line.trim().startsWith('@Model') || line.includes('class ')) {
+        foundModel = true;
+      }
+      
+      if (foundModel) {
+        result.push(line);
+      }
+    }
+    
+    return result.join('\n');
   }
 
   /**
    * Removes the @Reference and @Field decorators from the field.
    */
-  private async removeReferenceField(document: vscode.TextDocument, field: PropertyMetadata): Promise<void> {
-    const edit = new vscode.WorkspaceEdit();
-
-    // Find and remove @Reference and @Field decorators
-    for (const decorator of field.decorators) {
-      if (decorator.name === "Reference" || decorator.name === "Field") {
-        const decoratorLine = document.lineAt(decorator.position.start.line);
-        edit.delete(document.uri, decoratorLine.rangeIncludingLineBreak);
+  private async removeReferenceField(document: vscode.TextDocument, field: PropertyMetadata, cache: MetadataCache): Promise<void> {
+    // Find the model name that contains this field
+    const fileMetadata = cache.getMetadataForFile(document.uri.fsPath);
+    let modelName = 'Unknown';
+    
+    if (fileMetadata) {
+      for (const [className, classData] of Object.entries(fileMetadata.classes)) {
+        // Type assertion since we know the structure from cache
+        const classInfo = classData as DecoratedClass;
+        if (classInfo.properties[field.name] === field) {
+          modelName = className;
+          break;
+        }
       }
     }
 
-    await vscode.workspace.applyEdit(edit);
+    // Use the DeleteFieldTool to programmatically remove the field
+    const workspaceEdit = await this.deleteFieldTool.deleteFieldProgrammatically(
+      field,
+      modelName,
+      cache
+    );
+
+    // Apply the workspace edit
+    await vscode.workspace.applyEdit(workspaceEdit);
   }
 
   /**
