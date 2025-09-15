@@ -786,12 +786,12 @@ export class MetadataCache {
      * @param filePath The file path to build references for
      */
     private buildReferencesForFile(filePath: string): void {
-        const file = this.cache[filePath];
+        const normalizedPath: string = filePath.replace(/\\/g, '/');
+        const file = this.cache[normalizedPath];
         if (!file) {
             return;
         }
 
-        const normalizedPath = file.uri.fsPath.replace(/\\/g, '/');
         const sourceFile = this.tsMorphProject.getSourceFile(normalizedPath);
         if (!sourceFile) {
             return;
