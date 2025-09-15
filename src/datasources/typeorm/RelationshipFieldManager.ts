@@ -141,7 +141,7 @@ export class RelationshipFieldManager {
       // One-to-many relationship for composition arrays
       const relationOptions: any = {
         eager,
-        cascade: ['insert', 'update'], // Cascade save operations
+        cascade: ['insert', 'update', 'remove'], // Cascade save and remove operations
         orphanedRowAction: 'delete' // Delete orphaned children
       };
 
