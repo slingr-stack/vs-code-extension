@@ -1,4 +1,5 @@
 import { PersistentModel } from './src/model';
+import number from 'financial-number';
 
 // Export all the core components of the framework
 export { BaseModel } from './src/model/BaseModel';
@@ -27,3 +28,35 @@ export { PersistentModel } from './src/model';
 export { TypeORMSqlDataSource } from './src/datasources';
 export type { TypeORMSqlDataSourceOptions } from './src/datasources';
 export { Relationship } from './src/model/types';
+
+// Aliases for the number() function from financial-number library
+
+/**
+ * Creates a decimal number using the financial-number library.
+ * This is an alias for number() that provides consistency with the Decimal type naming.
+ * 
+ * @param value - The numeric value as a string or number
+ * @returns A FinancialNumber instance for decimal operations
+ * 
+ * @example
+ * ```typescript
+ * const price = decimal("123.45");
+ * const total = price.plus("10.00");
+ * ```
+ */
+export const decimal = number;
+
+/**
+ * Creates a money value using the financial-number library.
+ * This is an alias for number() that provides consistency with the Money type naming.
+ * 
+ * @param value - The numeric value as a string or number
+ * @returns A FinancialNumber instance for monetary operations
+ * 
+ * @example
+ * ```typescript
+ * const price = money("999.99");
+ * const discounted = price.multiply("0.9");
+ * ```
+ */
+export const money = number;
