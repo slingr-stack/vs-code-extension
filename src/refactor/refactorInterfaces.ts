@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DataSourceMetadata, DecoratedClass, DecoratorMetadata, FileMetadata, MetadataCache, PropertyMetadata } from '../cache/cache';
+import { DatasetFileMetadata, DatasetMetadata, DataSourceMetadata, DecoratedClass, DecoratorMetadata, FileMetadata, MetadataCache, PropertyMetadata } from '../cache/cache';
 
 /**
  * Common properties shared across all refactoring payloads.
@@ -15,7 +15,7 @@ export interface ManualRefactorContext {
     cache: MetadataCache;
     uri: vscode.Uri;
     range: vscode.Range;
-    metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata;
+    metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata | DatasetMetadata | DatasetFileMetadata;
 }
 
 // --- Payloads for Specific Change Types ---
@@ -120,7 +120,7 @@ export interface ManualRefactorContext {
     cache: MetadataCache;
     uri: vscode.Uri;
     range: vscode.Range;
-    metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata;
+    metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata | DatasetMetadata | DatasetFileMetadata;
 }
 
 /**

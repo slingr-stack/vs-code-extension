@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { DataSourceMetadata, DecoratedClass, PropertyMetadata } from "../cache/cache";
+import { DataSourceMetadata, DecoratedClass, PropertyMetadata, DatasetFileMetadata, DatasetMetadata } from "../cache/cache";
 
 export class AppTreeItem extends vscode.TreeItem {
   public folderPath?: string; // Add folder path property for folder items
@@ -9,7 +9,7 @@ export class AppTreeItem extends vscode.TreeItem {
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     public readonly itemType: string,
     private readonly extensionUri: vscode.Uri,
-    public readonly metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata,
+    public readonly metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata | DatasetMetadata | DatasetFileMetadata,
     public readonly parent?: AppTreeItem,
     folderPath?: string,
     public readonly isDesynchronized: boolean = false 
@@ -59,6 +59,9 @@ export class AppTreeItem extends vscode.TreeItem {
             break;
         case "dataset":
           iconFileName = "dataset.svg";
+          break;
+        case "datasetFile":
+          iconFileName = "dataset-file.svg";
           break;
         case "field":
           iconFileName = "field.svg";

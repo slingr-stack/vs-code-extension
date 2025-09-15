@@ -1,6 +1,6 @@
 
 import * as vscode from 'vscode';
-import { DataSourceMetadata, DecoratedClass, MethodMetadata, PropertyMetadata } from "../cache/cache";
+import { DatasetFileMetadata, DatasetMetadata, DataSourceMetadata, DecoratedClass, MethodMetadata, PropertyMetadata } from "../cache/cache";
 import { fieldTypeConfig } from '../utils/fieldTypes';
 
 /**
@@ -18,7 +18,7 @@ export function isModelFile(uri: vscode.Uri): boolean {
  * @param metadata - The class or property metadata to check.
  * @returns True if the metadata is for an Model class, false otherwise.
  */
-export function isModel(metadata: DecoratedClass | PropertyMetadata | DataSourceMetadata): metadata is DecoratedClass {
+export function isModel(metadata: DecoratedClass | PropertyMetadata | DataSourceMetadata | DatasetMetadata | DatasetFileMetadata): metadata is DecoratedClass {
     if (!hasDecorators(metadata) || 'dataSources' in metadata) {
         return false;
     }
@@ -39,7 +39,7 @@ function hasDecorators(obj: any): obj is { decorators: Array<{ name: string }> }
  * @param metadata - The class or property metadata to check.
  * @returns True if the metadata is for a Field property, false otherwise.
  */
-export function isField(metadata: DecoratedClass | PropertyMetadata | DataSourceMetadata): metadata is PropertyMetadata {
+export function isField(metadata: DecoratedClass | PropertyMetadata | DataSourceMetadata | DatasetMetadata | DatasetFileMetadata): metadata is PropertyMetadata {
     if (!hasDecorators(metadata) || 'dataSources' in metadata) {
         return false;
     }

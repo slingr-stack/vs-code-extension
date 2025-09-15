@@ -4,6 +4,8 @@ import * as path from 'path';
 import { RefactorController } from '../refactor/RefactorController';
 import { ChangeObject } from '../refactor/refactorInterfaces';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+
 
 // Represents the type of changes that can occur to a file
 type FileChangeType = 'create' | 'change' | 'delete';
@@ -39,6 +41,25 @@ export interface DecoratedClass {
 }
 
 /**
+ * Contains metadata about a single dataset file.
+ */
+export interface DatasetFileMetadata {
+    name: string;
+    declaration: vscode.Location;
+}
+
+
+/**
+ * Contains metadata about a single dataset.
+ */
+export interface DatasetMetadata {
+    name: string;
+    declaration: vscode.Location;
+    files: DatasetFileMetadata[];
+}
+
+
+/**
  * Contains metadata about a single data source definition.
  */
 export interface DataSourceMetadata {
@@ -47,6 +68,7 @@ export interface DataSourceMetadata {
     declaration: vscode.Location;
     references: vscode.Location[];
     options: { [key: string]: any };
+    datasets: DatasetMetadata[];
 }
 
 /**
@@ -56,8 +78,8 @@ export interface PropertyMetadata {
     name: string;
     type: string;
     decorators: DecoratorMetadata[];
-    references: vscode.Location[]; 
-    declaration: vscode.Location; 
+    references: vscode.Location[];
+    declaration: vscode.Location;
 }
 
 /**
@@ -82,7 +104,7 @@ export interface ParameterMetadata {
  */
 export interface MethodMetadata {
     name: string;
-    parameters: ParameterMetadata[]; 
+    parameters: ParameterMetadata[];
     decorators: DecoratorMetadata[];
     returnedFields: string[] | null;
     declaration: vscode.Location;
@@ -128,7 +150,6 @@ export class MetadataCache {
      * and setting up a file watcher to keep the cache up-to-date.
      */
     public async initialize(): Promise<void> {
-        
         const files = await vscode.workspace.findFiles('{src/data/**/*.ts,src/dataSources/**/*.ts}');
         for (const file of files) {
             this.addSourceFile(file);
@@ -561,7 +582,8 @@ export class MetadataCache {
                                 this.tsNodeToVscodeRange(varDecl.getNameNode())
                             ),
                             references: [],
-                            options: options
+                            options: options,
+                            datasets: this.scanForDatasets(dataSourceName)
                         };
                     }
                 }
@@ -574,6 +596,48 @@ export class MetadataCache {
 
         return fileMetadata;
     }
+
+    private scanForDatasets(dataSourceName: string): DatasetMetadata[] {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            return [];
+        }
+
+        const datasetsPath = path.join(workspaceFolder.uri.fsPath, 'src', 'datasets');
+        if (!fs.existsSync(datasetsPath)) {
+            return [];
+        }
+
+        const datasets: DatasetMetadata[] = [];
+        const entries = fs.readdirSync(datasetsPath, { withFileTypes: true });
+
+        for (const entry of entries) {
+            if (entry.isDirectory() && entry.name.startsWith(`${dataSourceName}-`)) {
+                const datasetName = entry.name.substring(dataSourceName.length + 1);
+                const datasetPath = path.join(datasetsPath, entry.name);
+                const datasetFiles: DatasetFileMetadata[] = [];
+
+                const files = fs.readdirSync(datasetPath);
+                for (const file of files) {
+                    if (file.endsWith('.jsonl')) {
+                        const filePath = path.join(datasetPath, file);
+                        datasetFiles.push({
+                            name: file,
+                            declaration: new vscode.Location(vscode.Uri.file(filePath), new vscode.Position(0, 0))
+                        });
+                    }
+                }
+
+                datasets.push({
+                    name: datasetName,
+                    declaration: new vscode.Location(vscode.Uri.file(datasetPath), new vscode.Position(0, 0)),
+                    files: datasetFiles
+                });
+            }
+        }
+        return datasets;
+    }
+
 
     /**
      * Parses any method to extract its parameters and special return values.

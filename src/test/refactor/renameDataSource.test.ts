@@ -496,6 +496,7 @@ function createMockDataSource(name: string, uri: vscode.Uri, range: vscode.Range
         type: 'TypeOrmSqlDataSource',
         declaration: { uri, range },
         references: [{ uri, range }],
-        options: {}
+        options: {},
+        datasets: []
     };
 }

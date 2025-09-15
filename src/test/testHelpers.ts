@@ -84,6 +84,7 @@ export class TestMetadataFactory {
                 username: 'user',
                 password: 'password',
             },
+            datasets: []
         };
         return { ...defaults, ...overrides };
     }
