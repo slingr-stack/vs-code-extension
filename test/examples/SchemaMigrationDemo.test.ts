@@ -66,18 +66,7 @@ class UserV2 extends PersistentModel {
   email!: string;
 
   // New fields added in V2
-  @Field({
-    validation: (_: number, user: UserV2) => {
-      let errors = [];
-      if (user.age !== undefined && (user.age < 18 || user.age > 120)) {
-        errors.push({
-          constraint: "invalidAge",
-          message: "Age must be between 18 and 120",
-        });
-      }
-      return errors;
-    },
-  })
+  @Field()
   @Integer({ min: 18, max: 120 })
   age!: number;
 
