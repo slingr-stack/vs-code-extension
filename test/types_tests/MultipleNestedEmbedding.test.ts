@@ -1,5 +1,14 @@
 import { TypeORMSqlDataSource } from '../../src/datasources';
 import { 
+  MODEL_FIELDS,
+  MODEL_DATASOURCE,
+  FIELD_TYPE,
+  FIELD_TYPE_OPTIONS,
+  FIELD_REQUIRED,
+  FIELD_EMBEDDED,
+  FIELD_EMBEDDED_TYPE
+} from '../../src/model/metadata';
+import { 
   Person, 
   Address, 
   GeoLocation, 
@@ -30,12 +39,12 @@ describe('Multiple Nested Embedded Models', () => {
       dataSource.configureModel(ModelClass, modelOptions);
 
       // Configure all fields with the data source
-      const fieldNames = Reflect.getMetadata('model:fields', ModelClass) || [];
+      const fieldNames = Reflect.getMetadata(MODEL_FIELDS, ModelClass) || [];
       fieldNames.forEach((fieldName: string) => {
-        const fieldType = Reflect.getMetadata('field:type', ModelClass.prototype, fieldName);
-        const fieldTypeOptions = Reflect.getMetadata('field:type:options', ModelClass.prototype, fieldName);
-        const fieldRequired = Reflect.getMetadata('field:required', ModelClass.prototype, fieldName);
-        const isEmbedded = Reflect.getMetadata('field:embedded', ModelClass.prototype, fieldName);
+        const fieldType = Reflect.getMetadata(FIELD_TYPE, ModelClass.prototype, fieldName);
+        const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, ModelClass.prototype, fieldName);
+        const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, ModelClass.prototype, fieldName);
+        const isEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, ModelClass.prototype, fieldName);
 
         if (isEmbedded) {
           // For embedded fields, pass a special type indicator
@@ -65,17 +74,17 @@ describe('Multiple Nested Embedded Models', () => {
   describe('Simple Nested Embedding (Person -> Address -> GeoLocation)', () => {
     test('should store nested embedded model metadata correctly', () => {
       // Check Person -> Address embedding
-      const isPersonAddressEmbedded = Reflect.getMetadata('field:embedded', Person.prototype, 'address');
+      const isPersonAddressEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, Person.prototype, 'address');
       expect(isPersonAddressEmbedded).toBe(true);
 
-      const personAddressType = Reflect.getMetadata('field:embedded:type', Person.prototype, 'address');
+      const personAddressType = Reflect.getMetadata(FIELD_EMBEDDED_TYPE, Person.prototype, 'address');
       expect(personAddressType).toBe(Address);
 
       // Check Address -> GeoLocation embedding
-      const isAddressGeoEmbedded = Reflect.getMetadata('field:embedded', Address.prototype, 'geo');
+      const isAddressGeoEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, Address.prototype, 'geo');
       expect(isAddressGeoEmbedded).toBe(true);
 
-      const addressGeoType = Reflect.getMetadata('field:embedded:type', Address.prototype, 'geo');
+      const addressGeoType = Reflect.getMetadata(FIELD_EMBEDDED_TYPE, Address.prototype, 'geo');
       expect(addressGeoType).toBe(GeoLocation);
     });
 

@@ -6,7 +6,8 @@ import {
   MODEL_FIELDS, 
   FIELD_TYPE, 
   FIELD_TYPE_OPTIONS, 
-  FIELD_REQUIRED 
+  FIELD_REQUIRED,
+  FIELD_EMBEDDED
 } from './metadata/MetadataKeys';
 
 /**
@@ -118,8 +119,8 @@ export function Model(options?: ModelOptions) {
             }
           }
           if (isEmbedded === undefined) {
-            if (Reflect.hasMetadata('field:embedded', currentClass.prototype, fieldName)) {
-              isEmbedded = Reflect.getMetadata('field:embedded', currentClass.prototype, fieldName);
+            if (Reflect.hasMetadata(FIELD_EMBEDDED, currentClass.prototype, fieldName)) {
+              isEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, currentClass.prototype, fieldName);
             } else {
               isEmbedded = null;
             }

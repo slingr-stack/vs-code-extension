@@ -25,6 +25,7 @@ import {
   DATASOURCE_TYPE, 
   MODEL_DATASOURCE, 
   DATASOURCE_FIELD_CONFIGURED,
+  DATASOURCE_EMBEDDED_CONFIGURED,
   TYPEORM_ENTITY,
   TYPEORM_TABLE,
   TYPEORM_COLUMN,
@@ -34,6 +35,8 @@ import {
   FIELD_RELATIONSHIP_TYPE,
   FIELD_RELATIONSHIP_LOAD,
   FIELD_RELATIONSHIP_ON_DELETE,
+  FIELD_EMBEDDED,
+  FIELD_EMBEDDED_TYPE,
   DESIGN_TYPE
 } from '../../model/metadata/MetadataKeys';
 
@@ -270,7 +273,7 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     // Check if this is an embedded field
-    const isEmbedded = Reflect.getMetadata('field:embedded', target, propertyKey);
+    const isEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, target, propertyKey);
     if (isEmbedded || fieldType === 'embedded') {
       this.configureEmbeddedField(target, propertyKey);
       return;
@@ -338,7 +341,7 @@ export class TypeORMSqlDataSource extends DataSource {
    */
   private configureEmbeddedField(target: any, propertyKey: string, prefix: string = '', rootTarget?: any): void {
     // Get the embedded type from metadata
-    const embeddedType = Reflect.getMetadata('field:embedded:type', target, propertyKey);
+    const embeddedType = Reflect.getMetadata(FIELD_EMBEDDED_TYPE, target, propertyKey);
 
     if (!embeddedType) {
       throw new Error(`Cannot determine type for embedded field ${propertyKey}`);
@@ -351,12 +354,12 @@ export class TypeORMSqlDataSource extends DataSource {
     const currentPrefix = prefix ? `${prefix}_${propertyKey}` : propertyKey;
 
     // Get all fields from the embedded model
-    const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
+    const embeddedFields = Reflect.getMetadata(MODEL_FIELDS, embeddedType) || [];
 
     // For each field in the embedded model, create a column in the parent entity
     for (const embeddedFieldName of embeddedFields) {
       // Check if this field is also embedded (nested embedding)
-      const isNestedEmbedded = Reflect.getMetadata('field:embedded', embeddedType.prototype, embeddedFieldName);
+      const isNestedEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, embeddedType.prototype, embeddedFieldName);
       
       if (isNestedEmbedded) {
         // Recursively configure nested embedded field
@@ -397,8 +400,8 @@ export class TypeORMSqlDataSource extends DataSource {
     // Store that this embedded field is configured for TypeORM
     // Only store this metadata on the original target (not for recursive calls)
     if (!rootTarget) {
-      Reflect.defineMetadata('datasource:field:configured', true, target, propertyKey);
-      Reflect.defineMetadata('datasource:embedded:configured', true, target, propertyKey);
+      Reflect.defineMetadata(DATASOURCE_FIELD_CONFIGURED, true, target, propertyKey);
+      Reflect.defineMetadata(DATASOURCE_EMBEDDED_CONFIGURED, true, target, propertyKey);
     }
   }
 
@@ -411,10 +414,10 @@ export class TypeORMSqlDataSource extends DataSource {
    */
   private extractEmbeddedValues<T extends object>(entity: T): void {
     const constructor = entity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', constructor) || [];
+    const fieldNames = Reflect.getMetadata(MODEL_FIELDS, constructor) || [];
 
     for (const fieldName of fieldNames) {
-      const isEmbedded = Reflect.getMetadata('field:embedded', constructor.prototype, fieldName);
+      const isEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, constructor.prototype, fieldName);
 
       if (isEmbedded) {
         const embeddedValue = (entity as any)[fieldName];
@@ -442,11 +445,11 @@ export class TypeORMSqlDataSource extends DataSource {
   ): void {
     // Get the embedded type
     const embeddedType = embeddedValue.constructor;
-    const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
+    const embeddedFields = Reflect.getMetadata(MODEL_FIELDS, embeddedType) || [];
 
     // Extract each embedded field to its corresponding column
     for (const embeddedFieldName of embeddedFields) {
-      const isNestedEmbedded = Reflect.getMetadata('field:embedded', embeddedType.prototype, embeddedFieldName);
+      const isNestedEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, embeddedType.prototype, embeddedFieldName);
       
       if (isNestedEmbedded) {
         // Handle nested embedded field recursively
@@ -474,14 +477,14 @@ export class TypeORMSqlDataSource extends DataSource {
    */
   private restoreEmbeddedValues<T extends object>(entity: T): void {
     const constructor = entity.constructor;
-    const fieldNames = Reflect.getMetadata('model:fields', constructor) || [];
+    const fieldNames = Reflect.getMetadata(MODEL_FIELDS, constructor) || [];
 
     for (const fieldName of fieldNames) {
-      const isEmbedded = Reflect.getMetadata('field:embedded', constructor.prototype, fieldName);
+      const isEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, constructor.prototype, fieldName);
 
       if (isEmbedded) {
         // Get the embedded type and its fields
-        const embeddedType = Reflect.getMetadata('field:embedded:type', constructor.prototype, fieldName);
+        const embeddedType = Reflect.getMetadata(FIELD_EMBEDDED_TYPE, constructor.prototype, fieldName);
         
         // Recursively restore the embedded object
         const embeddedInstance = this.restoreEmbeddedValueRecursive(entity, fieldName, embeddedType, fieldName);
@@ -514,11 +517,11 @@ export class TypeORMSqlDataSource extends DataSource {
 
     // Restore each field from its column
     for (const embeddedFieldName of embeddedFields) {
-      const isNestedEmbedded = Reflect.getMetadata('field:embedded', embeddedType.prototype, embeddedFieldName);
+      const isNestedEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, embeddedType.prototype, embeddedFieldName);
 
       if (isNestedEmbedded) {
         // Handle nested embedded field recursively
-        const nestedEmbeddedType = Reflect.getMetadata('field:embedded:type', embeddedType.prototype, embeddedFieldName);
+        const nestedEmbeddedType = Reflect.getMetadata(FIELD_EMBEDDED_TYPE, embeddedType.prototype, embeddedFieldName);
         const nestedPrefix = `${prefix}_${embeddedFieldName}`;
         
         const nestedInstance = this.restoreEmbeddedValueRecursive(entity, embeddedFieldName, nestedEmbeddedType, nestedPrefix);

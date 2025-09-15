@@ -1,6 +1,14 @@
 import "reflect-metadata";
 import { Expose, Type } from "class-transformer";
 import { ValidateNested } from "class-validator";
+import { 
+  FIELD_EMBEDDED, 
+  FIELD_EMBEDDED_TYPE, 
+  FIELD_EMBEDDED_OPTIONS, 
+  FIELD_EMBEDDED_DOCS, 
+  MODEL_FIELDS, 
+  DESIGN_TYPE 
+} from './metadata';
 
 /**
  * Configuration options for the Embedded decorator.
@@ -51,29 +59,29 @@ export interface EmbeddedOptions {
 export function Embedded(options?: EmbeddedOptions) {
   return function (target: any, propertyKey: string) {
     // Store metadata that this field is embedded
-    Reflect.defineMetadata("field:embedded", true, target, propertyKey);
+    Reflect.defineMetadata(FIELD_EMBEDDED, true, target, propertyKey);
     
     // Store embedded options
     if (options) {
-      Reflect.defineMetadata("field:embedded:options", options, target, propertyKey);
+      Reflect.defineMetadata(FIELD_EMBEDDED_OPTIONS, options, target, propertyKey);
     }
     
     // Store documentation if provided
     if (options?.docs) {
-      Reflect.defineMetadata("field:embedded:docs", options.docs, target, propertyKey);
+      Reflect.defineMetadata(FIELD_EMBEDDED_DOCS, options.docs, target, propertyKey);
     }
 
     // Get the type of the property
-    const propertyType = Reflect.getMetadata("design:type", target, propertyKey);
+    const propertyType = Reflect.getMetadata(DESIGN_TYPE, target, propertyKey);
     if (propertyType) {
-      Reflect.defineMetadata("field:embedded:type", propertyType, target, propertyKey);
+      Reflect.defineMetadata(FIELD_EMBEDDED_TYPE, propertyType, target, propertyKey);
     }
 
     // Register this field in the fields list for the containing class
-    const existingFields = Reflect.getMetadata('model:fields', target.constructor) || [];
+    const existingFields = Reflect.getMetadata(MODEL_FIELDS, target.constructor) || [];
     if (!existingFields.includes(propertyKey)) {
       existingFields.push(propertyKey);
-      Reflect.defineMetadata('model:fields', existingFields, target.constructor);
+      Reflect.defineMetadata(MODEL_FIELDS, existingFields, target.constructor);
     }
 
     // Make the embedded field available in JSON serialization
