@@ -69,21 +69,22 @@ export class ChangeCompositionToReferenceTool {
       // Step 4: Generate and create the independent model using existing tools
       const modelFileUri = await this.generateAndCreateIndependentModel(componentModel, sourceModel, targetFilePath, cache);
 
-      // Step 6: Remove the composition field from the source model
-      await this.removeCompositionField(document, compositionField, cache);
+      // Step 5: Extract related enums before removing the component model
+      const relatedEnums = await this.sourceCodeService.extractRelatedEnums(document, componentModel, 
+        this.sourceCodeService.extractClassBody(document, componentModel.name));
 
-      // Step 7: Remove the component model from the source file
-      await this.removeComponentModel(document, componentModel, sourceModel, cache);
+      // Step 6-8: Remove field, model, and enums in a single workspace edit to avoid coordinate issues
+      await this.removeFieldModelAndEnums(document, compositionField, componentModel, relatedEnums, cache);
 
-      // Step 8: Add the reference field to the source model
+      // Step 9: Add the reference field to the source model
       await this.addReferenceField(document, sourceModel.name, fieldName, componentModel.name, compositionField.type.endsWith('[]'), cache);
 
-      // Step 9: Add import for the new model in the source file
+      // Step 10: Add import for the new model in the source file
       const importEdit = new vscode.WorkspaceEdit();
       await this.sourceCodeService.addModelImport(document, componentModel.name, importEdit, cache);
       await vscode.workspace.applyEdit(importEdit);
 
-      // Step 10: Focus on the newly modified field
+      // Step 11: Focus on the newly modified field
       await this.sourceCodeService.focusOnElement(document, fieldName);
 
       // Step 11: Show success message
@@ -169,7 +170,7 @@ export class ChangeCompositionToReferenceTool {
    */
   private async determineTargetFilePath(sourceModel: DecoratedClass, componentModelName: string): Promise<string> {
     const sourceDir = path.dirname(sourceModel.declaration.uri.fsPath);
-    const fileName = `${componentModelName.toLowerCase()}.ts`;
+    const fileName = `${componentModelName}.ts`;
     return path.join(sourceDir, fileName);
   }
 
@@ -188,17 +189,20 @@ export class ChangeCompositionToReferenceTool {
     // Step 2: Extract the complete class body from the component model
     const classBody = this.sourceCodeService.extractClassBody(sourceDocument, componentModel.name);
     
-    // Step 3: Get datasource from source model
+    // Step 3: Extract related enums from the source file (for Choice fields)
+    const relatedEnums = await this.sourceCodeService.extractRelatedEnums(sourceDocument, componentModel, classBody);
+    
+    // Step 4: Get datasource from source model
     const sourceModelDecorator = cache.getModelDecoratorByName("Model", sourceModel);
     const dataSource = sourceModelDecorator?.arguments?.[0]?.dataSource;
     
-    // Step 4: Extract existing model imports from the source file
+    // Step 5: Extract existing model imports from the source file
     const existingImports = this.sourceCodeService.extractModelImports(sourceDocument);
     
-    // Step 5: Convert the class body for independent model use
+    // Step 6: Convert the class body for independent model use
     const convertedClassBody = this.convertComponentClassBody(classBody);
     
-    // Step 6: Generate the complete model file content
+    // Step 7: Generate the complete model file content
     const modelFileContent = this.sourceCodeService.generateModelFileContent(
       componentModel.name,
       convertedClassBody,
@@ -208,12 +212,15 @@ export class ChangeCompositionToReferenceTool {
       false // This is a standalone model (with export)
     );
     
-    // Step 7: Create the new model file
+    // Step 8: Add related enums to the file content
+    const finalFileContent = this.sourceCodeService.addEnumsToFileContent(modelFileContent, relatedEnums);
+    
+    // Step 9: Create the new model file
     const modelFileUri = vscode.Uri.file(targetFilePath);
     const encoder = new TextEncoder();
-    await vscode.workspace.fs.writeFile(modelFileUri, encoder.encode(modelFileContent));
+    await vscode.workspace.fs.writeFile(modelFileUri, encoder.encode(finalFileContent));
     
-    // Step 8: Add model imports to the new file if needed
+    // Step 10: Add model imports to the new file if needed
     if (existingImports.length > 0) {
       await this.addModelImportsToNewFile(modelFileUri, existingImports);
     }
@@ -274,58 +281,215 @@ export class ChangeCompositionToReferenceTool {
   }
 
   /**
-   * Removes the @Composition and @Field decorators from the field.
+   * Removes the composition field, component model, and unused enums in a single workspace edit
+   * to avoid coordinate invalidation issues.
    */
-  private async removeCompositionField(document: vscode.TextDocument, field: PropertyMetadata, cache: MetadataCache): Promise<void> {
-    // Find the model name that contains this field
+  private async removeFieldModelAndEnums(
+    document: vscode.TextDocument,
+    compositionField: PropertyMetadata,
+    componentModel: DecoratedClass,
+    relatedEnums: string[],
+    cache: MetadataCache
+  ): Promise<void> {
+    const workspaceEdit = new vscode.WorkspaceEdit();
+
+    // Step 1: Get field deletion range (using DeleteFieldTool logic)
     const fileMetadata = cache.getMetadataForFile(document.uri.fsPath);
     let modelName = 'Unknown';
     
     if (fileMetadata) {
       for (const [className, classData] of Object.entries(fileMetadata.classes)) {
-        // Type assertion since we know the structure from cache
         const classInfo = classData as DecoratedClass;
-        if (classInfo.properties[field.name] === field) {
+        if (classInfo.properties[compositionField.name] === compositionField) {
           modelName = className;
           break;
         }
       }
     }
 
-    // Use the DeleteFieldTool to programmatically remove the field
-    const workspaceEdit = await this.deleteFieldTool.deleteFieldProgrammatically(
-      field,
+    // Get field deletion edit without applying it
+    const fieldDeletionEdit = await this.deleteFieldTool.deleteFieldProgrammatically(
+      compositionField,
       modelName,
       cache
     );
 
-    // Apply the workspace edit
+    // Step 2: Get model deletion range
+    await this.sourceCodeService.deleteModelClassFromFile(document.uri, componentModel, workspaceEdit);
+
+    // Step 3: Get enum deletion ranges
+    await this.addEnumDeletionsToWorkspaceEdit(document, relatedEnums, workspaceEdit, componentModel);
+
+    // Step 4: Merge field deletion edits into the main workspace edit
+    this.mergeWorkspaceEdits(fieldDeletionEdit, workspaceEdit);
+
+    // Step 5: Apply all deletions in a single operation
     await vscode.workspace.applyEdit(workspaceEdit);
   }
 
   /**
-   * Removes the component model from the source file.
+   * Adds enum deletion ranges to the workspace edit if the enums are no longer used.
    */
-  private async removeComponentModel(
+  private async addEnumDeletionsToWorkspaceEdit(
     document: vscode.TextDocument,
-    componentModel: DecoratedClass,
-    sourceModel: DecoratedClass,
-    cache: MetadataCache
+    extractedEnums: string[],
+    workspaceEdit: vscode.WorkspaceEdit,
+    componentModel: DecoratedClass
   ): Promise<void> {
-    // Get the text range for the component model
-    const modelRange = componentModel.declaration.range;
+    if (extractedEnums.length === 0) {
+      return;
+    }
     
-    // Extend the range to include any preceding decorators and following whitespace
-    const extendedRange = new vscode.Range(
-      new vscode.Position(Math.max(0, modelRange.start.line - 5), 0), // Include decorators
-      new vscode.Position(modelRange.end.line + 2, 0) // Include trailing whitespace
-    );
+    const sourceContent = document.getText();
+    
+    // Extract enum names from the enum definitions
+    const enumNames = extractedEnums.map(enumDef => {
+      const match = enumDef.match(/enum\s+(\w+)/);
+      return match ? match[1] : null;
+    }).filter(name => name !== null) as string[];
+    
+    console.log(`Found ${enumNames.length} enums to check for deletion: ${enumNames.join(', ')}`);
+    
+    // Check each enum to see if it's still used in the source file
+    for (const enumName of enumNames) {
+      if (!this.isEnumStillUsedInFile(sourceContent, enumName, extractedEnums, componentModel)) {
+        console.log(`Enum "${enumName}" is not used anymore, scheduling for deletion`);
+        await this.addEnumDeletionToWorkspaceEdit(document, enumName, workspaceEdit);
+      } else {
+        console.log(`Enum "${enumName}" is still used, keeping it in source file`);
+      }
+    }
+  }
 
-    // Create workspace edit to remove the component model
-    const workspaceEdit = new vscode.WorkspaceEdit();
-    workspaceEdit.delete(document.uri, extendedRange);
+  /**
+   * Checks if an enum is still referenced in the source file (excluding the extracted enums and component model).
+   */
+  private isEnumStillUsedInFile(sourceContent: string, enumName: string, extractedEnums: string[], componentModel: DecoratedClass): boolean {
+    // Create a version of the source content without the extracted enums
+    let contentWithoutExtractedEnums = sourceContent;
+    for (const enumDef of extractedEnums) {
+      contentWithoutExtractedEnums = contentWithoutExtractedEnums.replace(enumDef, '');
+    }
     
-    await vscode.workspace.applyEdit(workspaceEdit);
+    // Also remove the component model class from the content since we're extracting it
+    // This prevents false positives where the enum is only used in the component model
+    try {
+      const lines = contentWithoutExtractedEnums.split('\n');
+      const { classStartLine, classEndLine } = this.sourceCodeService.findClassBoundaries(lines, componentModel.name);
+      
+      // Remove the component model class from the content
+      const linesWithoutComponentModel = [
+        ...lines.slice(0, classStartLine),
+        ...lines.slice(classEndLine + 1)
+      ];
+      contentWithoutExtractedEnums = linesWithoutComponentModel.join('\n');
+    } catch (error) {
+      console.warn(`Could not remove component model "${componentModel.name}" from content for enum usage check:`, error);
+    }
+    
+    // Look for references to the enum name in the remaining content
+    const enumRefRegex = new RegExp(`\\b${enumName}\\b`, 'g');
+    const matches = contentWithoutExtractedEnums.match(enumRefRegex);
+    
+    console.log(`Checking if enum "${enumName}" is still used: found ${matches ? matches.length : 0} references`);
+    
+    // If there are matches, the enum is still used
+    return matches !== null && matches.length > 0;
+  }
+
+  /**
+   * Adds an enum deletion range to the workspace edit.
+   */
+  private async addEnumDeletionToWorkspaceEdit(
+    document: vscode.TextDocument, 
+    enumName: string, 
+    workspaceEdit: vscode.WorkspaceEdit
+  ): Promise<void> {
+    const sourceContent = document.getText();
+    const lines = sourceContent.split('\n');
+    
+    // Find the enum definition with better pattern matching
+    let enumStartLine = -1;
+    let enumEndLine = -1;
+    
+    // Look for the enum declaration line
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Match: "enum EnumName {" or "export enum EnumName {"
+      const enumMatch = line.match(new RegExp(`^(export\\s+)?enum\\s+${enumName}\\s*\\{`));
+      if (enumMatch) {
+        enumStartLine = i;
+        
+        // Look for any preceding comments or empty lines that belong to this enum
+        for (let j = i - 1; j >= 0; j--) {
+          const prevLine = lines[j].trim();
+          if (prevLine === '' || prevLine.startsWith('//') || prevLine.startsWith('/*') || prevLine.endsWith('*/')) {
+            enumStartLine = j;
+          } else {
+            break;
+          }
+        }
+        
+        // Find the closing brace
+        let braceCount = 0;
+        let foundOpenBrace = false;
+        
+        for (let j = i; j < lines.length; j++) {
+          const currentLine = lines[j];
+          
+          for (const char of currentLine) {
+            if (char === '{') {
+              braceCount++;
+              foundOpenBrace = true;
+            } else if (char === '}') {
+              braceCount--;
+              if (foundOpenBrace && braceCount === 0) {
+                enumEndLine = j;
+                break;
+              }
+            }
+          }
+          
+          if (foundOpenBrace && braceCount === 0) {
+            break;
+          }
+        }
+        
+        break; // Found the enum, stop searching
+      }
+    }
+    
+    if (enumStartLine !== -1 && enumEndLine !== -1) {
+      // Include any trailing empty lines that belong to this enum
+      /* while (enumEndLine + 1 < lines.length && lines[enumEndLine + 1].trim() === '') {
+        enumEndLine++;
+      } */
+      
+      // Create the range to delete (include the newline of the last line)
+      const rangeToDelete = new vscode.Range(
+        new vscode.Position(enumStartLine, 0),
+        new vscode.Position(enumEndLine + 1, 0)
+      );
+      
+      workspaceEdit.delete(document.uri, rangeToDelete);
+      console.log(`Scheduled deletion of enum "${enumName}" from lines ${enumStartLine} to ${enumEndLine}`);
+    } else {
+      console.warn(`Could not find enum "${enumName}" for deletion`);
+    }
+  }
+
+  /**
+   * Merges edits from one workspace edit into another.
+   */
+  private mergeWorkspaceEdits(sourceEdit: vscode.WorkspaceEdit, targetEdit: vscode.WorkspaceEdit): void {
+    sourceEdit.entries().forEach(([uri, edits]) => {
+      edits.forEach(edit => {
+        if (edit instanceof vscode.TextEdit) {
+          targetEdit.replace(uri, edit.range, edit.newText);
+        }
+      });
+    });
   }
 
   /**

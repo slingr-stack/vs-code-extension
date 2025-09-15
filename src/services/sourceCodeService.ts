@@ -637,4 +637,225 @@ export class SourceCodeService {
       await vscode.window.showTextDocument(document, { preview: false });
     }
   }
+
+  /**
+   * Deletes a specific model class from a file that contains multiple models.
+   * 
+   * @param fileUri - The URI of the file containing the model
+   * @param modelMetadata - The metadata of the model to delete
+   * @param workspaceEdit - The workspace edit to add the deletion to
+   */
+  public async deleteModelClassFromFile(
+    fileUri: vscode.Uri, 
+    modelMetadata: any, 
+    workspaceEdit: vscode.WorkspaceEdit
+  ): Promise<void> {
+    try {
+      const document = await vscode.workspace.openTextDocument(fileUri);
+      const text = document.getText();
+      const lines = text.split('\n');
+      
+      // Find the class declaration range
+      const classDeclaration = modelMetadata.declaration;
+      const startLine = classDeclaration.range.start.line;
+      const endLine = classDeclaration.range.end.line;
+      
+      // Find the @Model decorator using cache information
+      let actualStartLine = startLine;
+      
+      // Check if the model has decorators in the cache
+      if (modelMetadata.decorators && modelMetadata.decorators.length > 0) {
+        // Find the @Model decorator specifically
+        const modelDecorator = modelMetadata.decorators.find((d: any) => d.name === "Model");
+        if (modelDecorator && modelDecorator.position) {
+          // Use the decorator's range from cache for precise deletion
+          actualStartLine = Math.min(actualStartLine, modelDecorator.position.start.line);
+        }
+      }
+      
+      // Also look backwards to find any other decorators and comments that belong to this class
+      for (let i = actualStartLine - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line === '' || line.startsWith('//') || line.startsWith('/*') || line.endsWith('*/')) {
+          // Empty lines, single-line comments, or comment blocks - continue looking
+          actualStartLine = i;
+        } else if (line.startsWith('@')) {
+          // Decorator - include it
+          actualStartLine = i;
+        } else {
+          // Found non-empty, non-comment, non-decorator line - stop here
+          break;
+        }
+      }
+      
+      // Look forward to find the complete class body (including closing brace)
+      let actualEndLine = endLine;
+      let braceCount = 0;
+      let foundOpenBrace = false;
+      
+      for (let i = startLine; i < lines.length; i++) {
+        const line = lines[i];
+        
+        for (const char of line) {
+          if (char === '{') {
+            braceCount++;
+            foundOpenBrace = true;
+          } else if (char === '}') {
+            braceCount--;
+            if (foundOpenBrace && braceCount === 0) {
+              actualEndLine = i;
+              break;
+            }
+          }
+        }
+        
+        if (foundOpenBrace && braceCount === 0) {
+          break;
+        }
+      }
+      
+      // Include any trailing empty lines that belong to this class
+      while (actualEndLine + 1 < lines.length && lines[actualEndLine + 1].trim() === '') {
+        actualEndLine++;
+      }
+      
+      // Create the range to delete (include the newline of the last line)
+      const rangeToDelete = new vscode.Range(
+        new vscode.Position(actualStartLine, 0),
+        new vscode.Position(actualEndLine + 1, 0)
+      );
+      
+      workspaceEdit.delete(fileUri, rangeToDelete);
+      
+    } catch (error) {
+      console.error(`Error deleting model class from file ${fileUri.fsPath}:`, error);
+      // Fallback: just comment out the class declaration
+      workspaceEdit.replace(fileUri, modelMetadata.declaration.range, `/* DELETED_MODEL: ${modelMetadata.name} */`);
+    }
+  }
+
+  /**
+   * Extracts enums that are related to a model's Choice fields.
+   * This analyzes the model's properties and identifies any enums
+   * that are referenced in @Choice decorators.
+   * 
+   * @param sourceDocument - The document containing the model
+   * @param componentModel - The model metadata to analyze
+   * @param classBody - The class body content (optional optimization)
+   * @returns Array of enum definition strings
+   */
+  public async extractRelatedEnums(
+    sourceDocument: vscode.TextDocument, 
+    componentModel: any, 
+    classBody?: string
+  ): Promise<string[]> {
+    const relatedEnums: string[] = [];
+    const sourceContent = sourceDocument.getText();
+    
+    // Find all Choice fields in the component model
+    const choiceFields = Object.values(componentModel.properties || {}).filter((property: any) => 
+      property.decorators?.some((decorator: any) => decorator.name === "Choice")
+    );
+    
+    if (choiceFields.length === 0) {
+      return relatedEnums;
+    }
+    
+    // For each Choice field, try to find referenced enums
+    for (const field of choiceFields) {
+      const choiceDecorator = (field as any).decorators?.find((d: any) => d.name === "Choice");
+      if (choiceDecorator) {
+        // Look for enum references in the property type declaration
+        const enumNames = this.extractEnumNamesFromChoiceProperty(field);
+        
+        for (const enumName of enumNames) {
+          // Find the enum definition in the source file
+          const enumDefinition = this.extractEnumDefinition(sourceContent, enumName);
+          if (enumDefinition && !relatedEnums.includes(enumDefinition)) {
+            relatedEnums.push(enumDefinition);
+          }
+        }
+      }
+    }
+    
+    return relatedEnums;
+  }
+
+  /**
+   * Extracts enum names from a Choice field's property type.
+   * For Choice fields, the enum is specified in the property type declaration, not the decorator.
+   * Example: @Choice() status: TaskStatus = TaskStatus.Active;
+   */
+  private extractEnumNamesFromChoiceProperty(property: any): string[] {
+    const enumNames: string[] = [];
+    
+    // The enum name is in the property's type field
+    if (property.type && typeof property.type === 'string') {
+      // Remove array brackets if present (e.g., "TaskStatus[]" -> "TaskStatus")
+      const cleanType = property.type.replace(/\[\]$/, '');
+      
+      // Check if this looks like an enum (starts with uppercase, follows enum naming conventions)
+      // Also exclude common TypeScript types that aren't enums
+      const isCommonType = ['string', 'number', 'boolean', 'Date', 'any', 'object', 'void'].includes(cleanType);
+      const enumMatch = cleanType.match(/^[A-Z][a-zA-Z0-9_]*$/);
+      
+      if (enumMatch && !isCommonType) {
+        enumNames.push(cleanType);
+        console.log(`Found potential enum "${cleanType}" in Choice field "${property.name}"`);
+      }
+    }
+    
+    return enumNames;
+  }
+
+  /**
+   * Extracts the complete enum definition from source content.
+   */
+  private extractEnumDefinition(sourceContent: string, enumName: string): string | null {
+    // Create regex to match enum definition including export keyword
+    const enumRegex = new RegExp(
+      `(export\\s+)?enum\\s+${enumName}\\s*\\{[^}]*\\}`,
+      'gs'
+    );
+    
+    const match = enumRegex.exec(sourceContent);
+    if (match) {
+      return match[0];
+    }
+    
+    return null;
+  }
+
+  /**
+   * Adds enum definitions to the model file content.
+   */
+  public addEnumsToFileContent(modelFileContent: string, enums: string[]): string {
+    if (enums.length === 0) {
+      return modelFileContent;
+    }
+    
+    const lines = modelFileContent.split('\n');
+    
+    // Find the position to insert enums (after imports, before the model class)
+    let insertPosition = 0;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith('import ')) {
+        insertPosition = i + 1;
+      } else if (lines[i].trim() === '' && insertPosition > 0) {
+        // Found empty line after imports
+        insertPosition = i;
+        break;
+      } else if (lines[i].includes('@Model') || lines[i].includes('class ')) {
+        // Found the start of the model definition
+        break;
+      }
+    }
+    
+    // Insert enums with proper spacing
+    const enumContent = enums.join('\n\n') + '\n\n';
+    lines.splice(insertPosition, 0, enumContent);
+    
+    return lines.join('\n');
+  }
+
 }
