@@ -5,6 +5,17 @@ import { CustomerWithAddress } from '../model/CustomerWithAddress';
 import { PersonBase } from '../model/PersonBase';
 import { Contact } from '../model/Contact';
 import { Employee } from '../model/Employee';
+import { 
+  MODEL_FIELDS, 
+  FIELD_TYPE, 
+  FIELD_TYPE_OPTIONS, 
+  FIELD_REQUIRED, 
+  FIELD_EMBEDDED, 
+  FIELD_EMBEDDED_TYPE,
+  DATASOURCE_EMBEDDED_CONFIGURED,
+  TYPEORM_ENTITY,
+  MODEL_DATASOURCE
+} from '../../src/model/metadata/MetadataKeys';
 
 describe('Embedding and Inheritance', () => {
   let dataSource: TypeORMSqlDataSource;
@@ -20,16 +31,16 @@ describe('Embedding and Inheritance', () => {
 
     // Configure the CustomerWithAddress model with the data source
     const modelOptions = { dataSource };
-    Reflect.defineMetadata("model:dataSource", dataSource, CustomerWithAddress);
+    Reflect.defineMetadata(MODEL_DATASOURCE, dataSource, CustomerWithAddress);
     dataSource.configureModel(CustomerWithAddress, modelOptions);
 
     // Configure all fields with the data source
-    const fieldNames = Reflect.getMetadata('model:fields', CustomerWithAddress) || [];
+    const fieldNames = Reflect.getMetadata(MODEL_FIELDS, CustomerWithAddress) || [];
     fieldNames.forEach((fieldName: string) => {
-      const fieldType = Reflect.getMetadata('field:type', CustomerWithAddress.prototype, fieldName);
-      const fieldTypeOptions = Reflect.getMetadata('field:type:options', CustomerWithAddress.prototype, fieldName);
-      const fieldRequired = Reflect.getMetadata('field:required', CustomerWithAddress.prototype, fieldName);
-      const isEmbedded = Reflect.getMetadata('field:embedded', CustomerWithAddress.prototype, fieldName);
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, CustomerWithAddress.prototype, fieldName);
+      const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, CustomerWithAddress.prototype, fieldName);
+      const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, CustomerWithAddress.prototype, fieldName);
+      const isEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, CustomerWithAddress.prototype, fieldName);
 
       if (isEmbedded) {
         // For embedded fields, pass a special type indicator
@@ -46,18 +57,18 @@ describe('Embedding and Inheritance', () => {
     });
 
     // Configure Contact and Employee models for inheritance testing
-    Reflect.defineMetadata("model:dataSource", dataSource, Contact);
+    Reflect.defineMetadata(MODEL_DATASOURCE, dataSource, Contact);
     dataSource.configureModel(Contact, modelOptions);
     
-    Reflect.defineMetadata("model:dataSource", dataSource, Employee);
+    Reflect.defineMetadata(MODEL_DATASOURCE, dataSource, Employee);
     dataSource.configureModel(Employee, modelOptions);
 
     // Configure Contact fields
-    const contactFields = Reflect.getMetadata('model:fields', Contact) || [];
+    const contactFields = Reflect.getMetadata(MODEL_FIELDS, Contact) || [];
     contactFields.forEach((fieldName: string) => {
-      const fieldType = Reflect.getMetadata('field:type', Contact.prototype, fieldName);
-      const fieldTypeOptions = Reflect.getMetadata('field:type:options', Contact.prototype, fieldName);
-      const fieldRequired = Reflect.getMetadata('field:required', Contact.prototype, fieldName);
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, Contact.prototype, fieldName);
+      const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, Contact.prototype, fieldName);
+      const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, Contact.prototype, fieldName);
 
       if (fieldType) {
         const allFieldOptions = {
@@ -69,11 +80,11 @@ describe('Embedding and Inheritance', () => {
     });
 
     // Configure Employee fields
-    const employeeFields = Reflect.getMetadata('model:fields', Employee) || [];
+    const employeeFields = Reflect.getMetadata(MODEL_FIELDS, Employee) || [];
     employeeFields.forEach((fieldName: string) => {
-      const fieldType = Reflect.getMetadata('field:type', Employee.prototype, fieldName);
-      const fieldTypeOptions = Reflect.getMetadata('field:type:options', Employee.prototype, fieldName);
-      const fieldRequired = Reflect.getMetadata('field:required', Employee.prototype, fieldName);
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, Employee.prototype, fieldName);
+      const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, Employee.prototype, fieldName);
+      const fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, Employee.prototype, fieldName);
 
       if (fieldType) {
         const allFieldOptions = {
@@ -97,21 +108,21 @@ describe('Embedding and Inheritance', () => {
   describe('Embedded Fields', () => {
     test('should store embedded model metadata correctly', () => {
       // Check that the embedded field is marked as such
-      const isEmbedded = Reflect.getMetadata('field:embedded', CustomerWithAddress.prototype, 'address');
+      const isEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, CustomerWithAddress.prototype, 'address');
       expect(isEmbedded).toBe(true);
 
       // Check that the embedded type is stored
-      const embeddedType = Reflect.getMetadata('field:embedded:type', CustomerWithAddress.prototype, 'address');
+      const embeddedType = Reflect.getMetadata(FIELD_EMBEDDED_TYPE, CustomerWithAddress.prototype, 'address');
       expect(embeddedType).toBe(Address);
 
       // Check that the Address model has its fields registered
-      const addressFields = Reflect.getMetadata('model:fields', Address);
+      const addressFields = Reflect.getMetadata(MODEL_FIELDS, Address);
       expect(addressFields).toEqual(expect.arrayContaining(['addressLine1', 'addressLine2', 'city', 'zipCode', 'state', 'country']));
     });
 
     test('should configure embedded fields correctly in TypeORM', () => {
       // Check that the embedded field is marked as configured
-      const isConfigured = Reflect.getMetadata('datasource:embedded:configured', CustomerWithAddress.prototype, 'address');
+      const isConfigured = Reflect.getMetadata(DATASOURCE_EMBEDDED_CONFIGURED, CustomerWithAddress.prototype, 'address');
       expect(isConfigured).toBe(true);
 
       // Check that column metadata exists for embedded fields
@@ -162,25 +173,25 @@ describe('Embedding and Inheritance', () => {
   describe('Inheritance', () => {
     test('should create separate tables for inherited models', () => {
       // Check that Contact has TypeORM entity metadata
-      const contactEntityMetadata = Reflect.getMetadata('typeorm:entity', Contact);
+      const contactEntityMetadata = Reflect.getMetadata(TYPEORM_ENTITY, Contact);
       expect(contactEntityMetadata).toBe(true);
 
       // Check that Employee has TypeORM entity metadata  
-      const employeeEntityMetadata = Reflect.getMetadata('typeorm:entity', Employee);
+      const employeeEntityMetadata = Reflect.getMetadata(TYPEORM_ENTITY, Employee);
       expect(employeeEntityMetadata).toBe(true);
 
       // The abstract PersonBase should not have entity metadata since it's not configured
-      const personBaseEntityMetadata = Reflect.getMetadata('typeorm:entity', PersonBase);
+      const personBaseEntityMetadata = Reflect.getMetadata(TYPEORM_ENTITY, PersonBase);
       expect(personBaseEntityMetadata).toBeUndefined();
     });
 
     test('should inherit fields from base class', () => {
       // Check that Contact has inherited fields from PersonBase
-      const contactFields = Reflect.getMetadata('model:fields', Contact) || [];
+      const contactFields = Reflect.getMetadata(MODEL_FIELDS, Contact) || [];
       expect(contactFields).toEqual(expect.arrayContaining(['firstName', 'lastName', 'fullName', 'email', 'phoneNumber']));
 
       // Check that Employee has inherited fields from PersonBase
-      const employeeFields = Reflect.getMetadata('model:fields', Employee) || [];
+      const employeeFields = Reflect.getMetadata(MODEL_FIELDS, Employee) || [];
       expect(employeeFields).toEqual(expect.arrayContaining(['firstName', 'lastName', 'fullName', 'ssn', 'departmentId']));
     });
 

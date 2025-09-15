@@ -24,8 +24,8 @@ function getAllFieldNames(constructor: Function): string[] {
   // Walk up the prototype chain to collect fields from all parent classes
   while (currentClass && currentClass !== Object) {
     // Check if the class has field metadata before trying to access it
-    if (Reflect.hasMetadata('model:fields', currentClass)) {
-      const fields = Reflect.getMetadata('model:fields', currentClass) || [];
+    if (Reflect.hasMetadata(MODEL_FIELDS, currentClass)) {
+      const fields = Reflect.getMetadata(MODEL_FIELDS, currentClass) || [];
       fields.forEach((field: string) => allFields.add(field));
     }
 
@@ -98,22 +98,22 @@ export function Model(options?: ModelOptions) {
         // Walk up the prototype chain to find the field metadata
         while (currentClass && currentClass !== Object && currentClass.prototype) {
           if (fieldType === undefined) {
-            if (Reflect.hasMetadata('field:type', currentClass.prototype, fieldName)) {
-              fieldType = Reflect.getMetadata('field:type', currentClass.prototype, fieldName);
+            if (Reflect.hasMetadata(FIELD_TYPE, currentClass.prototype, fieldName)) {
+              fieldType = Reflect.getMetadata(FIELD_TYPE, currentClass.prototype, fieldName);
             } else {
               fieldType = null;
             }
           }
           if (fieldTypeOptions === undefined) {
-            if (Reflect.hasMetadata('field:type:options', currentClass.prototype, fieldName)) {
-              fieldTypeOptions = Reflect.getMetadata('field:type:options', currentClass.prototype, fieldName);
+            if (Reflect.hasMetadata(FIELD_TYPE_OPTIONS, currentClass.prototype, fieldName)) {
+              fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, currentClass.prototype, fieldName);
             } else {
               fieldTypeOptions = null;
             }
           }
           if (fieldRequired === undefined) {
-            if (Reflect.hasMetadata('field:required', currentClass.prototype, fieldName)) {
-              fieldRequired = Reflect.getMetadata('field:required', currentClass.prototype, fieldName);
+            if (Reflect.hasMetadata(FIELD_REQUIRED, currentClass.prototype, fieldName)) {
+              fieldRequired = Reflect.getMetadata(FIELD_REQUIRED, currentClass.prototype, fieldName);
             } else {
               fieldRequired = null;
             }

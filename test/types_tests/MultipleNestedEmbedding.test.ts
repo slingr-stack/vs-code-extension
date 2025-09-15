@@ -35,7 +35,7 @@ describe('Multiple Nested Embedded Models', () => {
     
     for (const ModelClass of models) {
       const modelOptions = { dataSource };
-      Reflect.defineMetadata("model:dataSource", dataSource, ModelClass);
+      Reflect.defineMetadata(MODEL_DATASOURCE, dataSource, ModelClass);
       dataSource.configureModel(ModelClass, modelOptions);
 
       // Configure all fields with the data source
@@ -124,31 +124,31 @@ describe('Multiple Nested Embedded Models', () => {
   describe('Complex Multiple Nested Embedding (Employee with Multiple Embedded Objects)', () => {
     test('should store complex nested embedded model metadata correctly', () => {
       // Check Employee -> PersonalAddress embedding
-      const isPersonalAddressEmbedded = Reflect.getMetadata('field:embedded', Employee.prototype, 'personalAddress');
+      const isPersonalAddressEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, Employee.prototype, 'personalAddress');
       expect(isPersonalAddressEmbedded).toBe(true);
 
       // Check Employee -> Department embedding
-      const isDepartmentEmbedded = Reflect.getMetadata('field:embedded', Employee.prototype, 'department');
+      const isDepartmentEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, Employee.prototype, 'department');
       expect(isDepartmentEmbedded).toBe(true);
 
       // Check Employee -> Company embedding
-      const isCompanyEmbedded = Reflect.getMetadata('field:embedded', Employee.prototype, 'company');
+      const isCompanyEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, Employee.prototype, 'company');
       expect(isCompanyEmbedded).toBe(true);
 
       // Check Employee -> EmergencyContact embedding
-      const isEmergencyContactEmbedded = Reflect.getMetadata('field:embedded', Employee.prototype, 'emergencyContact');
+      const isEmergencyContactEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, Employee.prototype, 'emergencyContact');
       expect(isEmergencyContactEmbedded).toBe(true);
 
       // Check Department -> Location (Address) embedding
-      const isDepartmentLocationEmbedded = Reflect.getMetadata('field:embedded', Department.prototype, 'location');
+      const isDepartmentLocationEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, Department.prototype, 'location');
       expect(isDepartmentLocationEmbedded).toBe(true);
 
       // Check Company -> Headquarters (Address) embedding
-      const isCompanyHeadquartersEmbedded = Reflect.getMetadata('field:embedded', Company.prototype, 'headquarters');
+      const isCompanyHeadquartersEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, Company.prototype, 'headquarters');
       expect(isCompanyHeadquartersEmbedded).toBe(true);
 
       // Check Company -> Contact embedding
-      const isCompanyContactEmbedded = Reflect.getMetadata('field:embedded', Company.prototype, 'contact');
+      const isCompanyContactEmbedded = Reflect.getMetadata(FIELD_EMBEDDED, Company.prototype, 'contact');
       expect(isCompanyContactEmbedded).toBe(true);
     });
 

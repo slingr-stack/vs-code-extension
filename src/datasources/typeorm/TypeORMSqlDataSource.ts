@@ -368,8 +368,8 @@ export class TypeORMSqlDataSource extends DataSource {
         this.configureEmbeddedField(embeddedType.prototype, embeddedFieldName, currentPrefix, columnTarget);
       } else {
         // Get field type and options from the embedded model
-        const fieldType = Reflect.getMetadata('field:type', embeddedType.prototype, embeddedFieldName);
-        const fieldOptions = Reflect.getMetadata('field:type:options', embeddedType.prototype, embeddedFieldName);
+        const fieldType = Reflect.getMetadata(FIELD_TYPE, embeddedType.prototype, embeddedFieldName);
+        const fieldOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, embeddedType.prototype, embeddedFieldName);
 
         if (!fieldType) {
           continue; // Skip fields without type information
@@ -510,7 +510,7 @@ export class TypeORMSqlDataSource extends DataSource {
     embeddedType: any,
     prefix: string
   ): any {
-    const embeddedFields = Reflect.getMetadata('model:fields', embeddedType) || [];
+    const embeddedFields = Reflect.getMetadata(MODEL_FIELDS, embeddedType) || [];
 
     // Create a new instance of the embedded type without calling its constructor
     const embeddedInstance = Object.create(embeddedType.prototype);
