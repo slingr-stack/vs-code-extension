@@ -17,6 +17,13 @@ interface FolderNode {
   models: DecoratedClass[];
 }
 
+// Cache interface for performance optimizations
+interface ExplorerCache {
+  folderStructure?: FolderNode;
+  compositionModelReferences?: Set<string>;
+  lastCacheUpdate?: number;
+}
+
 export class ExplorerProvider
   implements vscode.TreeDataProvider<AppTreeItem>, vscode.TreeDragAndDropController<AppTreeItem>
 {
@@ -28,11 +35,35 @@ export class ExplorerProvider
   public dragMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
   public dropMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
 
+  // Performance optimization cache
+  private explorerCache: ExplorerCache = {};
+  private refreshTimeout: NodeJS.Timeout | undefined;
+
   constructor(private cache: MetadataCache, private extensionUri: vscode.Uri) {
     // --- Listen for the cache's update event ---
     this.cache.onDidUpdate(() => {
-      this.refresh();
+      this.invalidateCache();
+      this.debouncedRefresh();
     });
+  }
+
+  /**
+   * Invalidates the explorer cache when underlying data changes
+   */
+  private invalidateCache(): void {
+    this.explorerCache = {};
+  }
+
+  /**
+   * Debounced refresh to prevent too frequent UI updates
+   */
+  private debouncedRefresh(): void {
+    if (this.refreshTimeout) {
+      clearTimeout(this.refreshTimeout);
+    }
+    this.refreshTimeout = setTimeout(() => {
+      this.refresh();
+    }, 100); // 100ms debounce
   }
 
   refresh(): void {
@@ -542,7 +573,7 @@ export class ExplorerProvider
    */
   private getDataRootChildren(): AppTreeItem[] {
     const models = this.cache.getDataModelClasses();
-    const folderStructure = this.buildFolderStructure(models);
+    const folderStructure = this.getCachedFolderStructure(models);
 
     return this.createTreeItemsFromStructure(folderStructure, "");
   }
@@ -553,9 +584,19 @@ export class ExplorerProvider
   private getFolderChildren(folderElement: AppTreeItem): AppTreeItem[] {
     const models = this.cache.getDataModelClasses();
     const folderPath = folderElement.folderPath || ""; // Use folderPath property
-    const folderStructure = this.buildFolderStructure(models);
+    const folderStructure = this.getCachedFolderStructure(models);
 
     return this.createTreeItemsFromStructure(folderStructure, folderPath);
+  }
+
+  /**
+   * Gets the cached folder structure, building it if not cached
+   */
+  private getCachedFolderStructure(models: DecoratedClass[]): FolderNode {
+    if (!this.explorerCache.folderStructure) {
+      this.explorerCache.folderStructure = this.buildFolderStructure(models);
+    }
+    return this.explorerCache.folderStructure;
   }
 
   /**
@@ -705,7 +746,7 @@ export class ExplorerProvider
       const label = decorator?.arguments[0]?.label || model.name;
 
       // Only show models that are NOT referenced by composition relationships
-      if (!this.isModelReferencedByComposition(model)) {
+      if (!this.isModelReferencedByCompositionCached(model)) {
         const modelItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "model", this.extensionUri, model);
         
         // Set command for click handling (single vs double-click detection)
@@ -758,51 +799,55 @@ export class ExplorerProvider
     );
   }
 
-  private isModelReferencedByComposition(item: DecoratedClass): boolean {
-      // Instead of relying on pre-computed references, scan all models in the cache
-      // to find composition relationships. This is more reliable after file moves.
-      const allModels = this.cache.getDataModelClasses();
-      
-      for (const model of allModels) {
-          // Skip the model itself
-          if (model.name === item.name) {
-              continue;
-          }
+  /**
+   * Cached version of isModelReferencedByComposition for better performance
+   */
+  private isModelReferencedByCompositionCached(item: DecoratedClass): boolean {
+    if (!this.explorerCache.compositionModelReferences) {
+      this.buildCompositionModelReferencesCache();
+    }
+    return this.explorerCache.compositionModelReferences!.has(item.name);
+  }
+
+  /**
+   * Builds a cache of all models that are referenced by composition relationships
+   */
+  private buildCompositionModelReferencesCache(): void {
+    const compositionModels = new Set<string>();
+    const allModels = this.cache.getDataModelClasses();
+    
+    for (const model of allModels) {
+      // Check all properties of this model
+      for (const property of Object.values(model.properties)) {
+        // Check if this property has a @Field decorator (indicating it's a field)
+        const hasFieldDecorator = property.decorators.some((d) => d.name === "Field");
+        
+        if (hasFieldDecorator) {
+          // Check if this property has a @Relationship decorator with type: "Composition"
+          const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
           
-          // Check all properties of this model
-          for (const property of Object.values(model.properties)) {
-              // Check if this property references our target model type
-              const baseType = this.extractBaseTypeFromArrayType(property.type);
-              
-              if (baseType === item.name) {
-                  // Check if this property has a @Field decorator (indicating it's a field)
-                  const hasFieldDecorator = property.decorators.some((d) => d.name === "Field");
-                  
-                  if (hasFieldDecorator) {
-                      // Check if this property has a @Relationship decorator with type: "Composition"
-                      const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
-                      
-                      if (relationshipDecorator) {
-                          // Check if the relationship decorator has type: "Composition" or "composition"
-                          const hasCompositionType = relationshipDecorator.arguments.some(
-                              (arg) => {
-                                  if (typeof arg === "object" && arg !== null) {
-                                      return arg.type === "Composition" || arg.type === "composition";
-                                  }
-                                  return arg === "Composition" || arg === "composition";
-                              }
-                          );
-
-                          if (hasCompositionType) {
-                              return true;
-                          }
-                      }
-                  }
+          if (relationshipDecorator) {
+            // Check if the relationship decorator has type: "Composition" or "composition"
+            const hasCompositionType = relationshipDecorator.arguments.some(
+              (arg) => {
+                if (typeof arg === "object" && arg !== null) {
+                  return arg.type === "Composition" || arg.type === "composition";
+                }
+                return arg === "Composition" || arg === "composition";
               }
-          }
-      }
+            );
 
-      return false;
+            if (hasCompositionType) {
+              // Extract the base type from the property type and add to cache
+              const baseType = this.extractBaseTypeFromArrayType(property.type);
+              compositionModels.add(baseType);
+            }
+          }
+        }
+      }
+    }
+    
+    this.explorerCache.compositionModelReferences = compositionModels;
   }
 
   /**
