@@ -27,9 +27,9 @@ export class NewDataSourceTool {
 
         const dataSourcePath = vscode.Uri.joinPath(workspaceFolder.uri, 'src', 'dataSources', `${dataSourceName}.ts`);
         const template = `
-import { TypeOrmSqlDataSource } from 'slingr-framework';
+import { TypeORMSqlDataSource } from 'slingr-framework';
 
-export const ${dataSourceName} = new TypeOrmSqlDataSource({
+export const ${dataSourceName} = new TypeORMSqlDataSource({
     type: "postgres",
     managed: true,
     host: "localhost",
