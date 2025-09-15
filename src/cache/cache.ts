@@ -229,7 +229,7 @@ export class MetadataCache {
                 this.addSourceFile(file);
             }
             // Rebuild all references
-            this.buildAllReferences();
+            this.buildAllReferences(); // Full rebuild for force refresh
             // Notify listeners that the cache has been updated
             this._onDidUpdate.fire();
         } catch (error) {
@@ -316,7 +316,14 @@ export class MetadataCache {
                 this.cache[filePath] = newFileMeta;
             }
             
-            this.buildAllReferences();
+            // Only rebuild references for the specific file that changed
+            if (type !== 'delete') {
+                this.buildAllReferences(filePath);
+            } else {
+                // For deletions, we need to rebuild all references since the deleted file
+                // might have been referenced by others
+                this.buildAllReferences();
+            }
             this._onDidUpdate.fire();
 
         } catch (error) {
@@ -744,8 +751,18 @@ export class MetadataCache {
      * Iterates through all cached items and finds their references throughout the project.
      * This includes direct references found by ts-morph and implicit references
      * from string literals in places like ModelView `getFields` methods.
+     * 
+     * Performance optimized version that can rebuild references incrementally for specific files.
+     * @param targetFilePath Optional file path to rebuild references for. If not provided, rebuilds all.
      */
-    private buildAllReferences(): void {
+    private buildAllReferences(targetFilePath?: string): void {
+        // If targetFilePath is provided, only rebuild references for that specific file
+        if (targetFilePath) {
+            this.buildReferencesForFile(targetFilePath);
+            return;
+        }
+
+        // Full rebuild - clear all references first
         for (const file of Object.values(this.cache)) {
             for (const cls of Object.values(file.classes)) {
                 cls.references = [];
@@ -758,32 +775,46 @@ export class MetadataCache {
             }
         }
 
+        // Build references for all files
         for (const file of Object.values(this.cache)) {
-            const normalizedPath = file.uri.fsPath.replace(/\\/g, '/');
-            const sourceFile = this.tsMorphProject.getSourceFile(normalizedPath);
-            if (!sourceFile) {
+            this.buildReferencesForFile(file.uri.fsPath);
+        }
+    }
+
+    /**
+     * Builds references for a specific file's classes and properties
+     * @param filePath The file path to build references for
+     */
+    private buildReferencesForFile(filePath: string): void {
+        const file = this.cache[filePath];
+        if (!file) {
+            return;
+        }
+
+        const normalizedPath = file.uri.fsPath.replace(/\\/g, '/');
+        const sourceFile = this.tsMorphProject.getSourceFile(normalizedPath);
+        if (!sourceFile) {
+            return;
+        }
+
+        for (const cls of Object.values(file.classes)) {
+            const classNode = sourceFile.getClass(cls.name);
+            if (!classNode) {
                 continue;
             }
 
-            for (const cls of Object.values(file.classes)) {
-                const classNode = sourceFile.getClass(cls.name);
-                if (!classNode) {
-                    continue;
-                }
-
-                this.findAndStoreReferences(classNode, cls);
-                for (const prop of Object.values(cls.properties)) {
-                    const propNode = classNode.getProperty(prop.name);
-                    if (propNode) {
-                        this.findAndStoreReferences(propNode, prop);
-                    }
+            this.findAndStoreReferences(classNode, cls);
+            for (const prop of Object.values(cls.properties)) {
+                const propNode = classNode.getProperty(prop.name);
+                if (propNode) {
+                    this.findAndStoreReferences(propNode, prop);
                 }
             }
-            for (const ds of Object.values(file.dataSources)) {
-                const varDecl = sourceFile.getVariableDeclaration(ds.name);
-                if (varDecl) {
-                    this.findAndStoreReferences(varDecl, ds);
-                }
+        }
+        for (const ds of Object.values(file.dataSources)) {
+            const varDecl = sourceFile.getVariableDeclaration(ds.name);
+            if (varDecl) {
+                this.findAndStoreReferences(varDecl, ds);
             }
         }
     }
