@@ -69,7 +69,11 @@ export interface TypeORMSqlDataSourceOptions extends DataSourceOptions {
   /** Enable logging of SQL queries */
   logging?: boolean;
 
-  /** Synchronize schema automatically (for development) */
+  /** 
+   * Synchronize schema automatically (for development). 
+   * When not explicitly set and managed=true, defaults to true for development.
+   * When not explicitly set and managed=false, defaults to false.
+   */
   synchronize?: boolean;
 
   /** Connection timeout in milliseconds */
@@ -96,21 +100,27 @@ export interface TypeORMSqlDataSourceOptions extends DataSourceOptions {
  * 
  * Features:
  * - Automatic connection management with pooling
- * - Schema synchronization for development
+ * - Schema synchronization for development (when managed=true)
  * - Model and field configuration for TypeORM entities
  * - Transaction support
  * - Migration management
+ * 
+ * Managed Schemas:
+ * When managed=true, this data source will automatically handle schema changes:
+ * - In development: Uses TypeORM's synchronize feature for rapid prototyping
+ * - In production: Will use proper migration scripts (future implementation)
  * 
  * @example
  * ```typescript
  * const dataSource = new TypeORMSqlDataSource({
  *   type: "postgres",
- *   managed: true,
+ *   managed: true,  // Enable automatic schema management
  *   host: "localhost",
  *   port: 5432,
  *   username: "admin",
  *   password: "admin",
  *   database: "myapp"
+ *   // synchronize will default to true when managed=true
  * });
  * 
  * await dataSource.initialize();
@@ -125,6 +135,59 @@ export class TypeORMSqlDataSource extends DataSource {
 
   constructor(options: TypeORMSqlDataSourceOptions) {
     super(options);
+    // Validate configuration on construction
+    this.validateConfiguration();
+  }
+
+  /**
+   * Validate TypeORM-specific configuration.
+   * Performs early validation of synchronize flag settings to prevent
+   * configuration issues that could bypass validation.
+   * 
+   * @throws Error if configuration is invalid
+   */
+  protected validateSpecificConfiguration(): void {
+    const options = this.options as TypeORMSqlDataSourceOptions;
+    
+    // Validate synchronize flag consistency with managed schemas
+    // This mirrors the logic in DatabaseConfigBuilder.determineSynchronizeFlag()
+    // to catch configuration issues early
+    const wouldEnableSynchronize = this.wouldEnableSynchronization(options);
+    
+    if (wouldEnableSynchronize && !options.managed) {
+      // If synchronize would be enabled but managed=false, warn about potential issues
+      if (options.synchronize === true) {
+        console.warn(
+          'Warning: synchronize=true with managed=false. This bypasses Slingr schema management. ' +
+          'Consider setting managed=true for automatic schema management.'
+        );
+      }
+    }
+    
+    // Additional validation can be added here for other TypeORM-specific configurations
+  }
+
+  /**
+   * Determines if synchronization would be enabled based on current options.
+   * This mirrors the logic in DatabaseConfigBuilder.determineSynchronizeFlag()
+   * for early validation purposes.
+   * 
+   * @param options - TypeORM data source options
+   * @returns true if synchronization would be enabled
+   */
+  private wouldEnableSynchronization(options: TypeORMSqlDataSourceOptions): boolean {
+    // If synchronize is explicitly provided, use that value
+    if (options.synchronize !== undefined) {
+      return options.synchronize;
+    }
+
+    // For managed schemas, enable synchronize by default (for development)
+    if (options.managed) {
+      return true;
+    }
+
+    // For non-managed schemas, default to false
+    return false;
   }
 
   /**
@@ -153,10 +216,23 @@ export class TypeORMSqlDataSource extends DataSource {
     try {
       await this.typeormDataSource.initialize();
       this.isInitialized = true;
+      
+      // Log schema management configuration
+      const isSynchronizeEnabled = config.synchronize;
+      const managedStatus = typeormOptions.managed ? 'managed' : 'not managed';
+      
       console.log(`TypeORM DataSource initialized successfully for ${typeormOptions.type}`);
 
       // Keep initialization logs concise in test runs
 
+      console.log(`Schema is ${managedStatus} by Slingr`);
+      if (isSynchronizeEnabled) {
+        console.log('⚠️  Schema synchronization is ENABLED - database schema will be automatically updated');
+        console.log('   This is recommended for development but may cause data loss on schema changes');
+      } else {
+        console.log('ℹ️  Schema synchronization is DISABLED - manual schema management required');
+      }
+      
       return this.typeormDataSource;
     } catch (error) {
       console.error('Failed to initialize TypeORM DataSource:', error);
