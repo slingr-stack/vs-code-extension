@@ -417,7 +417,7 @@ describe('TypeORM Repository-Style Methods', () => {
       const saved = await dataSource.save(post);
       
       // Test findOneById method
-      const found = await dataSource.findOneById(BlogPost, saved.id);
+      const found = await dataSource.findOneById(BlogPost, saved.id!);
       expect(found).toBeDefined();
       expect(found!.title).toBe('FindOneById Test Post');
       expect(found!.content).toBe('Content for findOneById test');
