@@ -304,7 +304,7 @@ export interface SharedCompositionOptions {
 export function Reference(options: ReferenceOptions = {}) {
     const relationshipOptions: RelationshipOptions = {
         type: 'reference',
-        load: options.load ?? true,  // Default to true for eager loading
+        load: options.load ?? false,  // Default to true for eager loading
         onDelete: options.onDelete ?? 'removeReference'
     };
     

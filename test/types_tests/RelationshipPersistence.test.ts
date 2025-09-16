@@ -2,11 +2,11 @@ import { BaseModel, Field, Model, PersistentModel, PersistentComponentModel } fr
 import { Reference, Composition, SharedComposition } from "../../index";
 import { TypeORMSqlDataSource } from "../../src/datasources";
 import { Text, HTML, DateTime } from "../../index";
-import { 
-  MODEL_FIELDS, 
-  FIELD_TYPE, 
-  FIELD_TYPE_OPTIONS, 
-  FIELD_REQUIRED, 
+import {
+  MODEL_FIELDS,
+  FIELD_TYPE,
+  FIELD_TYPE_OPTIONS,
+  FIELD_REQUIRED,
   FIELD_RELATIONSHIP_TYPE,
   TYPEORM_RELATIONSHIP,
   TYPEORM_RELATIONSHIP_TYPE
@@ -124,7 +124,7 @@ describe('Relationship Persistence', () => {
     const models = [User, Project, Task, TaskNote, Note, Epic, Story];
     for (const modelClass of models) {
       dataSource.configureModel(modelClass);
-      
+
       // Get all field names and configure them
       const fieldNames = Reflect.getMetadata(MODEL_FIELDS, modelClass) || [];
       for (const fieldName of fieldNames) {
@@ -161,7 +161,7 @@ describe('Relationship Persistence', () => {
     it('should store relationship metadata for @Reference', () => {
       const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, Task.prototype, 'project');
       const fieldType = Reflect.getMetadata(FIELD_TYPE, Task.prototype, 'project');
-      
+
       expect(fieldType).toBe('relationship');
       expect(relationshipType).toBe('reference');
     });
@@ -169,7 +169,7 @@ describe('Relationship Persistence', () => {
     it('should store relationship metadata for @Composition', () => {
       const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, Task.prototype, 'notes');
       const fieldType = Reflect.getMetadata(FIELD_TYPE, Task.prototype, 'notes');
-      
+
       expect(fieldType).toBe('relationship');
       expect(relationshipType).toBe('composition');
     });
@@ -177,7 +177,7 @@ describe('Relationship Persistence', () => {
     it('should store relationship metadata for @SharedComposition', () => {
       const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, Epic.prototype, 'notes');
       const fieldType = Reflect.getMetadata(FIELD_TYPE, Epic.prototype, 'notes');
-      
+
       expect(fieldType).toBe('relationship');
       expect(relationshipType).toBe('sharedComposition');
     });
@@ -185,7 +185,7 @@ describe('Relationship Persistence', () => {
     it('should store relationship metadata for parent relationship in PersistentComponentModel', () => {
       const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, TaskNote.prototype, 'owner');
       const fieldType = Reflect.getMetadata(FIELD_TYPE, TaskNote.prototype, 'owner');
-      
+
       expect(fieldType).toBe('relationship');
       expect(relationshipType).toBe('parent');
     });
@@ -193,15 +193,15 @@ describe('Relationship Persistence', () => {
     it('should create TypeORM relationship metadata after configuration', () => {
       // Configure the field first
       dataSource.configureField(
-        Task.prototype, 
-        'project', 
-        'relationship', 
+        Task.prototype,
+        'project',
+        'relationship',
         { required: false }
       );
-      
+
       const relationshipMetadata = Reflect.getMetadata(TYPEORM_RELATIONSHIP, Task.prototype, 'project');
       const relationshipType = Reflect.getMetadata(TYPEORM_RELATIONSHIP_TYPE, Task.prototype, 'project');
-      
+
       expect(relationshipMetadata).toBe(true);
       expect(relationshipType).toBe('reference');
     });
@@ -220,12 +220,19 @@ describe('Relationship Persistence', () => {
       task.project = savedProject;
       task.assignees = [];
       task.notes = [];
-      
+
       const savedTask = await dataSource.save(task);
-      
+
       expect(savedTask.id).toBeDefined();
-      expect(savedTask.project).toBeDefined();
-      expect(savedTask.project.id).toBe(savedProject.id);
+      expect(savedTask.project).toBeUndefined();
+
+      const retrievedTask = await dataSource.findOne(Task, {
+        where: { id: savedTask.id },
+        relations: { project: true }
+      });
+      expect(retrievedTask).toBeDefined();
+      expect(retrievedTask!.project).toBeDefined();
+      expect(retrievedTask!.project.id).toBe(savedProject.id);
     });
 
     it('should persist composition relationships', async () => {
@@ -253,11 +260,17 @@ describe('Relationship Persistence', () => {
 
       // Update the task with the note
       savedTask.notes = [note];
-      const updatedTask = await dataSource.save(savedTask);
+      await dataSource.save(savedTask);
 
-      expect(updatedTask.notes).toHaveLength(1);
-      expect(updatedTask.notes[0]!.note).toBe('Test note content');
-      expect(updatedTask.notes[0]!.user.name).toBe('Test User');
+      const updatedTask = await dataSource.findOne(Task, {
+        where: { id: savedTask.id },
+        relations: { notes: { user: true } }
+      });
+
+
+      expect(updatedTask?.notes).toHaveLength(1);
+      expect(updatedTask?.notes[0]!.note).toBe('Test note content');
+      expect(updatedTask?.notes[0]!.user.name).toBe('Test User');
     });
   });
 
@@ -280,11 +293,17 @@ describe('Relationship Persistence', () => {
       task.assignees = [savedUser1, savedUser2];
       task.notes = [];
 
-      const savedTask = await dataSource.save(task);
+      await dataSource.save(task);
 
-      expect(savedTask.assignees).toHaveLength(2);
-      expect(savedTask.assignees.map(u => u.name)).toContain('User 1');
-      expect(savedTask.assignees.map(u => u.name)).toContain('User 2');
+      const savedTask = await dataSource.findOne(Task, {
+        where: { title: 'Multi-assignee Task' },
+        relations: { assignees: true }
+      });
+
+      expect(savedTask).toBeDefined();
+      expect(savedTask!.assignees).toHaveLength(2);
+      expect(savedTask!.assignees.map(u => u.name)).toContain('User 1');
+      expect(savedTask!.assignees.map(u => u.name)).toContain('User 2');
     });
   });
 
@@ -322,12 +341,19 @@ describe('Relationship Persistence', () => {
       savedTask.notes = [note];
       const finalTask = await dataSource.save(savedTask);
 
-      expect(finalTask.project.name).toBe('Complex Project');
-      expect(finalTask.assignees).toHaveLength(1);
-      expect(finalTask.assignees[0]!.name).toBe('Task Creator');
-      expect(finalTask.notes).toHaveLength(1);
-      expect(finalTask.notes[0]!.note).toBe('Complex task note');
-      expect(finalTask.notes[0]!.user.name).toBe('Task Creator');
+      expect(finalTask.project).toBeUndefined();
+
+      const retrievedTask = await dataSource.findOne(Task, {
+        where: { id: finalTask.id },
+        relations: { project: true, assignees: true, notes: { user: true } }
+      });
+
+      expect(retrievedTask).toBeDefined();
+      expect(retrievedTask!.assignees).toHaveLength(1);
+      expect(retrievedTask!.assignees[0]!.name).toBe('Task Creator');
+      expect(retrievedTask!.notes).toHaveLength(1);
+      expect(retrievedTask!.notes[0]!.note).toBe('Complex task note');
+      expect(retrievedTask!.notes[0]!.user.name).toBe('Task Creator');
     });
   });
 
@@ -366,8 +392,11 @@ describe('Relationship Persistence', () => {
     });
 
     it('should find tasks by project reference', async () => {
-      const tasks = await dataSource.findBy(Task, { project: { id: savedProject.id } });
-      
+      const tasks = await dataSource.findWithOptions(Task, {
+        where: { project: { id: savedProject.id } },
+        relations: { project: true }
+      });
+
       expect(tasks).toHaveLength(1);
       expect(tasks[0]!.title).toBe('Query Test Task');
       expect(tasks[0]!.project.id).toBe(savedProject.id);
@@ -375,17 +404,21 @@ describe('Relationship Persistence', () => {
 
     it('should find tasks by assignee reference', async () => {
       const tasks = await dataSource.findWithOptions(Task, {
-        where: { assignees: { id: savedUser.id } }
+        where: { assignees: { id: savedUser.id } },
+        relations: { assignees: true }
       });
-      
+
       expect(tasks).toHaveLength(1);
       expect(tasks[0]!.title).toBe('Query Test Task');
       expect(tasks[0]!.assignees.some(u => u.id === savedUser.id)).toBe(true);
     });
 
     it('should find one task with relations loaded', async () => {
-      const task = await dataSource.findOneBy(Task, { id: savedTask.id });
-      
+      const task = await dataSource.findOne(Task, {
+        where: { id: savedTask.id },
+        relations: { project: true, assignees: true, notes: { user: true } }
+      });
+
       expect(task).toBeDefined();
       expect(task!.title).toBe('Query Test Task');
       expect(task!.project).toBeDefined();
@@ -403,24 +436,24 @@ describe('Relationship Persistence', () => {
           assignees: { email: 'query@example.com' }
         }
       });
-      
+
       expect(tasks).toHaveLength(1);
       expect(tasks[0]!.title).toBe('Query Test Task');
     });
 
     it('should count tasks with relationships', async () => {
-      const count = await dataSource.countBy(Task, { 
-        project: { id: savedProject.id } 
+      const count = await dataSource.countBy(Task, {
+        project: { id: savedProject.id }
       });
-      
+
       expect(count).toBe(1);
     });
 
     it('should check existence of tasks with relationships', async () => {
-      const exists = await dataSource.existsBy(Task, { 
-        assignees: { id: savedUser.id } 
+      const exists = await dataSource.existsBy(Task, {
+        assignees: { id: savedUser.id }
       });
-      
+
       expect(exists).toBe(true);
     });
   });
@@ -577,8 +610,11 @@ describe('Relationship Persistence', () => {
     });
 
     it('should load task with all composition children', async () => {
-      const task = await dataSource.findOneBy(Task, { id: taskId });
-      
+      const task = await dataSource.findOne(Task, {
+        where: { id: taskId },
+        relations: { project: true, assignees: true, notes: { user: true } }
+      });
+
       expect(task).toBeDefined();
       expect(task!.notes).toHaveLength(2);
       expect(task!.notes[0]!.note).toBeDefined();
@@ -589,21 +625,27 @@ describe('Relationship Persistence', () => {
 
     it('should load compositions with nested references', async () => {
       const task = await dataSource.findOneBy(Task, { id: taskId });
-      
+
       expect(task).toBeDefined();
       const firstNote = task!.notes[0]!;
-      
-      expect(firstNote.user).toBeDefined();
-      expect(firstNote.user.id).toBe(userId);
-      expect(firstNote.user.name).toBe('Composition Reader');
-      expect(firstNote.user.email).toBe('reader@composition.com');
+
+      const reloadedFirstNote = await dataSource.findOne(TaskNote, {
+        where: { id: firstNote.id },
+        relations: { user: true }
+      });
+
+      expect(reloadedFirstNote).toBeDefined();
+      expect(reloadedFirstNote!.user).toBeDefined();
+      expect(reloadedFirstNote!.user.id).toBe(userId);
+      expect(reloadedFirstNote!.user.name).toBe('Composition Reader');
+      expect(reloadedFirstNote!.user.email).toBe('reader@composition.com');
     });
 
     it('should find tasks by composition properties', async () => {
       const tasks = await dataSource.findWithOptions(Task, {
         where: { notes: { note: 'First composition note' } }
       });
-      
+
       expect(tasks).toHaveLength(1);
       expect(tasks[0]!.id).toBe(taskId);
     });
@@ -615,8 +657,12 @@ describe('Relationship Persistence', () => {
       emptyTask.notes = [];
       const savedEmptyTask = await dataSource.save(emptyTask);
 
-      const retrievedTask = await dataSource.findOneBy(Task, { id: savedEmptyTask.id });
-      
+      const retrievedTask = await dataSource.findOne(Task,
+        {
+          where: { id: savedEmptyTask.id },
+          relations: { assignees: true }
+        });
+
       expect(retrievedTask).toBeDefined();
       expect(retrievedTask!.notes).toHaveLength(0);
       expect(retrievedTask!.assignees).toHaveLength(0);
@@ -721,7 +767,7 @@ describe('Relationship Persistence', () => {
       // Verify users still exist (should NOT be deleted)
       const user1Exists = await dataSource.existsBy(User, { id: savedUser1.id });
       const user2Exists = await dataSource.existsBy(User, { id: savedUser2.id });
-      
+
       expect(user1Exists).toBe(true);
       expect(user2Exists).toBe(true);
     });
@@ -829,9 +875,17 @@ describe('Relationship Persistence', () => {
       task.project = null as any;
       task.assignees = [];
       task.notes = [];
-      
+
       const savedTask = await dataSource.save(task);
-      const retrievedTask = await dataSource.findOneBy(Task, { id: savedTask.id });
+
+      expect(savedTask.id).toBeDefined();
+      expect(savedTask.project).toBeUndefined();
+
+      const retrievedTask = await dataSource.findOne(Task,
+        {
+          where: { id: savedTask.id },
+          relations: { project: true }
+        });
 
       expect(retrievedTask!.project).toBeNull();
     });
@@ -841,9 +895,13 @@ describe('Relationship Persistence', () => {
       task.title = 'Task with Empty Arrays';
       task.assignees = [];
       task.notes = [];
-      
+
       const savedTask = await dataSource.save(task);
-      const retrievedTask = await dataSource.findOneBy(Task, { id: savedTask.id });
+      const retrievedTask = await dataSource.findOne(Task,
+        {
+          where: { id: savedTask.id },
+          relations: { assignees: true }
+        });
 
       expect(retrievedTask!.assignees).toHaveLength(0);
       expect(retrievedTask!.notes).toHaveLength(0);
@@ -908,13 +966,21 @@ describe('Relationship Persistence', () => {
 
       // Update project reference
       savedTask.project = savedProject2;
-      const updatedTask = await dataSource.save(savedTask);
+      await dataSource.save(savedTask);
 
-      expect(updatedTask.project.id).toBe(savedProject2.id);
-      expect(updatedTask.project.name).toBe('New Project');
+      const updatedTask = await dataSource.findOne(Task, {
+        where: { id: savedTask.id },
+        relations: { project: true }
+      });
+
+      expect(updatedTask!.project.id).toBe(savedProject2.id);
+      expect(updatedTask!.project.name).toBe('New Project');
 
       // Verify the change persisted
-      const retrievedTask = await dataSource.findOneBy(Task, { id: savedTask.id });
+      const retrievedTask = await dataSource.findOne(Task, {
+        where: { id: savedTask.id },
+        relations: { project: true }
+      });
       expect(retrievedTask!.project.id).toBe(savedProject2.id);
     });
 
@@ -933,15 +999,25 @@ describe('Relationship Persistence', () => {
       task.title = 'Bulk Assignment Task';
       task.assignees = users;
       task.notes = [];
-      const savedTask = await dataSource.save(task);
+      await dataSource.save(task);
 
-      expect(savedTask.assignees).toHaveLength(5);
+      const savedTask = await dataSource.findOne(Task, {
+        where: { title: 'Bulk Assignment Task' },
+        relations: { assignees: true }
+      });
+
+      expect(savedTask!.assignees).toHaveLength(5);
 
       // Remove some assignees
-      savedTask.assignees = users.slice(0, 3);
-      const updatedTask = await dataSource.save(savedTask);
+      savedTask!.assignees = users.slice(0, 3);
+      await dataSource.save(savedTask!);
 
-      expect(updatedTask.assignees).toHaveLength(3);
+      const updatedTask = await dataSource.findOne(Task, {
+        where: { id: savedTask!.id },
+        relations: { assignees: true }
+      });
+
+      expect(updatedTask!.assignees).toHaveLength(3);
 
       // Verify the removed users still exist
       const userCount = await dataSource.countBy(User, {});
