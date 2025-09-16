@@ -289,8 +289,6 @@ describe('Relationship Persistence', () => {
         where: { id: savedTask.id },
         relations: { notes: { user: true } }
       });
-
-
       expect(updatedTask?.notes).toHaveLength(1);
       expect(updatedTask?.notes[0]!.note).toBe('Test note content');
       expect(updatedTask?.notes[0]!.user.name).toBe('Test User');
