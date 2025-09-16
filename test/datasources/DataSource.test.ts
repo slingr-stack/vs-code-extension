@@ -353,7 +353,7 @@ describe('Data Source Integration', () => {
       }
 
       // Initialize the data source after model is configured
-      await dataSource.initialize(dataSource.getOptions());
+      await dataSource.initialize();
 
       // Create and save a user
       const user = new TestUser();
@@ -392,7 +392,7 @@ describe('Data Source Integration', () => {
         age!: number;
       }
 
-      await dataSource.initialize(dataSource.getOptions());
+      await dataSource.initialize();
 
       // Create and save multiple users
       const user1 = new TestUser();
@@ -428,7 +428,7 @@ describe('Data Source Integration', () => {
         age!: number;
       }
 
-      await dataSource.initialize(dataSource.getOptions());
+      await dataSource.initialize();
 
       // Create and save users with different ages
       const youngUser = new TestUser();
@@ -464,7 +464,7 @@ describe('Data Source Integration', () => {
         name!: string;
       }
 
-      await dataSource.initialize(dataSource.getOptions());
+      await dataSource.initialize();
 
       // Create and save a user
       const user = new TestUser();
@@ -497,7 +497,7 @@ describe('Data Source Integration', () => {
         category!: string;
       }
 
-      await dataSource.initialize(dataSource.getOptions());
+      await dataSource.initialize();
 
       // Create and save users with different categories
       const user1 = new TestUser();
@@ -551,7 +551,7 @@ describe('Data Source Integration', () => {
         contact!: string;
       }
 
-      await dataSource.initialize(dataSource.getOptions());
+      await dataSource.initialize();
 
       // Create and save a complex model
       const model = new ComplexModel();
@@ -596,7 +596,7 @@ describe('Data Source Integration', () => {
         age!: number;
       }
 
-      await dataSource.initialize(dataSource.getOptions());
+      await dataSource.initialize();
 
       // Try to save an invalid user
       const invalidUser = new ValidatedUser();

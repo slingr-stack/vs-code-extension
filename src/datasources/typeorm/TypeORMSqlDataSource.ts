@@ -193,13 +193,12 @@ export class TypeORMSqlDataSource extends DataSource {
   /**
    * Initialize the TypeORM data source.
    * Sets up the TypeORM DataSource, establishes database connection,
-   * and configures connection pooling.
+   * and configures connection pooling using options provided during construction.
    * 
-   * @param options - TypeORM-specific configuration options
    * @returns Promise resolving to the initialized TypeORM DataSource
    */
-  async initialize(options: DataSourceOptions): Promise<TypeORMDataSource> {
-    const typeormOptions = options as TypeORMSqlDataSourceOptions;
+  async initialize(): Promise<TypeORMDataSource> {
+    const typeormOptions = this.options as TypeORMSqlDataSourceOptions;
 
     // Get all entities (models + array element entities)
     const allEntities = [

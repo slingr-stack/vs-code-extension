@@ -35,14 +35,13 @@ export abstract class DataSource {
   }
 
   /**
-   * Initialize the data source with the provided options.
+   * Initialize the data source using the options provided during construction.
    * This method should establish connections, set up the data source,
    * and prepare it for use.
    * 
-   * @param options - Configuration options for the data source
    * @returns Promise that resolves when initialization is complete
    */
-  abstract initialize(options: DataSourceOptions): Promise<any>;
+  abstract initialize(): Promise<any>;
 
   /**
    * Check if the data source has been initialized.

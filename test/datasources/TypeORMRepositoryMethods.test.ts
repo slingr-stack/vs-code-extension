@@ -42,7 +42,7 @@ describe('TypeORM Repository-Style Methods', () => {
       }
     });
     
-    await dataSource.initialize(options);
+    await dataSource.initialize();
   });
 
   afterEach(async () => {

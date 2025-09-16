@@ -12,7 +12,7 @@ describe('TypeORM SQL DataSource - Basic Connection Tests', () => {
         synchronize: true,
       });
 
-      await dataSource.initialize(dataSource.getOptions());
+      await dataSource.initialize();
       
       expect(dataSource.isConnected()).toBe(true);
       expect(dataSource.getInitializationStatus()).toBe(true);
@@ -33,7 +33,7 @@ describe('TypeORM SQL DataSource - Basic Connection Tests', () => {
         synchronize: true,
       });
 
-      await dataSource.initialize(dataSource.getOptions());
+      await dataSource.initialize();
       
       expect(dataSource.isConnected()).toBe(true);
       
@@ -72,7 +72,7 @@ describe('TypeORM SQL DataSource - Basic Connection Tests', () => {
         minConnections: 3,
       });
 
-      await dataSource.initialize(dataSource.getOptions());
+      await dataSource.initialize();
       expect(dataSource.isConnected()).toBe(true);
       
       await dataSource.disconnect();
@@ -92,7 +92,7 @@ describe('TypeORM SQL DataSource - Basic Connection Tests', () => {
         connectTimeout: 1000,
       });
 
-      await expect(dataSource.initialize(dataSource.getOptions()))
+      await expect(dataSource.initialize())
         .rejects
         .toThrow();
         
@@ -128,8 +128,8 @@ describe('TypeORM SQL DataSource - Basic Connection Tests', () => {
       });
 
       // Initialize both
-      await dataSource1.initialize(dataSource1.getOptions());
-      await dataSource2.initialize(dataSource2.getOptions());
+      await dataSource1.initialize();
+      await dataSource2.initialize();
 
       expect(dataSource1.isConnected()).toBe(true);
       expect(dataSource2.isConnected()).toBe(true);
