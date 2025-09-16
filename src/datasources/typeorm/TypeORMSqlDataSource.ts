@@ -18,6 +18,7 @@ import { TypeORMTypeMapper } from './TypeORMTypeMapper';
 import { DatabaseConfigBuilder } from './DatabaseConfigBuilder';
 import { ArrayFieldManager } from './ArrayFieldManager';
 import { DateTimeRangeFieldManager } from './DateTimeRangeFieldManager';
+import { RelationshipFieldManager } from './RelationshipFieldManager';
 // Import to ensure field type registrations happen
 import '../../model/types/TypeRegistry';
 import { 
@@ -26,7 +27,14 @@ import {
   DATASOURCE_FIELD_CONFIGURED,
   TYPEORM_ENTITY,
   TYPEORM_TABLE,
-  TYPEORM_COLUMN
+  TYPEORM_COLUMN,
+  MODEL_FIELDS,
+  FIELD_TYPE,
+  FIELD_TYPE_OPTIONS,
+  FIELD_RELATIONSHIP_TYPE,
+  FIELD_RELATIONSHIP_LOAD,
+  FIELD_RELATIONSHIP_ON_DELETE,
+  DESIGN_TYPE
 } from '../../model/metadata/MetadataKeys';
 
 /**
@@ -110,6 +118,7 @@ export class TypeORMSqlDataSource extends DataSource {
   private registeredModels: Set<Function> = new Set();
   private arrayFieldManager: ArrayFieldManager = new ArrayFieldManager();
   private dateTimeRangeFieldManager: DateTimeRangeFieldManager = new DateTimeRangeFieldManager();
+  private relationshipFieldManager: RelationshipFieldManager = new RelationshipFieldManager();
 
   constructor(options: TypeORMSqlDataSourceOptions) {
     super(options);
@@ -142,6 +151,9 @@ export class TypeORMSqlDataSource extends DataSource {
       await this.typeormDataSource.initialize();
       this.isInitialized = true;
       console.log(`TypeORM DataSource initialized successfully for ${typeormOptions.type}`);
+      
+    // Keep initialization logs concise in test runs
+      
       return this.typeormDataSource;
     } catch (error) {
       console.error('Failed to initialize TypeORM DataSource:', error);
@@ -239,6 +251,7 @@ export class TypeORMSqlDataSource extends DataSource {
    * Configures a field with appropriate TypeORM column decorators.
    * For array fields, delegates to the array field manager.
    * For DateTimeRange fields, delegates to the DateTimeRange field manager.
+   * For relationship fields, delegates to the relationship field manager.
    * 
    * @param target - The prototype of the class containing the field
    * @param propertyKey - The name of the property/field
@@ -254,6 +267,29 @@ export class TypeORMSqlDataSource extends DataSource {
     // Skip the id field if it's already configured with @PrimaryGeneratedColumn
     if (propertyKey === 'id') {
       return; // PersistentModel already handles this with @PrimaryGeneratedColumn
+    }
+
+    // Check if this is a relationship field
+    if (fieldType === 'relationship') {
+      const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, target, propertyKey);
+      const load = Reflect.getMetadata(FIELD_RELATIONSHIP_LOAD, target, propertyKey);
+      const onDelete = Reflect.getMetadata(FIELD_RELATIONSHIP_ON_DELETE, target, propertyKey);
+      
+      // Get elementType from field options if it exists (for array relationships)
+      const elementType = fieldOptions?.elementType;
+      
+      this.relationshipFieldManager.configureRelationshipField(
+        target, 
+        propertyKey, 
+        relationshipType, 
+        load, 
+        onDelete, 
+        elementType
+      );
+      
+      // Store that this field is configured for TypeORM
+      Reflect.defineMetadata(DATASOURCE_FIELD_CONFIGURED, true, target, propertyKey);
+      return;
     }
 
     // Check if this is an array field
@@ -749,13 +785,137 @@ export class TypeORMSqlDataSource extends DataSource {
     }
 
     const repository = this.typeormDataSource.getRepository(entityClass);
-    const entity = await repository.findOneBy({ id: id as any } as any) as T | null;
+    
+    // Get the table name for this entity
+    const metadata = this.typeormDataSource.getMetadata(entityClass);
+    const tableName = metadata.tableName;
+    
+    // Use raw query to get the basic entity data
+    const result = await this.typeormDataSource.query(
+      `SELECT * FROM ${tableName} WHERE id = ?`,
+      [id]
+    );
 
-    if (!entity) {
+    if (!result || result.length === 0) {
       return null;
     }
+    
+    // Create entity instance from raw data
+    const entity = repository.create(result[0]) as T;
+    
+    // Since we set eager: true in relationship configuration, TypeORM should load relationships automatically
+    // But our current query doesn't include joins. Let's use TypeORM's built-in findOne with relations
+    if (this.typeormDataSource) {
+      try {
+        const entityWithRelations = await repository.findOne({
+          where: { id } as any,
+          loadEagerRelations: true // This will load all eager relationships
+        });
+        
+        if (entityWithRelations) {
+          console.log(`Loaded entity with eager relations:`, Object.keys(entityWithRelations));
+          return entityWithRelations;
+        }
+      } catch (error) {
+        console.warn('Failed to load with eager relations, falling back to manual loading:', error);
+      }
+    }
+    
+    // Fallback: manually load relationships that are marked as eager
+    await this.loadEagerRelationships(entity, entityClass, metadata);
 
     return entity;
+  }
+
+  /**
+   * Manually load eager relationships for an entity to avoid TypeORM's broken join resolution
+   */
+  private async loadEagerRelationships<T extends object>(entity: T, entityClass: new () => T, metadata: any): Promise<void> {
+    if (!this.typeormDataSource) return;
+
+    console.log(`Loading eager relationships for ${entityClass.name}`);
+
+    // Get relationship fields from our field metadata
+    const relationshipFields = Reflect.getMetadata(MODEL_FIELDS, entityClass) || [];
+    console.log(`All fields for ${entityClass.name}:`, relationshipFields);
+    
+    for (const fieldName of relationshipFields) {
+      // Check if this field is a relationship
+      const fieldType = Reflect.getMetadata(FIELD_TYPE, entityClass.prototype, fieldName);
+      
+      if (fieldType === 'relationship') {
+        console.log(`Found relationship field: ${fieldName}`);
+        
+        // Get relationship-specific metadata
+        const relationshipType = Reflect.getMetadata(FIELD_RELATIONSHIP_TYPE, entityClass.prototype, fieldName);
+        const relationshipLoad = Reflect.getMetadata(FIELD_RELATIONSHIP_LOAD, entityClass.prototype, fieldName);
+        const fieldTypeOptions = Reflect.getMetadata(FIELD_TYPE_OPTIONS, entityClass.prototype, fieldName);
+        // Only load reference relationships that are eager (composition handles differently)
+        if (relationshipType === 'reference' && relationshipLoad !== false) {
+          console.log(`Loading reference relationship ${fieldName}`);
+          try {
+            const relationshipMetadata = {
+              type: relationshipType,
+              load: relationshipLoad,
+              elementType: fieldTypeOptions?.elementType
+            };
+            await this.loadReferenceRelationship(entity, fieldName, relationshipMetadata);
+          } catch (error) {
+            console.warn(`Failed to load relationship ${fieldName}:`, error);
+          }
+        } else {
+          console.log(`Skipping relationship ${fieldName}: type=${relationshipType}, load=${relationshipLoad}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Load a reference relationship using the foreign key
+   */
+  private async loadReferenceRelationship<T extends object>(entity: T, fieldName: string, relationshipMetadata: any): Promise<void> {
+    if (!this.typeormDataSource) return;
+
+    // Get the foreign key value - TypeORM should use the explicit column name we specified
+    const foreignKeyName = `${fieldName}Id`;
+    const foreignKeyValue = (entity as any)[foreignKeyName];
+    
+    console.log(`Available entity keys: ${Object.keys(entity)}`);
+    console.log(`Loading relationship ${fieldName}, foreign key: ${foreignKeyName} = ${foreignKeyValue}`);
+    
+    if (foreignKeyValue && foreignKeyName) {
+      // Get the target entity class - try elementType first, then fall back to design:type
+      let targetClass;
+      
+      if (relationshipMetadata.elementType && typeof relationshipMetadata.elementType === 'function') {
+        targetClass = relationshipMetadata.elementType();
+      } else {
+        // Fall back to TypeScript's design:type metadata
+        const entityClass = entity.constructor;
+        targetClass = Reflect.getMetadata(DESIGN_TYPE, entityClass.prototype, fieldName);
+      }
+      
+      console.log(`Target class for ${fieldName}:`, targetClass?.name);
+      
+      if (targetClass) {
+        try {
+          const targetRepository = this.typeormDataSource.getRepository(targetClass);
+          const relatedEntity = await targetRepository.findOneBy({ id: foreignKeyValue });
+          
+          console.log(`Found related entity for ${fieldName}:`, relatedEntity);
+          
+          if (relatedEntity) {
+            (entity as any)[fieldName] = relatedEntity;
+          }
+        } catch (error) {
+          console.warn(`Error loading related entity for ${fieldName}:`, error);
+        }
+      } else {
+        console.warn(`Could not determine target class for relationship ${fieldName}`);
+      }
+    } else {
+      console.log(`No foreign key value for ${fieldName}`);
+    }
   }
 
   /**
