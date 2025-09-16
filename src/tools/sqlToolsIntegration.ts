@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DataSourceMetadata, MetadataCache } from '../cache/cache';
+import { CacheUpdateEvent, DataSourceMetadata, MetadataCache } from '../cache/cache';
 
 /**
  * SQLTools connection configuration interface
@@ -162,9 +162,9 @@ async function updateSqlToolsConfig(sqlDataSources: DataSourceMetadata[]): Promi
  * @param cache The metadata cache.
  */
 export function setupSqlToolsIntegration(context: vscode.ExtensionContext, cache: MetadataCache) {
-    const disposable = cache.onInfrastructureStatusChange(event => {
+    const disposable = cache.onDidUpdate((event: CacheUpdateEvent) => {
         // Only act when the infrastructure update has successfully completed
-        if (event.status === 'change-detected') {
+        if (event.type === 'dataSource') {
             // The rest of the logic is the same!
             const allSqlDataSources = cache.getSqlDataSources();
             updateSqlToolsConfig(allSqlDataSources);

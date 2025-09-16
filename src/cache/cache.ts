@@ -10,6 +10,13 @@ type FileChangeType = 'create' | 'change' | 'delete';
 
 export type InfrastructureEventStatus  = 'change-detected' | 'update-success' | 'update-failure';
 
+export type CacheFileUpdateType = 'dataSource' | 'dataModel' | 'fullRefresh' | 'unknown';
+
+export interface CacheUpdateEvent {
+    type: CacheFileUpdateType;
+    uri?: vscode.Uri; // The URI of the changed file. Undefined for a full refresh.
+}
+
 export interface InfrastructureStatusChangeEvent {
     status: InfrastructureEventStatus ;
     uri: vscode.Uri;
@@ -101,8 +108,8 @@ export interface MethodMetadata {
  * It is designed to be generic, efficient, and resilient to file system changes.
  */
 export class MetadataCache {
-    private _onDidUpdate: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-    public readonly onDidUpdate: vscode.Event<void> = this._onDidUpdate.event;
+    private _onDidUpdate: vscode.EventEmitter<CacheUpdateEvent> = new vscode.EventEmitter<CacheUpdateEvent>();
+    public readonly onDidUpdate: vscode.Event<CacheUpdateEvent> = this._onDidUpdate.event;
     private tsMorphProject: Project;
     private cache: ProjectMetadataCache = {};
     private fileWatcher: vscode.FileSystemWatcher | null = null;
@@ -206,6 +213,7 @@ export class MetadataCache {
         if (uri.path.includes('/node_modules/')) {
             return;
         }
+
         this.fileChangeQueue.push({ uri, type });
         this.processQueue();
     }
@@ -254,7 +262,7 @@ export class MetadataCache {
             // Rebuild all references
             this.buildAllReferences();
             // Notify listeners that the cache has been updated
-            this._onDidUpdate.fire();
+            this._onDidUpdate.fire({type: 'fullRefresh'});
         } catch (error) {
             console.error('[Cache] Error during force refresh:', error);
         }
@@ -265,7 +273,7 @@ export class MetadataCache {
      * This can be used by external tools to force explorer refresh.
      */
     public triggerUpdate(): void {
-        this._onDidUpdate.fire();
+        this._onDidUpdate.fire({type: 'fullRefresh'});
     }
 
     /**
@@ -340,7 +348,13 @@ export class MetadataCache {
             }
             
             this.buildAllReferences();
-            this._onDidUpdate.fire();
+            let fileType: CacheFileUpdateType = 'unknown';
+            if (filePath.includes('/src/dataSources/')) {
+                fileType = 'dataSource';
+            } else if (filePath.includes('/src/data/')) {
+                fileType = 'dataModel';
+            }
+            this._onDidUpdate.fire({ type: fileType, uri: uri });
 
         } catch (error) {
             console.error(`Error processing file change for ${uri.fsPath}:`, error);
@@ -435,9 +449,6 @@ export class MetadataCache {
         } else if (newFileMeta) {
             this.cache[filePath] = newFileMeta;
         }
-        
-        this.buildAllReferences();
-        this._onDidUpdate.fire();
 
         // Fire infrastructure status change event AFTER cache has been updated
         if (hasInfrastructureChanges) {
@@ -448,16 +459,12 @@ export class MetadataCache {
     }
 
     /**
-     * Acknowledges that the infrastructure has been updated for a specific file.
-     * @param uri The URI of the file that has been updated.
+     * Acknowledges that a global infrastructure update has completed successfully,
+     * resetting the state for all out-of-sync data sources.
      */
-    public acknowledgeInfrastructureUpdate(uri: vscode.Uri): void {
-        const filePath = uri.fsPath.replace(/\\/g, '/');
-        this.outOfSyncDataSources.delete(filePath);
-
-        if (this.outOfSyncDataSources.size === 0) {
-            this.isInfrastructureUpdateNeeded = false;
-        }
+    public acknowledgeAllInfrastructureUpdates(): void {
+        this.outOfSyncDataSources.clear();
+        this.isInfrastructureUpdateNeeded = false;
     }
 
     /**
