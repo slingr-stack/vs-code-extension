@@ -10,10 +10,11 @@ import {
     Text,
     DecimalNumber,
     MoneyNumber,
-    dateTimeRange
+    dateTimeRange,
+    decimal,
+    money
 } from "../../index";
 import { validateSync } from 'class-validator';
-import number from 'financial-number';
 import { FIELD_REQUIRED, FIELD_TYPE, FIELD_TYPE_OPTIONS, MODEL_DATASOURCE, MODEL_FIELDS } from "../../src/model/metadata";
 
 // Test model for complex type persistence
@@ -111,10 +112,10 @@ describe("Complex Types Persistence in SQL Databases", () => {
         testEntity.name = "Complex Types Test";
         
         // Set up Decimal value
-        testEntity.priceDecimal = number("123.45");
+        testEntity.priceDecimal = decimal("123.45");
         
         // Set up Money value
-        testEntity.priceMoney = number("999.99");
+        testEntity.priceMoney = money("999.99");
         
         // Set up required DateTimeRange
         const activeRange = dateTimeRange('2024-01-01T00:00:00Z', '2024-12-31T23:59:59Z');
@@ -153,7 +154,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
         });
 
         it("should persist Decimal precision correctly", async () => {
-            testEntity.priceDecimal = number("123.456");  // Will be truncated to 2 decimals
+            testEntity.priceDecimal = decimal("123.456");  // Will be truncated to 2 decimals
             
             const savedEntity = await dataSource.save(testEntity);
             
@@ -195,7 +196,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
         });
 
         it("should persist Money with correct rounding", async () => {
-            testEntity.priceMoney = number("123.456");  // Will be rounded to 2 decimals
+            testEntity.priceMoney = money("123.456");  // Will be rounded to 2 decimals
             
             const savedEntity = await dataSource.save(testEntity);
             
@@ -293,8 +294,8 @@ describe("Complex Types Persistence in SQL Databases", () => {
             // Create first test entity
             const entity1 = new ComplexTypesModel();
             entity1.name = "Entity 1";
-            entity1.priceDecimal = number("100.00");
-            entity1.priceMoney = number("200.00");
+            entity1.priceDecimal = decimal("100.00");
+            entity1.priceMoney = money("200.00");
 
             const range1 = dateTimeRange('2024-01-01T00:00:00Z', '2024-06-30T23:59:59Z');
             entity1.activeRange = range1;
@@ -304,8 +305,8 @@ describe("Complex Types Persistence in SQL Databases", () => {
             // Create second test entity
             const entity2 = new ComplexTypesModel();
             entity2.name = "Entity 2";
-            entity2.priceDecimal = number("150.00");
-            entity2.priceMoney = number("300.00");
+            entity2.priceDecimal = decimal("150.00");
+            entity2.priceMoney = money("300.00");
 
             const range2 = dateTimeRange('2024-07-01T00:00:00Z', '2024-12-31T23:59:59Z');
             entity2.activeRange = range2;
@@ -348,7 +349,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
         });
 
         it("should update Decimal values correctly", async () => {
-            savedEntity.priceDecimal = number("456.78");
+            savedEntity.priceDecimal = decimal("456.78");
             
             const updatedEntity = await dataSource.save(savedEntity);
             
@@ -360,7 +361,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
         });
 
         it("should update Money values correctly", async () => {
-            savedEntity.priceMoney = number("555.55");
+            savedEntity.priceMoney = money("555.55");
             
             const updatedEntity = await dataSource.save(savedEntity);
             
@@ -390,7 +391,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
     describe("Complex Types Validation", () => {
         it("should validate Decimal constraints", async () => {
             // Test minimum value constraint
-            testEntity.priceDecimal = number("0.001"); // Below minimum
+            testEntity.priceDecimal = decimal("0.001"); // Below minimum
             
             const errors = validateSync(testEntity);
             const decimalErrors = errors.filter(e => e.property === 'priceDecimal');
@@ -399,7 +400,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
 
         it("should validate Money constraints", async () => {
             // Test maximum value constraint
-            testEntity.priceMoney = number("20000.00"); // Above maximum
+            testEntity.priceMoney = money("20000.00"); // Above maximum
             
             const errors = validateSync(testEntity);
             const moneyErrors = errors.filter(e => e.property === 'priceMoney');

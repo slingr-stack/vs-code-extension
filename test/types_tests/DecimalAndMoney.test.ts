@@ -1,6 +1,6 @@
 import 'reflect-metadata';
-import number from 'financial-number';
 import { DecimalMoneyModel } from '../model/DecimalMoneyModel';
+import { decimal, money } from '../../index';
 
 describe('@Decimal Decorator', () => {
 
@@ -8,7 +8,7 @@ describe('@Decimal Decorator', () => {
         it('should serialize a Decimal value with truncate rounding', () => {
             const product = new DecimalMoneyModel();
             product.name = 'Test';
-            product.priceTruncate = number('123.456'); // Input with more decimals
+            product.priceTruncate = decimal('123.456'); // Input with more decimals
 
             const jsonObject = product.toJSON();
 
@@ -21,7 +21,7 @@ describe('@Decimal Decorator', () => {
         it('should serialize a Decimal value with roundHalfToEven (round half up)', () => {
             const product = new DecimalMoneyModel();
             product.name = 'Test';
-            product.priceRound = number('123.455');
+            product.priceRound = decimal('123.455');
 
             const jsonObject = product.toJSON();
 
@@ -106,7 +106,7 @@ describe('@Decimal Decorator', () => {
         it("should fail if an incorrect number of decimals is set manually", async () => {
             const product = new DecimalMoneyModel();
             product.name = 'Test';
-            product.priceTruncate = number('123.456'); // Set a value with more than 2 decimals
+            product.priceTruncate = decimal('123.456'); // Set a value with more than 2 decimals
 
             const errors = await product.validate();
             expect(errors.length).toBeGreaterThan(0);
@@ -122,7 +122,7 @@ describe('@Money Decorator', () => {
         it('should correctly serialize and deserialize a Money value', async () => {
             const product = new DecimalMoneyModel();
             product.name = 'Ice Cream';
-            product.priceMoney = number('1.25');
+            product.priceMoney = money('1.25');
 
             const jsonObject = product.toJSON();
             expect(jsonObject.priceMoney).toBe('1.25');
@@ -147,7 +147,7 @@ describe('@Money Decorator', () => {
         it('should fail if an incorrect number of decimals is set manually', async () => {
             const product = new DecimalMoneyModel();
             product.name = 'Ice Cream';
-            product.priceMoney = number('1.245');
+            product.priceMoney = money('1.245');
 
             const errors = await product.validate();
             expect(errors.length).toBeGreaterThan(0);
@@ -158,7 +158,7 @@ describe('@Money Decorator', () => {
         it('should pass validation when the correct number of decimals is set manually', async () => {
             const product = new DecimalMoneyModel();
             product.name = 'Ice Cream';
-            product.priceMoney = number('1.25');
+            product.priceMoney = money('1.25');
 
             const errors = await product.validate();
             expect(errors).toHaveLength(0);
