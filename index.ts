@@ -7,6 +7,8 @@ export { Field } from './src/model/Field';
 export type { FieldOptions } from './src/model/Field';
 export { Model } from './src/model/Model';
 export type { ModelOptions } from './src/model/Model';
+export { Embedded } from './src/model/Embedded';
+export type { EmbeddedOptions } from './src/model/Embedded';
 export { CustomValidate } from './src/validators/CustomValidationConstraint';
 export { Text } from './src/model/types/string/Text';
 export type { TextOptions } from './src/model/types/string/Text';
@@ -24,10 +26,10 @@ export type { Money as MoneyNumber } from './src/model/types/number/Money';
 export { Number } from './src/model/types/number/Number';
 export { Decimal } from './src/model/types/number/Decimal';
 export type { Decimal as DecimalNumber } from './src/model/types/number/Decimal';
-export { PersistentModel } from './src/model';
+export { PersistentModel, PersistentComponentModel } from './src/model';
 export { TypeORMSqlDataSource } from './src/datasources';
 export type { TypeORMSqlDataSourceOptions } from './src/datasources';
-export { Relationship } from './src/model/types';
+export { Relationship, Reference, Composition, SharedComposition } from './src/model/types';
 
 // Aliases for the number() function from financial-number library
 

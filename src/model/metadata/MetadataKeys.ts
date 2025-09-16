@@ -43,6 +43,27 @@ export const FIELD_AVAILABLE = 'field:available';
 /** Metadata key for storing field relationship type information */
 export const FIELD_RELATIONSHIP_TYPE = 'field:relationship:type';
 
+/** Metadata key for storing field relationship load configuration */
+export const FIELD_RELATIONSHIP_LOAD = 'field:relationship:load';
+
+/** Metadata key for storing field relationship onDelete configuration */
+export const FIELD_RELATIONSHIP_ON_DELETE = 'field:relationship:onDelete';
+
+/** Metadata key for storing parent entity relationship information */
+export const RELATIONSHIP_PARENT_ENTITY = 'relationship:parent:entity';
+
+/** Metadata key for marking a field as embedded */
+export const FIELD_EMBEDDED = 'field:embedded';
+
+/** Metadata key for storing embedded field type information */
+export const FIELD_EMBEDDED_TYPE = 'field:embedded:type';
+
+/** Metadata key for storing embedded field options/configuration */
+export const FIELD_EMBEDDED_OPTIONS = 'field:embedded:options';
+
+/** Metadata key for storing embedded field documentation */
+export const FIELD_EMBEDDED_DOCS = 'field:embedded:docs';
+
 // =============================================================================
 // Model-related metadata keys
 // =============================================================================
@@ -62,6 +83,9 @@ export const MODEL_DATASOURCE = 'model:dataSource';
 
 /** Metadata key for marking fields as configured by a datasource */
 export const DATASOURCE_FIELD_CONFIGURED = 'datasource:field:configured';
+
+/** Metadata key for marking embedded fields as configured by a datasource */
+export const DATASOURCE_EMBEDDED_CONFIGURED = 'datasource:embedded:configured';
 
 /** Metadata key for storing datasource type information */
 export const DATASOURCE_TYPE = 'datasource:type';
@@ -105,6 +129,11 @@ export const TYPEORM_ENTITY = 'typeorm:entity';
 
 /** Metadata key for TypeORM table configuration */
 export const TYPEORM_TABLE = 'typeorm:table';
+
+export const TYPEORM_RELATIONSHIP = 'typeorm:relationship';
+
+/** Metadata key for TypeORM relationship type configuration */
+export const TYPEORM_RELATIONSHIP_TYPE = 'typeorm:relationship:type';
 
 /** Metadata key for TypeORM array field configuration */
 export const TYPEORM_ARRAY_FIELD = 'typeorm:array-field';
