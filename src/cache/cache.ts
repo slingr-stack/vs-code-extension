@@ -450,6 +450,10 @@ export class MetadataCache {
             this.cache[filePath] = newFileMeta;
         }
 
+        // Build references and fire update event (same as processQueue)
+        this.buildAllReferences();
+        this._onDidUpdate.fire({ type: 'dataSource', uri: uri });
+
         // Fire infrastructure status change event AFTER cache has been updated
         if (hasInfrastructureChanges) {
             this.isInfrastructureUpdateNeeded = true;
