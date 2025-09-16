@@ -31,7 +31,7 @@ export abstract class PersistentModel extends BaseModel {
     docs: 'Unique identifier for the entity'
   })
   @PrimaryColumn('uuid')
-  id?: string
+  id!: string
 
   @BeforeInsert()
   generateId() {
