@@ -226,7 +226,7 @@ export class RefactorController {
           const modifiedUris = this.collectModifiedUris(workspaceEdit, changesToProcess);
 
           // this catches pre-existing and new errors added by the refactor
-          const hasErrors = await this.checkForCompilationErrors(modifiedUris);
+          const hasErrors = await this.awaitAndCheckForErrors(modifiedUris);
 
           // Only prompt for AI analysis if errors are detected
           if (hasErrors) {
@@ -424,6 +424,49 @@ export class RefactorController {
     }
     return false;
   }
+
+  /**
+   * Awaits changes in diagnostics for the specified file URIs and checks for errors.
+   * @param uris Set of file URIs to monitor for diagnostic changes
+   * @returns A Promise that resolves to true if any errors are found, false otherwise
+   */
+  private async awaitAndCheckForErrors(uris: Set<vscode.Uri>): Promise<boolean> {
+    return new Promise((resolve) => {
+      const targetUris = Array.from(uris).map(uri => uri.toString());
+      let timeout: NodeJS.Timeout | undefined;
+
+      const disposable = vscode.languages.onDidChangeDiagnostics(e => {
+          // Check if any of the updated files are the ones we're watching.
+          const changedUris = e.uris.map(uri => uri.toString());
+          const hasRelevantChange = changedUris.some(uri => targetUris.includes(uri));
+
+          if (hasRelevantChange) {
+              disposable.dispose();
+              if (timeout) clearTimeout(timeout);
+
+              this.checkForCompilationErrors(uris).then(hasErrors => {
+                  resolve(hasErrors);
+              });
+          }
+      });
+
+      // Set a timeout as a safeguard.
+      timeout = setTimeout(() => {
+          disposable.dispose();
+          console.warn("Timeout waiting for diagnostics to update.");
+          resolve(false); 
+      }, 5000);
+
+      // Initial check
+      this.checkForCompilationErrors(uris).then(hasErrors => {
+          if (hasErrors) {
+              disposable.dispose();
+              if (timeout) clearTimeout(timeout);
+              resolve(true);
+          }
+      });
+  });
+}
 
   /**
    * Retrieves the list of available refactor tools.
