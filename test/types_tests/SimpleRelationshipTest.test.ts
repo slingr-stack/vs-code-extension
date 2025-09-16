@@ -101,13 +101,6 @@ describe('Simple Relationship Test', () => {
     expect(savedTask.id).toBeDefined();
     console.log('Task assignedUser:', savedTask.assignedUser);
     
-    if (savedTask.assignedUser) {
-      expect(savedTask.assignedUser.name).toBe('Test User');
-    } else {
-      // If not eagerly loaded, try to load it manually
-      const loadedTask = await dataSource.findOneById(SimpleTask, savedTask.id);
-      console.log('Manually loaded task:', loadedTask);
-      expect(loadedTask?.assignedUser?.name).toBe('Test User');
-    }
+    expect(savedTask.assignedUser?.name).toBe('Test User');
   });
 });
