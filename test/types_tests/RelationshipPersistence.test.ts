@@ -106,6 +106,29 @@ class Story extends PersistentModel {
   notes!: Note[];
 }
 
+// Test models for eager loading relationships
+@Model()
+class Department extends PersistentModel {
+  @Field({ required: true })
+  @Text()
+  name!: string;
+}
+
+@Model()
+class Employee extends PersistentModel {
+  @Field({ required: true })
+  @Text()
+  name!: string;
+
+  @Field({ required: true })
+  @Text()
+  email!: string;
+
+  @Field({ required: false })
+  @Reference({ load: true })
+  department!: Department;
+}
+
 describe('Relationship Persistence', () => {
   let dataSource: TypeORMSqlDataSource;
 
@@ -121,7 +144,7 @@ describe('Relationship Persistence', () => {
 
   beforeEach(async () => {
     // Configure models with the data source
-    const models = [User, Project, Task, TaskNote, Note, Epic, Story];
+    const models = [User, Project, Task, TaskNote, Note, Epic, Story, Department, Employee];
     for (const modelClass of models) {
       dataSource.configureModel(modelClass);
 
@@ -1022,6 +1045,78 @@ describe('Relationship Persistence', () => {
       // Verify the removed users still exist
       const userCount = await dataSource.countBy(User, {});
       expect(userCount).toBe(5);
+    });
+  });
+
+  describe('Eager Loading Relationships', () => {
+    it('should eagerly load reference relationships with load: true', async () => {
+      // Create a department
+      const department = new Department();
+      department.name = 'Engineering';
+      const savedDepartment = await dataSource.save(department);
+
+      // Create an employee with department reference
+      const employee = new Employee();
+      employee.name = 'Jane Developer';
+      employee.email = 'jane.developer@company.com';
+      employee.department = savedDepartment;
+
+      const savedEmployee = await dataSource.save(employee);
+
+      expect(savedEmployee.id).toBeDefined();
+      
+      // With eager loading (load: true), relationships should be loaded automatically
+      // without needing to specify relations in the query
+      const retrievedEmployee = await dataSource.findOneBy(Employee, { id: savedEmployee.id });
+
+      expect(retrievedEmployee).toBeDefined();
+      expect(retrievedEmployee!.name).toBe('Jane Developer');
+      
+      // Department should be eagerly loaded
+      expect(retrievedEmployee!.department).toBeDefined();
+      expect(retrievedEmployee!.department.id).toBe(savedDepartment.id);
+      expect(retrievedEmployee!.department.name).toBe('Engineering');
+    });
+
+    it('should eagerly load relationships in findWithOptions queries', async () => {
+      // Create department
+      const department = new Department();
+      department.name = 'Sales';
+      const savedDepartment = await dataSource.save(department);
+
+      // Create employee
+      const employee = new Employee();
+      employee.name = 'Bob Salesperson';
+      employee.email = 'bob.sales@company.com';
+      employee.department = savedDepartment;
+      const savedEmployee = await dataSource.save(employee);
+
+      // Query employees by department - relationships should be eagerly loaded
+      const employees = await dataSource.findWithOptions(Employee, {
+        where: { department: { name: 'Sales' } }
+      });
+
+      expect(employees).toHaveLength(1);
+      expect(employees[0]!.name).toBe('Bob Salesperson');
+      
+      // Department should be eagerly loaded without specifying relations
+      expect(employees[0]!.department).toBeDefined();
+      expect(employees[0]!.department.name).toBe('Sales');
+    });
+
+    it('should handle null eager-loaded relationships', async () => {
+      // Create employee without department
+      const employee = new Employee();
+      employee.name = 'Freelancer';
+      employee.email = 'freelancer@company.com';
+      employee.department = null as any;
+
+      const savedEmployee = await dataSource.save(employee);
+      const retrievedEmployee = await dataSource.findOneBy(Employee, { id: savedEmployee.id });
+
+      expect(retrievedEmployee).toBeDefined();
+      expect(retrievedEmployee!.name).toBe('Freelancer');
+      expect(retrievedEmployee!.department).toBeNull();
     });
   });
 });
