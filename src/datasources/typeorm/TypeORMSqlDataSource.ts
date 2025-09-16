@@ -10,7 +10,7 @@ import {
   DeleteResult,
   InsertResult
 } from 'typeorm';
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { Repository } from 'typeorm';
 import { ObjectId } from 'typeorm';
 import { DataSource, DataSourceOptions } from '../DataSource';
@@ -342,9 +342,9 @@ export class TypeORMSqlDataSource extends DataSource {
     fieldType: string,
     fieldOptions?: any
   ): void {
-    // Skip the id field if it's already configured with @PrimaryGeneratedColumn
+    // Skip the id field if it's already configured with @PrimaryColumn
     if (propertyKey === 'id') {
-      return; // PersistentModel already handles this with @PrimaryGeneratedColumn
+      return; // PersistentModel already handles this with @PrimaryColumn and UUID v7 generation
     }
 
     // Check if this is an embedded field

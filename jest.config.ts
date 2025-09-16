@@ -16,7 +16,7 @@ const config: Config = {
     ],
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!bigint-money|class-transformer)',
+    '/node_modules/(?!bigint-money|class-transformer|uuid)',
   ],
   testMatch: ["<rootDir>/test/**/*.test.ts"],
   moduleNameMapper: {

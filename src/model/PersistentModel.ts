@@ -1,7 +1,8 @@
 import { BaseModel } from './BaseModel';
 import { Model } from './Model';
 import { Field } from './Field';
-import { PrimaryGeneratedColumn } from 'typeorm';
+import { PrimaryColumn, BeforeInsert } from 'typeorm';
+import { v7 as uuidv7 } from 'uuid';
 
 /**
  * Abstract base class for persistent models that need to be stored in a data source.
@@ -29,6 +30,13 @@ export abstract class PersistentModel extends BaseModel {
     required: false,
     docs: 'Unique identifier for the entity'
   })
-  @PrimaryGeneratedColumn('uuid')
-  id!: string
+  @PrimaryColumn('uuid')
+  id?: string
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv7();
+    }
+  }
 }

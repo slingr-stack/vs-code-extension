@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn, Index, BeforeInsert } from 'typeorm';
 import { TypeORMTypeMapper } from './TypeORMTypeMapper';
+import { v7 as uuidv7 } from 'uuid';
 
 /**
  * Factory class for creating dynamic array element entities.
@@ -98,7 +99,17 @@ export class ArrayEntityFactory {
     Entity(tableName)(entityClass);
 
     // Configure the id field
-    PrimaryGeneratedColumn('uuid')(entityClass.prototype, 'id');
+    PrimaryColumn('uuid')(entityClass.prototype, 'id');
+
+    // Add UUID v7 generation method
+    entityClass.prototype.generateId = function() {
+      if (!this.id) {
+        this.id = uuidv7();
+      }
+    };
+    
+    // Apply BeforeInsert decorator to the generateId method
+    BeforeInsert()(entityClass.prototype, 'generateId');
 
 
 

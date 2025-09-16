@@ -4,7 +4,7 @@
   "description": "Slingr Framework - Smart Business Apps",
   "main": "./dist/index.js",
   "exports": {
-    ".": "./dist/index.js" 
+    ".": "./dist/index.js"
   },
   "scripts": {
     "test": "jest --verbose",
@@ -25,6 +25,7 @@
     "@types/jest": "^29.5.12",
     "@types/node": "^24.3.0",
     "@types/sqlite3": "^3.1.11",
+    "@types/uuid": "^10.0.0",
     "jest": "^29.7.0",
     "jest-circus": "^29.7.0",
     "mysql2": "^3.11.3",
@@ -38,8 +39,9 @@
   "dependencies": {
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
-    "financial-number": "^4.0.4",
     "financial-arithmetic-functions": "https://github.com/slingr-stack/financial-arithmetic-functions",
-    "typeorm": "^0.3.26"
+    "financial-number": "^4.0.4",
+    "typeorm": "^0.3.26",
+    "uuid": "^13.0.0"
   }
 }

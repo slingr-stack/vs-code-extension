@@ -317,7 +317,9 @@ describe('TypeORM Repository-Style Methods', () => {
     });
 
     test('insert() should insert new entities', async () => {
+      const { v7: uuidv7 } = await import('uuid');
       const newPost: Partial<BlogPost> = {
+        id: uuidv7(),
         title: 'Insert Test Post',
         content: 'Content for insert test',
         tags: ['insert', 'test'],
@@ -333,14 +335,17 @@ describe('TypeORM Repository-Style Methods', () => {
     });
 
     test('insert() should insert multiple entities', async () => {
+      const { v7: uuidv7 } = await import('uuid');
       const newPosts: Partial<BlogPost>[] = [
         {
+          id: uuidv7(),
           title: 'Bulk Insert Post 1',
           content: 'Content for bulk insert post 1',
           tags: ['bulk', 'insert'],
           collaboratorEmails: ['bulk1@example.com']
         },
         {
+          id: uuidv7(),
           title: 'Bulk Insert Post 2',
           content: 'Content for bulk insert post 2',
           tags: ['bulk', 'insert'],
