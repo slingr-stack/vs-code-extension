@@ -15,7 +15,7 @@ describe('TypeORM DataSource Example', () => {
 
     // 2. Initialize the data source
     console.log('Initializing data source...');
-    await mainDataSource.initialize(mainDataSource.getOptions());
+    await mainDataSource.initialize();
     console.log('✓ Data source initialized successfully');
 
     // 3. Check configuration

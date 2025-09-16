@@ -390,7 +390,7 @@ describe('Multi-Database Operations Test Suite', () => {
         
         try {
           console.log(`Initializing ${dbConfig.name}...`);
-          await dataSource.initialize(dataSource.getOptions());
+          await dataSource.initialize();
           console.log(`✓ ${dbConfig.name} initialized successfully`);
         } catch (error) {
           console.error(`✗ Failed to initialize ${dbConfig.name}:`, error);
@@ -484,7 +484,7 @@ describe('Multi-Database Operations Test Suite', () => {
         
         const pooledDataSource = new TypeORMSqlDataSource(pooledConfig);
         configureModelWithDataSource(BlogPost, pooledDataSource);
-        await pooledDataSource.initialize(pooledDataSource.getOptions());
+        await pooledDataSource.initialize();
         
         expect(pooledDataSource.isConnected()).toBe(true);
         
@@ -529,7 +529,7 @@ describe('Multi-Database Operations Test Suite', () => {
         
         try {
           configureModelWithDataSource(BlogPost, dataSource);
-          await dataSource.initialize(dataSource.getOptions());
+          await dataSource.initialize();
           
           // Insert test data using repository directly
           const typeormInstance = dataSource.getTypeORMDataSource();

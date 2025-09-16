@@ -103,7 +103,7 @@ describe("Complex Types Persistence in SQL Databases", () => {
         });
 
         // Initialize the data source
-        await dataSource.initialize(dataSource.getOptions());
+        await dataSource.initialize();
     });
 
     beforeEach(() => {
