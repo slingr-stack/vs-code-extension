@@ -47,14 +47,56 @@ export class ExplorerProvider
     dataTransfer: vscode.DataTransfer,
     token: vscode.CancellationToken
   ): void | Thenable<void> {
+    // Support multi-drag for fields only
     if (source.length > 1) {
-      // Multi-drag is not supported for reordering
+      // Check if all selected items are fields from the same model
+      const firstItem = source[0];
+      if (firstItem.itemType !== "field" && firstItem.itemType !== "referenceField") {
+        return; // Multi-drag only supported for fields
+      }
+
+      // Verify all items are fields from the same model
+      const modelFilePath = firstItem.parent?.metadata?.declaration.uri.fsPath;
+      const modelClassName = firstItem.parent?.metadata?.name;
+      
+      if (!modelFilePath || !modelClassName) {
+        return;
+      }
+
+      const allFieldsFromSameModel = source.every(item => 
+        (item.itemType === "field" || item.itemType === "referenceField") &&
+        item.parent?.metadata?.declaration.uri.fsPath === modelFilePath &&
+        item.parent?.metadata?.name === modelClassName
+      );
+
+      if (!allFieldsFromSameModel) {
+        return; // All fields must be from the same model
+      }
+
+      // Create multi-field drag data
+      const fieldNames = source
+        .filter(item => item.metadata && "name" in item.metadata)
+        .map(item => (item.metadata as any).name);
+
+      if (fieldNames.length > 0) {
+        dataTransfer.set(
+          FIELD_MIME_TYPE,
+          new vscode.DataTransferItem({
+            fields: fieldNames, // Multiple fields
+            modelPath: modelFilePath,
+            modelClassName: modelClassName,
+            isMultiField: true
+          })
+        );
+      }
       return;
     }
+
+    // Single item drag (existing logic)
     const draggedItem = source[0];
 
     // We can drag fields, models, or folders
-    if (draggedItem.itemType === "field" && draggedItem.metadata && "name" in draggedItem.metadata) {
+    if ((draggedItem.itemType === "field" || draggedItem.itemType === "referenceField") && draggedItem.metadata && "name" in draggedItem.metadata) {
       // The parent of a field item is the 'modelFieldsFolder', which holds the model's metadata
       const modelFilePath = draggedItem.parent?.metadata?.declaration.uri.fsPath;
       const modelClassName = draggedItem.parent?.metadata?.name;
@@ -174,6 +216,10 @@ export class ExplorerProvider
   private async handleFieldDrop(target: AppTreeItem | undefined, transferItem: vscode.DataTransferItem): Promise<void> {
     const draggedData = transferItem.value;
 
+    // Check if this is a multi-field operation
+    const isMultiField = draggedData.isMultiField && draggedData.fields;
+    const fieldNames = isMultiField ? draggedData.fields : [draggedData.field];
+
     // Check if someone is trying to drop a composition model into a folder or data root
     if (target && (target.itemType === "folder" || target.itemType === "dataRoot" || target.itemType === "model")) {
       vscode.window.showWarningMessage(
@@ -186,8 +232,8 @@ export class ExplorerProvider
     let targetFieldName: string | null = null;
     let targetModelPath: string | undefined = undefined;
 
-    if (target && target.itemType === "field" && target.metadata && "name" in target.metadata) {
-      // Dropping onto a regular field
+    if (target && (target.itemType === "field" || target.itemType === "referenceField") && target.metadata && "name" in target.metadata) {
+      // Dropping onto a regular field or reference field
       targetFieldName = target.metadata.name;
       targetModelPath = target.parent?.metadata?.declaration.uri.fsPath;
     } else if (target && target.itemType === "model" && target.parent && target.parent.itemType === "model") {
@@ -215,59 +261,64 @@ export class ExplorerProvider
     }
 
     if (!target || !targetFieldName || !targetModelPath) {
-      vscode.window.showWarningMessage("A field can only be dropped onto another field or composition model.");
+      const fieldWord = isMultiField ? "Fields" : "A field";
+      const verbWord = isMultiField ? "can" : "can";
+      vscode.window.showWarningMessage(`${fieldWord} ${verbWord} only be dropped onto another field or composition model.`);
       return;
     }
 
     // Validate the drop operation
     if (draggedData.modelPath !== targetModelPath) {
-      vscode.window.showWarningMessage("Fields can only be reordered within the same model.");
+      const fieldWord = isMultiField ? "Fields" : "Fields";
+      vscode.window.showWarningMessage(`${fieldWord} can only be reordered within the same model.`);
       return;
     }
 
-    if (draggedData.field === targetFieldName) {
-      return; // Dropped on itself
+    if (fieldNames.includes(targetFieldName)) {
+      return; // Dropped on one of the dragged fields
     }
 
-    // Perform the reordering
-    try {
-      // 1. Get the new text from ts-morph *without saving*.
-      const newText = await this.reorderFieldsAndGetText(
-        draggedData.modelPath,
-        draggedData.modelClassName,
-        draggedData.field,
-        targetFieldName
-      );
+    // For multi-field operations, we need to reorder multiple fields
+    if (isMultiField) {
+      try {
+        // Reorder multiple fields
+        const newText = await this.reorderMultipleFieldsAndGetText(
+          draggedData.modelPath,
+          draggedData.modelClassName,
+          fieldNames,
+          targetFieldName
+        );
 
-      if (newText === null) {
-        vscode.window.showErrorMessage("Failed to reorder fields.");
-        return;
+        if (newText === null) {
+          vscode.window.showErrorMessage("Failed to reorder fields.");
+          return;
+        }
+
+        await this.applyTextChanges(draggedData.modelPath, newText);
+      } catch (error: any) {
+        console.error("Error reordering multiple fields:", error);
+        vscode.window.showErrorMessage(`An error occurred: ${error.message}`);
       }
+    } else {
+      // Single field reordering (existing logic)
+      try {
+        const newText = await this.reorderFieldsAndGetText(
+          draggedData.modelPath,
+          draggedData.modelClassName,
+          fieldNames[0],
+          targetFieldName
+        );
 
-      // 2. Apply the changes to the editor and format.
-      const uri = vscode.Uri.file(draggedData.modelPath);
-      const document = await vscode.workspace.openTextDocument(uri);
-      const editor = await vscode.window.showTextDocument(document);
+        if (newText === null) {
+          vscode.window.showErrorMessage("Failed to reorder fields.");
+          return;
+        }
 
-      // Replace the entire document content with the new text.
-      await editor.edit((editBuilder) => {
-        const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
-        editBuilder.replace(fullRange, newText);
-      });
-
-      // Execute the format command on the now-dirty file.
-      await vscode.commands.executeCommand("editor.action.formatDocument");
-
-      // 3. Save the document a single time.
-      await document.save();
-
-      // 4. Refresh the tree. The cache will update from the single save event.
-      setTimeout(() => {
-        this.refresh();
-      }, 200);
-    } catch (error: any) {
-      console.error("Error reordering fields:", error);
-      vscode.window.showErrorMessage(`An error occurred: ${error.message}`);
+        await this.applyTextChanges(draggedData.modelPath, newText);
+      } catch (error: any) {
+        console.error("Error reordering fields:", error);
+        vscode.window.showErrorMessage(`An error occurred: ${error.message}`);
+      }
     }
   }
 
@@ -461,6 +512,95 @@ export class ExplorerProvider
 
     // await sourceFile.save();
     return sourceFile.getFullText();
+  }
+
+  /**
+   * Reorders multiple fields in the model class file and returns the updated text.
+   * @param modelPath The path to the model class file.
+   * @param modelClassName The name of the model class to modify.
+   * @param sourceFieldNames Array of field names to move.
+   * @param targetFieldName The name of the field to move before.
+   * @returns The updated source code as a string, or null if an error occurs.
+   */
+  private async reorderMultipleFieldsAndGetText(
+    modelPath: string,
+    modelClassName: string,
+    sourceFieldNames: string[],
+    targetFieldName: string
+  ): Promise<string | null> {
+    const project = new Project();
+    const sourceFile = project.addSourceFileAtPath(modelPath);
+
+    // Find the specific class by name to handle multiple classes in the same file
+    const classDeclaration = sourceFile.getClass(modelClassName);
+
+    if (!classDeclaration) {
+      console.error(`Class ${modelClassName} not found in ${modelPath}`);
+      return null;
+    }
+
+    const targetProperty = classDeclaration.getProperty(targetFieldName);
+    if (!targetProperty) {
+      console.error(`Could not find target property ${targetFieldName} in ${classDeclaration.getName()}`);
+      return null;
+    }
+
+    // Get all source properties and their structures
+    const sourceProperties: { property: any; structure: any }[] = [];
+    for (const fieldName of sourceFieldNames) {
+      const property = classDeclaration.getProperty(fieldName);
+      if (!property) {
+        console.error(`Could not find source property ${fieldName} in ${classDeclaration.getName()}`);
+        return null;
+      }
+      sourceProperties.push({
+        property,
+        structure: property.getStructure()
+      });
+    }
+
+    const targetIndex = targetProperty.getChildIndex();
+
+    // Remove all source properties (in reverse order to maintain indices)
+    for (let i = sourceProperties.length - 1; i >= 0; i--) {
+      sourceProperties[i].property.remove();
+    }
+
+    // Insert all properties at the target position (in original order)
+    for (let i = 0; i < sourceProperties.length; i++) {
+      classDeclaration.insertProperty(targetIndex + i, sourceProperties[i].structure);
+    }
+
+    return sourceFile.getFullText();
+  }
+
+  /**
+   * Applies text changes to a file using VS Code's editor API
+   * @param filePath The path to the file to modify
+   * @param newText The new text content
+   */
+  private async applyTextChanges(filePath: string, newText: string): Promise<void> {
+    // 2. Apply the changes to the editor and format.
+    const uri = vscode.Uri.file(filePath);
+    const document = await vscode.workspace.openTextDocument(uri);
+    const editor = await vscode.window.showTextDocument(document);
+
+    // Replace the entire document content with the new text.
+    await editor.edit((editBuilder) => {
+      const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
+      editBuilder.replace(fullRange, newText);
+    });
+
+    // Execute the format command on the now-dirty file.
+    await vscode.commands.executeCommand("editor.action.formatDocument");
+
+    // 3. Save the document a single time.
+    await document.save();
+
+    // 4. Refresh the tree. The cache will update from the single save event.
+    setTimeout(() => {
+      this.refresh();
+    }, 200);
   }
 
   /**

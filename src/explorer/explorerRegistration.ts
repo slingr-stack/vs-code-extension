@@ -15,7 +15,8 @@ export function registerExplorer(
     const treeView = vscode.window.createTreeView('slingrExplorer', {
         treeDataProvider: explorerProvider,
         dragAndDropController: explorerProvider,
-        showCollapseAll: true
+        showCollapseAll: true,
+        canSelectMany: true
     });
 
     // Double-click tracking variables
@@ -53,10 +54,15 @@ export function registerExplorer(
 
     // Handle selection changes (for keyboard navigation and other selection events)
     const selectionDisposable = treeView.onDidChangeSelection(e => {
-        const selectedItem = e.selection?.[0] as AppTreeItem;
-        if (selectedItem) {
-            // Update info panel for keyboard navigation
-            quickInfoProvider.update(selectedItem.itemType, selectedItem.metadata);
+        const selectedItems = e.selection as AppTreeItem[];
+        if (selectedItems && selectedItems.length > 0) {
+            // For single selection, update info panel
+            if (selectedItems.length === 1) {
+                quickInfoProvider.update(selectedItems[0].itemType, selectedItems[0].metadata);
+            } else {
+                // For multi-selection, clear the panel or show first item
+                quickInfoProvider.update('multipleSelection', undefined);
+            }
         }
     });
 
