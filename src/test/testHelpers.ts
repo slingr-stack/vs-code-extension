@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DecoratedClass, PropertyMetadata } from '../cache/cache';
+import { DataSourceMetadata, DecoratedClass, PropertyMetadata } from '../cache/cache';
 import { IRendererContext } from '../quickInfoPanel/renderers/iMetadataRenderer';
 
 /**
@@ -68,18 +68,23 @@ export class TestMetadataFactory {
         return { ...defaults, ...overrides };
     }
 
-    static createDataSource(overrides: Partial<any> = {}): any {
-        const defaults = {
+    static createDataSource(overrides: Partial<DataSourceMetadata> = {}): DataSourceMetadata {
+        const defaults: DataSourceMetadata = {
             name: 'TestDataSource',
-            properties: {},
-            methods: {},
-            references: [],
+            type: 'postgres',
             declaration: {
                 uri: vscode.Uri.file('/test/dataSource.ts'),
                 range: new vscode.Range(0, 0, 10, 0)
-            }
+            },
+            references: [],
+            options: {
+                host: 'localhost',
+                port: 5432,
+                database: 'test',
+                username: 'user',
+                password: 'password',
+            },
         };
-
         return { ...defaults, ...overrides };
     }
 

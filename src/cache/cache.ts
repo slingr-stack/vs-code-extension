@@ -258,7 +258,6 @@ export class MetadataCache {
             for (const file of files) {
                 this.addSourceFile(file);
             }
-
             // Rebuild all references
             this.buildAllReferences();
             // Notify listeners that the cache has been updated

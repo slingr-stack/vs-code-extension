@@ -19,10 +19,20 @@ export function isModelFile(uri: vscode.Uri): boolean {
  * @returns True if the metadata is for an Model class, false otherwise.
  */
 export function isModel(metadata: DecoratedClass | PropertyMetadata | DataSourceMetadata): metadata is DecoratedClass {
-    return 'decorators' in metadata && metadata.decorators.some(d => d.name === 'Model');
+    if (!hasDecorators(metadata) || 'dataSources' in metadata) {
+        return false;
+    }
+    return metadata.decorators.some(d => d.name === 'Model');
 }
 
 const fieldDecoratorNames = Object.keys(fieldTypeConfig);
+
+function hasDecorators(obj: any): obj is { decorators: Array<{ name: string }> } {
+    if ('dataSources' in obj) {
+        return false;
+    }
+    return Array.isArray(obj?.decorators);
+}
 
 /**
  * Checks if a property metadata object is a Field.
@@ -30,7 +40,7 @@ const fieldDecoratorNames = Object.keys(fieldTypeConfig);
  * @returns True if the metadata is for a Field property, false otherwise.
  */
 export function isField(metadata: DecoratedClass | PropertyMetadata | DataSourceMetadata): metadata is PropertyMetadata {
-    if (!('decorators' in metadata)) {
+    if (!hasDecorators(metadata) || 'dataSources' in metadata) {
         return false;
     }
     return 'type' in metadata && metadata.decorators.some(d => fieldDecoratorNames.includes(d.name) || d.name === 'Field');

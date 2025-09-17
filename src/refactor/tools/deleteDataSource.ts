@@ -22,7 +22,7 @@ export class DeleteDataSourceTool implements IRefactorTool {
     }
 
     analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata): ChangeObject[] {
-        if (!oldFileMeta || newFileMeta) {
+        if (!oldFileMeta || newFileMeta !== undefined) {
             return [];
         }
 
