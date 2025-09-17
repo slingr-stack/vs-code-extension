@@ -12,7 +12,7 @@ export async function createLaunchConfiguration() {
         return;
     }
 
-    const projectRoot = workspaceFolders[0].uri.fsPath;
+    const projectRoot = workspaceFolders[0].uri.fsPath.replace(/\\/g, '/');
     const dotVscodePath = path.join(projectRoot, '.vscode');
     const launchJsonPath = path.join(dotVscodePath, 'launch.json');
 
@@ -30,14 +30,17 @@ export async function createLaunchConfiguration() {
     "configurations": [
         {
             "type": "node",
-            "request": "attach",
+            "request": "launch",
             "name": "Slingr: Debug App",
-            "port": 9229,
-            "restart": true,
-            "preLaunchTask": {
-                "type": "slingr",
-                "task": "run"
-            }
+            "preLaunchTask": "slingr: run environment",
+            "runtimeArgs": [
+                "-r",
+                "ts-node/register"
+            ],
+            "args": [
+                "${projectRoot}/src/index.ts"
+            ],
+            "internalConsoleOptions": "openOnSessionStart"   
         }
     ]
 }`;

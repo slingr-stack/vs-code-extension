@@ -6,7 +6,6 @@ import { registerExplorer } from './explorer/explorerRegistration';
 import { registerInfoPanel } from './quickInfoPanel/infoPanelRegistration';
 import { registerGeneralCommands } from './commands/commandRegistration';
 import { registerInfraStatus } from './infrastructure/infraStatusRegistration';
-import { SlingrTaskProvider } from './providers/slingrTaskProvider';
 
 export let cache: MetadataCache;
 
@@ -27,14 +26,9 @@ export async function activate(context: vscode.ExtensionContext) {
     const generalCommandDisposables = registerGeneralCommands(context, cache, explorerRegistration.provider);
     registerRefactorCommands(refactorController, context); // Pass context if needed for subscriptions
     registerInfraStatus(context, cache);
-    
-    const taskProvider = vscode.tasks.registerTaskProvider(
-        SlingrTaskProvider.SlingrTaskType, 
-        new SlingrTaskProvider()
-    );
 
     // --- 3. Push remaining disposables ---
-    context.subscriptions.push(cache, ...generalCommandDisposables, taskProvider);
+    context.subscriptions.push(cache, ...generalCommandDisposables);
 }
 
 // This method is called when your extension is deactivated
