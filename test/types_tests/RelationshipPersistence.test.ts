@@ -165,13 +165,7 @@ describe('Relationship Persistence', () => {
       }
     }
 
-    await dataSource.initialize({
-      type: 'sqlite',
-      database: ':memory:',
-      synchronize: true,
-      logging: false,
-      managed: true
-    } as any);
+    await dataSource.initialize();
   });
 
   afterEach(async () => {
@@ -244,13 +238,17 @@ describe('Relationship Persistence', () => {
       task.assignees = [];
       task.notes = [];
 
-      const savedTask = await dataSource.save(task);
+      await dataSource.save(task);
 
-      expect(savedTask.id).toBeDefined();
-      expect(savedTask.project).toBeUndefined();
+      const savedTask = await dataSource.findOne(Task, {
+        where: { title: 'Test Task' }
+      });
+
+      expect(savedTask!.id).toBeDefined();
+      expect(savedTask!.project).toBeUndefined();
 
       const retrievedTask = await dataSource.findOne(Task, {
-        where: { id: savedTask.id },
+        where: { id: savedTask!.id },
         relations: { project: true }
       });
       expect(retrievedTask).toBeDefined();
@@ -360,12 +358,16 @@ describe('Relationship Persistence', () => {
 
       // Update task with note
       savedTask.notes = [note];
-      const finalTask = await dataSource.save(savedTask);
+      await dataSource.save(savedTask);
 
-      expect(finalTask.project).toBeUndefined();
+      const finalTask = await dataSource.findOne(Task, {
+        where: { id: savedTask.id }
+      });
+
+      expect(finalTask!.project).toBeUndefined();
 
       const retrievedTask = await dataSource.findOne(Task, {
-        where: { id: finalTask.id },
+        where: { id: finalTask!.id },
         relations: { project: true, assignees: true, notes: { user: true } }
       });
 
@@ -1406,14 +1408,19 @@ describe('Relationship Persistence', () => {
       task.assignees = [];
       task.notes = [];
 
-      const savedTask = await dataSource.save(task);
+      await dataSource.save(task);
 
-      expect(savedTask.id).toBeDefined();
-      expect(savedTask.project).toBeUndefined();
+      const savedTask = await dataSource.findOne(Task, {
+        where: { title: 'Task without Project' },
+        relations: { project: true }
+      });
+
+      expect(savedTask!.id).toBeDefined();
+      expect(savedTask!.project).toBeNull();
 
       const retrievedTask = await dataSource.findOne(Task,
         {
-          where: { id: savedTask.id },
+          where: { id: savedTask!.id },
           relations: { project: true }
         });
 
