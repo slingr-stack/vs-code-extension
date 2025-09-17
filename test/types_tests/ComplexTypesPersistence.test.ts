@@ -148,18 +148,22 @@ describe("Complex Types Persistence in SQL Databases", () => {
         it("should handle null Decimal values", async () => {
             testEntity.priceDecimal = undefined;
             
-            const savedEntity = await dataSource.save(testEntity);
-            
-            expect(savedEntity.priceDecimal).toBeUndefined();
+            await dataSource.save(testEntity);
+
+            const savedEntity = await dataSource.findOneById(ComplexTypesModel, testEntity.id);
+            expect(savedEntity).not.toBeNull();
+            expect(savedEntity!.priceDecimal).toBeUndefined();
         });
 
         it("should persist Decimal precision correctly", async () => {
             testEntity.priceDecimal = decimal("123.456");  // Will be truncated to 2 decimals
             
-            const savedEntity = await dataSource.save(testEntity);
+            await dataSource.save(testEntity);
             
             // Should be truncated based on decorator config
-            expect(savedEntity.priceDecimal!.toString()).toBe("123.45");
+            const savedEntity = await dataSource.findOneById(ComplexTypesModel, testEntity.id);
+            expect(savedEntity).not.toBeNull();
+            expect(savedEntity!.priceDecimal!.toString()).toBe("123.45");
         });
 
         it("should retrieve Decimal from database with proper type", async () => {
@@ -190,18 +194,25 @@ describe("Complex Types Persistence in SQL Databases", () => {
         it("should handle null Money values", async () => {
             testEntity.priceMoney = undefined;
             
-            const savedEntity = await dataSource.save(testEntity);
-            
-            expect(savedEntity.priceMoney).toBeUndefined();
+            await dataSource.save(testEntity);
+
+            const savedEntity = await dataSource.findOneById(ComplexTypesModel, testEntity.id);
+            expect(savedEntity).not.toBeNull();
+
+            expect(savedEntity!.priceMoney).toBeUndefined();
         });
 
         it("should persist Money with correct rounding", async () => {
             testEntity.priceMoney = money("123.456");  // Will be rounded to 2 decimals
             
-            const savedEntity = await dataSource.save(testEntity);
+            await dataSource.save(testEntity);
+
+            const savedEntity = await dataSource.findOneById(ComplexTypesModel, testEntity.id);
+            expect(savedEntity).not.toBeNull();
+            expect(savedEntity!.priceMoney).toBeDefined();
             
             // Should be rounded based on decorator config (roundHalfToEven)
-            expect(savedEntity.priceMoney!.toString()).toBe("123.46");
+            expect(savedEntity!.priceMoney!.toString()).toBe("123.46");
         });
 
         it("should retrieve Money from database with proper type", async () => {

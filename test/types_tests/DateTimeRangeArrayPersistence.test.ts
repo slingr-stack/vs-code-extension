@@ -207,15 +207,18 @@ describe("DateTimeRange Array Persistence in SQL Databases", () => {
             delete (testEntity as any).dateRanges;
             delete (testEntity as any).mixedDateRanges;
             
-            const savedEntity = await dataSource.save(testEntity);
+            await dataSource.save(testEntity);
+
+            const savedEntity = await dataSource.findOneById(DateTimeRangeArrayPersistenceModel, testEntity.id);
+            expect(savedEntity).not.toBeNull();
             
             // When properties are deleted, they become empty arrays in the relational model
-            expect(savedEntity.dateRanges).toEqual([]);
-            expect(savedEntity.mixedDateRanges).toEqual([]);
-            expect(Array.isArray(savedEntity.requiredDateRanges)).toBe(true);
-            expect(savedEntity.requiredDateRanges).toHaveLength(2);
-            
-            const retrievedEntity = await dataSource.findOneById(DateTimeRangeArrayPersistenceModel, savedEntity.id!);
+            expect(savedEntity!.dateRanges).toEqual([]);
+            expect(savedEntity!.mixedDateRanges).toEqual([]);
+            expect(Array.isArray(savedEntity!.requiredDateRanges)).toBe(true);
+            expect(savedEntity!.requiredDateRanges).toHaveLength(2);
+
+            const retrievedEntity = await dataSource.findOneById(DateTimeRangeArrayPersistenceModel, savedEntity!.id!);
             expect(retrievedEntity!.dateRanges).toEqual([]);
             expect(retrievedEntity!.mixedDateRanges).toEqual([]);
             expect(Array.isArray(retrievedEntity!.requiredDateRanges)).toBe(true);

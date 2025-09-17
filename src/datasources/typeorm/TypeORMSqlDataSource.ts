@@ -648,14 +648,14 @@ export class TypeORMSqlDataSource extends DataSource {
     // Reload the entity from the database to ensure all transformers are applied correctly.
     // This is necessary because TypeORM's save() method returns the original entity object,
     // not one that has been loaded back with transformers applied.
-    if ((saved as any).id) {
-      const reloaded = await repository.findOneBy({ id: (saved as any).id } as any) as T | null;
-      if (reloaded) {
-        // Restore embedded field values from flat columns
-        this.restoreEmbeddedValues(reloaded);
-        return reloaded;
-      }
-    }
+    // if ((saved as any).id) {
+    //   const reloaded = await repository.findOneBy({ id: (saved as any).id } as any) as T | null;
+    //   if (reloaded) {
+    //     // Restore embedded field values from flat columns
+    //     this.restoreEmbeddedValues(reloaded);
+    //     return reloaded;
+    //   }
+    // }
 
     return saved as T;
   }

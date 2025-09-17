@@ -79,13 +79,7 @@ describe('Simple Composition (OneToOne)', () => {
       }
     }
 
-    await dataSource.initialize({
-      type: 'sqlite',
-      database: ':memory:',
-      synchronize: true,
-      logging: false,
-      managed: true
-    } as any);
+    await dataSource.initialize();
   });
 
   afterEach(async () => {
@@ -152,11 +146,13 @@ describe('Simple Composition (OneToOne)', () => {
       company.name = 'Remote Corp';
       company.description = '<p>Fully remote company</p>';
 
-      const savedCompany = await dataSource.save(company);
+      await dataSource.save(company);
+      const savedCompany = await dataSource.findOneById(Company, company.id!);
 
-      expect(savedCompany.id).toBeDefined();
-      expect(savedCompany.headquarters).toBeNull();
-      expect(savedCompany.name).toBe('Remote Corp');
+      expect(savedCompany).toBeDefined();
+      expect(savedCompany!.id).toBeDefined();
+      expect(savedCompany!.headquarters).toBeNull();
+      expect(savedCompany!.name).toBe('Remote Corp');
     });
 
     it('should retrieve company with composed address', async () => {
