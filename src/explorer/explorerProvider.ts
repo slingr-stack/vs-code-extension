@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { Project } from "ts-morph";
-import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata, DataSourceMetadata } from "../cache/cache";
+import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata, DataSourceMetadata, CacheUpdateEvent } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
 import * as fs from "fs";
 import * as path from "path";
@@ -30,7 +30,7 @@ export class ExplorerProvider
 
   constructor(private cache: MetadataCache, private extensionUri: vscode.Uri) {
     // --- Listen for the cache's update event ---
-    this.cache.onDidUpdate(() => {
+    this.cache.onDidUpdate((event: CacheUpdateEvent) => {
       this.refresh();
     });
   }
