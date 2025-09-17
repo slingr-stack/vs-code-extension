@@ -6,14 +6,13 @@ import { PropertyMetadata } from "../cache/cache";
 import { fieldTypeConfig } from "../utils/fieldTypes";
 
 export class ProjectAnalysisService {
-
   private fileSystemService: FileSystemService;
 
   constructor() {
     this.fileSystemService = new FileSystemService();
   }
 
-  public async findModelClass(
+  public async selectModelClass(
     document: vscode.TextDocument,
     cache: MetadataCache
   ): Promise<DecoratedClass | undefined> {
@@ -33,7 +32,7 @@ export class ProjectAnalysisService {
     if (modelClasses.length > 1) {
       const selected = await vscode.window.showQuickPick(
         modelClasses.map((c) => c.name),
-        { placeHolder: 'Select a model class from this file' }
+        { placeHolder: "Select a model class from this file" }
       );
       return modelClasses.find((c) => c.name === selected);
     }

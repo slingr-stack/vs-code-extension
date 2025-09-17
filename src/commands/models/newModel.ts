@@ -57,6 +57,7 @@ export class NewModelTool implements AIEnhancedTool {
   async processWithAI(
     userInput: string,
     targetUri: vscode.Uri,
+    modelName: string,
     cache: MetadataCache,
     additionalContext?: any
   ): Promise<void> {
@@ -363,6 +364,7 @@ export class NewModelTool implements AIEnhancedTool {
     await this.addFieldTool.addFieldProgrammatically(
       parentModelUri,
       fieldInfo,
+      newModelName,
       cache,
       true // silent mode - suppress success/error messages
     );

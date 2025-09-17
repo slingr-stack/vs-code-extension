@@ -105,6 +105,22 @@
         "title": "Modify Model"
       },
       {
+        "command": "slingr-vscode-extension.extractFieldsToComposition",
+        "title": "Extract Fields to Composition"
+      },
+      {
+        "command": "slingr-vscode-extension.extractFieldsToEmbedded",
+        "title": "Extract Fields to Embedded"
+      },
+      {
+        "command": "slingr-vscode-extension.extractFieldsToParent",
+        "title": "Extract Fields to Parent"
+      },
+      {
+        "command": "slingr-vscode-extension.extractFieldsToReference",
+        "title": "Extract Fields to Reference"
+      },
+      {
         "command": "slingr.runInfraUpdate",
         "title": "Run Infrastructure Update"
       }
@@ -208,6 +224,26 @@
           "command": "slingr-vscode-extension.changeFieldType",
           "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
           "group": "3_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.extractFieldsToComposition",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
+          "group": "4_extract"
+        },
+        {
+          "command": "slingr-vscode-extension.extractFieldsToEmbedded",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
+          "group": "4_extract"
+        },
+        {
+          "command": "slingr-vscode-extension.extractFieldsToParent",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
+          "group": "4_extract"
+        },
+        {
+          "command": "slingr-vscode-extension.extractFieldsToReference",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
+          "group": "4_extract"
         },
         {
           "command": "slingr-vscode-extension.changeReferenceToComposition",
@@ -322,6 +358,26 @@
           "command": "slingr-vscode-extension.changeFieldType",
           "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
           "group": "3_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.extractFieldsToComposition",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
+          "group": "4_extract"
+        },
+        {
+          "command": "slingr-vscode-extension.extractFieldsToEmbedded",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
+          "group": "4_extract"
+        },
+        {
+          "command": "slingr-vscode-extension.extractFieldsToParent",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
+          "group": "4_extract"
+        },
+        {
+          "command": "slingr-vscode-extension.extractFieldsToReference",
+          "when": "view == slingrExplorer && (viewItem == 'field' || viewItem == 'referenceField')",
+          "group": "4_extract"
         }
       ]
     },

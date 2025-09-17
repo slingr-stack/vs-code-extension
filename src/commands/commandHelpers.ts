@@ -2,6 +2,22 @@ import * as vscode from 'vscode';
 import { AppTreeItem } from '../explorer/appTreeItem';
 
 /**
+ * Interface for tree view multi-selection context
+ */
+export interface TreeViewContext {
+    /** The tree item that was clicked */
+    clickedItem: AppTreeItem;
+    /** All selected tree items */
+    selectedItems: AppTreeItem[];
+    /** Filtered field items from the selection */
+    fieldItems: AppTreeItem[];
+    /** Model name from the field items */
+    modelName: string;
+    /** Model file path */
+    modelPath: string;
+}
+
+/**
  * Interface for URI resolution options
  */
 export interface UriResolutionOptions {
@@ -45,6 +61,99 @@ const DEFAULT_URI_OPTIONS: UriResolutionOptions = {
     notTypeScriptErrorMessage: 'Please select a TypeScript file (.ts).',
     notModelErrorMessage: 'The selected file does not appear to be a model file.'
 };
+
+/**
+ * Detects if command arguments represent a tree view multi-selection context
+ */
+export function isTreeViewContext(firstArg?: any, secondArg?: any): boolean {
+    return firstArg && 
+           typeof firstArg === 'object' && 
+           'itemType' in firstArg && 
+           secondArg && 
+           Array.isArray(secondArg);
+}
+
+/**
+ * Validates and extracts tree view context from command arguments
+ */
+export function validateTreeViewContext(firstArg: any, secondArg: any): TreeViewContext {
+    if (!isTreeViewContext(firstArg, secondArg)) {
+        throw new Error('Invalid tree view context arguments');
+    }
+
+    const clickedItem = firstArg as AppTreeItem;
+    const selectedItems = secondArg as AppTreeItem[];
+    
+    // Filter for field items with valid parent metadata
+    const fieldItems = selectedItems.filter(item => 
+        (item.itemType === "field" || item.itemType === "referenceField") &&
+        item.parent?.metadata && 'name' in item.parent.metadata
+    );
+    
+    if (fieldItems.length === 0) {
+        throw new Error("Please select one or more fields to extract.");
+    }
+
+    const modelName = fieldItems[0].parent!.metadata!.name;
+    const modelPath = fieldItems[0].parent!.metadata!.declaration.uri.fsPath;
+    
+    // Verify all fields are from the same model
+    const allFromSameModel = fieldItems.every(item => 
+        item.parent?.metadata?.name === modelName
+    );
+    
+    if (!allFromSameModel) {
+        throw new Error("All selected fields must be from the same model.");
+    }
+
+    return {
+        clickedItem,
+        selectedItems,
+        fieldItems,
+        modelName,
+        modelPath
+    };
+}
+
+/**
+ * Creates a command handler that supports both tree view context and standard URI resolution
+ */
+export function createTreeViewAwareCommandHandler(
+    treeViewHandler: (context: TreeViewContext) => Promise<void>,
+    standardHandler: (result: UriResolutionResult) => Promise<void>,
+    uriOptions?: UriResolutionOptions
+) {
+    return async (firstArg?: any, secondArg?: any) => {
+        try {
+            if (isTreeViewContext(firstArg, secondArg)) {
+                // Handle tree view multi-selection context
+                const context = validateTreeViewContext(firstArg, secondArg);
+                await treeViewHandler(context);
+            } else {
+                // Handle standard URI resolution context
+                const result = await resolveTargetUri(firstArg, uriOptions);
+                await standardHandler(result);
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(`${error}`);
+        }
+    };
+}
+
+/**
+ * Registers a command that supports both tree view context and standard URI resolution
+ */
+export function registerTreeViewAwareCommand(
+    disposables: vscode.Disposable[],
+    commandId: string,
+    treeViewHandler: (context: TreeViewContext) => Promise<void>,
+    standardHandler: (result: UriResolutionResult) => Promise<void>,
+    uriOptions?: UriResolutionOptions
+): void {
+    const handler = createTreeViewAwareCommandHandler(treeViewHandler, standardHandler, uriOptions);
+    const command = vscode.commands.registerCommand(commandId, handler);
+    disposables.push(command);
+}
 
 /**
  * Resolves a URI from various input sources with validation

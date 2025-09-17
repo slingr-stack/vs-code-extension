@@ -15,7 +15,11 @@ import { AddCompositionTool } from './models/addComposition';
 import { AddReferenceTool } from './models/addReference';
 import { AIService } from '../services/aiService';
 import { ProjectAnalysisService } from '../services/projectAnalysisService';
-import { registerCommand, URI_OPTIONS, UriResolutionResult } from './commandHelpers';
+import { registerCommand, URI_OPTIONS, UriResolutionResult, resolveTargetUri, registerTreeViewAwareCommand, TreeViewContext } from './commandHelpers';
+import { ExtractFieldsToCompositionTool } from './fields/extractFieldsToComposition';
+import { ExtractFieldsToReferenceTool } from './fields/extractFieldsToReference';
+import { ExtractFieldsToEmbeddedTool } from './fields/extractFieldsToEmbedded';
+import { ExtractFieldsToParentTool } from './fields/extractFieldsToParent';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -67,9 +71,10 @@ export function registerGeneralCommands(
         disposables,
         'slingr-vscode-extension.defineFields',
         async (result: UriResolutionResult) => {
-            const document = result.document || await vscode.workspace.openTextDocument(result.targetUri);
-            
-            const model = await projectAnalysisService.findModelClass(document, cache);
+            if(!result.modelName) {
+                throw new Error('Model name could not be determined.');
+            }
+            const model = cache.getModelByName(result.modelName);
             if (!model) {
                 throw new Error('Could not identify a model class in the selected file.');
             }
@@ -101,13 +106,16 @@ export function registerGeneralCommands(
         disposables,
         'slingr-vscode-extension.addField',
         async (result: UriResolutionResult) => {
-            await addFieldTool.addField(result.targetUri, cache);
+            if (!result.modelName) {
+                throw new Error('Model name could not be determined.');
+            }
+            await addFieldTool.addField(result.targetUri, result.modelName, cache);
         },
         URI_OPTIONS.MODEL_FILE
     );
 
     // Add Composition Tool
-    const addCompositionTool = new AddCompositionTool(explorerProvider);
+    const addCompositionTool = new AddCompositionTool();
     registerCommand(
         disposables,
         'slingr-vscode-extension.addComposition',
@@ -185,6 +193,103 @@ export function registerGeneralCommands(
         return modifyModelTool.modifyModel(cache);
     });
     disposables.push(modifyModelCommand);
+
+     // Extract Fields to Composition
+    const extractFieldsToCompositionTool = new ExtractFieldsToCompositionTool();
+    registerTreeViewAwareCommand(
+        disposables,
+        'slingr-vscode-extension.extractFieldsToComposition',
+        async (context: TreeViewContext) => {
+            // Tree view context handler
+            const document = await vscode.workspace.openTextDocument(vscode.Uri.file(context.modelPath));
+            const editor = await vscode.window.showTextDocument(document);
+            await extractFieldsToCompositionTool.extractFieldsToComposition(
+                cache, 
+                editor, 
+                context.modelName, 
+                { fieldItems: context.fieldItems }
+            );
+        },
+        async (result: UriResolutionResult) => {
+            // Standard URI resolution handler
+            const editor = vscode.window.activeTextEditor;
+            if (editor && result.modelName) {
+                await extractFieldsToCompositionTool.extractFieldsToComposition(cache, editor, result.modelName);
+            } else {
+                throw new Error('Could not determine model name or no active editor.');
+            }
+        },
+        URI_OPTIONS.MODEL_FILE
+    );
+
+    // Extract Fields to Reference
+    const extractFieldsToReferenceTool = new ExtractFieldsToReferenceTool();
+    registerTreeViewAwareCommand(
+        disposables,
+        'slingr-vscode-extension.extractFieldsToReference',
+        async (context: TreeViewContext) => {
+            // Tree view context handler
+            const document = await vscode.workspace.openTextDocument(vscode.Uri.file(context.modelPath));
+            const editor = await vscode.window.showTextDocument(document);
+            await extractFieldsToReferenceTool.extractFieldsToReference(cache, editor, context.modelName);
+        },
+        async (result: UriResolutionResult) => {
+            // Standard URI resolution handler
+            const editor = vscode.window.activeTextEditor;
+            if (editor && result.modelName) {
+                await extractFieldsToReferenceTool.extractFieldsToReference(cache, editor, result.modelName);
+            } else {
+                throw new Error('Could not determine model name or no active editor.');
+            }
+        },
+        URI_OPTIONS.MODEL_FILE
+    );
+
+    // Extract Fields to Embedded Model
+    const extractFieldsToEmbeddedTool = new ExtractFieldsToEmbeddedTool();
+    registerTreeViewAwareCommand(
+        disposables,
+        'slingr-vscode-extension.extractFieldsToEmbedded',
+        async (context: TreeViewContext) => {
+            // Tree view context handler
+            const document = await vscode.workspace.openTextDocument(vscode.Uri.file(context.modelPath));
+            const editor = await vscode.window.showTextDocument(document);
+            await extractFieldsToEmbeddedTool.extractFieldsToEmbedded(cache, editor, context.modelName);
+        },
+        async (result: UriResolutionResult) => {
+            // Standard URI resolution handler
+            const editor = vscode.window.activeTextEditor;
+            if (editor && result.modelName) {
+                await extractFieldsToEmbeddedTool.extractFieldsToEmbedded(cache, editor, result.modelName);
+            } else {
+                throw new Error('Could not determine model name or no active editor.');
+            }
+        },
+        URI_OPTIONS.MODEL_FILE
+    );
+
+    // Extract Fields to Parent Model
+    const extractFieldsToParentTool = new ExtractFieldsToParentTool();
+    registerTreeViewAwareCommand(
+        disposables,
+        'slingr-vscode-extension.extractFieldsToParent',
+        async (context: TreeViewContext) => {
+            // Tree view context handler
+            const document = await vscode.workspace.openTextDocument(vscode.Uri.file(context.modelPath));
+            const editor = await vscode.window.showTextDocument(document);
+            await extractFieldsToParentTool.extractFieldsToParent(cache, editor, context.modelName);
+        },
+        async (result: UriResolutionResult) => {
+            // Standard URI resolution handler
+            const editor = vscode.window.activeTextEditor;
+            if (editor && result.modelName) {
+                await extractFieldsToParentTool.extractFieldsToParent(cache, editor, result.modelName);
+            } else {
+                throw new Error('Could not determine model name or no active editor.');
+            }
+        },
+        URI_OPTIONS.MODEL_FILE
+    );
 
     return disposables;
 }

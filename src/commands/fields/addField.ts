@@ -34,18 +34,18 @@ import { FileSystemService } from "../../services/fileSystemService";
  * ```
  */
 export class AddFieldTool implements AIEnhancedTool {
-    private userInputService: UserInputService;
-    private projectAnalysisService: ProjectAnalysisService;
-    private sourceCodeService: SourceCodeService;
-    private fileSystemService: FileSystemService;
-    private defineFieldsTool: DefineFieldsTool;
+  private userInputService: UserInputService;
+  private projectAnalysisService: ProjectAnalysisService;
+  private sourceCodeService: SourceCodeService;
+  private fileSystemService: FileSystemService;
+  private defineFieldsTool: DefineFieldsTool;
 
   constructor() {
-        this.userInputService = new UserInputService();
-        this.projectAnalysisService = new ProjectAnalysisService();
-        this.sourceCodeService = new SourceCodeService();
-        this.fileSystemService = new FileSystemService();
-        this.defineFieldsTool = new DefineFieldsTool();
+    this.userInputService = new UserInputService();
+    this.projectAnalysisService = new ProjectAnalysisService();
+    this.sourceCodeService = new SourceCodeService();
+    this.fileSystemService = new FileSystemService();
+    this.defineFieldsTool = new DefineFieldsTool();
   }
 
   /**
@@ -59,25 +59,31 @@ export class AddFieldTool implements AIEnhancedTool {
   async processWithAI(
     userInput: string,
     targetUri: vscode.Uri,
+    modelName: string,
     cache: MetadataCache,
     additionalContext?: any
   ): Promise<void> {
     // The current addField method handles user interaction internally,
     // so we just call it with the provided parameters
-    await this.addField(targetUri, cache);
+    await this.addField(targetUri, modelName, cache);
   }
 
   /**
    * Adds a new field to an existing model file.
    *
    * @param targetUri - The URI of the model file where the field should be added
+   * @param modelName - The name of the model class to which the field will be added
    * @param cache - The metadata cache for context about existing models (optional)
    * @returns Promise that resolves when the field is added
    */
-  public async addField(targetUri: vscode.Uri, cache?: MetadataCache): Promise<void> {
+  public async addField(targetUri: vscode.Uri, modelName: string, cache?: MetadataCache): Promise<void> {
     try {
       // Step 1: Validate target file
-      const { modelClass, document } = await this.validateAndPrepareTarget(targetUri, cache);
+      const { modelClass, document } = await this.validateAndPrepareTarget(targetUri, modelName, cache);
+
+      if (!modelClass) {
+        throw new Error("No model class found in this file. Make sure the class has a @Model decorator.");
+      }
 
       // Step 2: Get field information from user
       const fieldInfo = await this.gatherFieldInformation(modelClass, cache);
@@ -92,7 +98,7 @@ export class AddFieldTool implements AIEnhancedTool {
       const fieldCode = this.generateFieldCode(fieldInfo);
 
       // Step 5: Insert field into model class
-      await this.sourceCodeService.insertField(document, modelClass.name,fieldInfo, fieldCode, cache);
+      await this.sourceCodeService.insertField(document, modelClass.name, fieldInfo, fieldCode, cache);
 
       // Step 5.5: If it's a Choice field, also create the enum
       if (fieldInfo.type.decorator === "Choice") {
@@ -133,6 +139,7 @@ export class AddFieldTool implements AIEnhancedTool {
    *
    * @param targetUri - The URI of the model file where the field should be added
    * @param fieldInfo - Predefined field information
+   * @param modelName - The name of the model class to which the field will be added
    * @param cache - The metadata cache for context about existing models
    * @param silent - If true, suppresses success/error messages (defaults to false)
    * @returns Promise that resolves when the field is added
@@ -140,28 +147,31 @@ export class AddFieldTool implements AIEnhancedTool {
   public async addFieldProgrammatically(
     targetUri: vscode.Uri,
     fieldInfo: FieldInfo,
+    modelName: string,
     cache: MetadataCache,
     silent: boolean = false
   ): Promise<void> {
     try {
       // Step 1: Validate target file
-      const { modelClass, document } = await this.validateAndPrepareTarget(targetUri, cache);
+      const { modelClass, document } = await this.validateAndPrepareTarget(targetUri, modelName, cache);
 
       // Step 2: Check if field already exists
-      const existingFields = Object.keys(modelClass.properties || {});
-      if (existingFields.includes(fieldInfo.name)) {
-        const message = `Field '${fieldInfo.name}' already exists in model ${modelClass.name}`;
-        if (!silent) {
-          vscode.window.showWarningMessage(message);
+      if (modelClass) {
+        const existingFields = Object.keys(modelClass.properties || {});
+        if (existingFields.includes(fieldInfo.name)) {
+          const message = `Field '${fieldInfo.name}' already exists in model ${modelClass.name}`;
+          if (!silent) {
+            vscode.window.showWarningMessage(message);
+          }
+          return;
         }
-        return;
       }
 
       // Step 3: Generate basic field structure
       const fieldCode = this.generateFieldCode(fieldInfo);
 
       // Step 4: Insert field into model class
-      await this.sourceCodeService.insertField(document, modelClass.name,fieldInfo, fieldCode, cache);
+      await this.sourceCodeService.insertField(document, modelName, fieldInfo, fieldCode, cache);
 
       // Step 5: If it's a Choice field, also create the enum
       if (fieldInfo.type.decorator === "Choice") {
@@ -187,8 +197,9 @@ export class AddFieldTool implements AIEnhancedTool {
    */
   private async validateAndPrepareTarget(
     targetUri: vscode.Uri,
+    modelName: string,
     cache?: MetadataCache
-  ): Promise<{ modelClass: DecoratedClass; document: vscode.TextDocument }> {
+  ): Promise<{ modelClass: DecoratedClass | null; document: vscode.TextDocument }> {
     // Ensure the file is a TypeScript file
     if (!targetUri.fsPath.endsWith(".ts")) {
       throw new Error("Target file must be a TypeScript file (.ts)");
@@ -202,11 +213,7 @@ export class AddFieldTool implements AIEnhancedTool {
       throw new Error("Metadata cache is required for field addition");
     }
 
-    const modelClass = await this.projectAnalysisService.findModelClass(document, cache);
-    
-    if (!modelClass) {
-      throw new Error("No model class found in this file. Make sure the class has a @Model decorator.");
-    }
+    const modelClass = cache.getModelByName(modelName);
 
     return { modelClass, document };
   }

@@ -16,14 +16,12 @@ export class AddCompositionTool {
   private projectAnalysisService: ProjectAnalysisService;
   private sourceCodeService: SourceCodeService;
   private fileSystemService: FileSystemService;
-  private explorerProvider: ExplorerProvider;
 
-  constructor(explorerProvider: ExplorerProvider) {
+  constructor() {
     this.userInputService = new UserInputService();
     this.projectAnalysisService = new ProjectAnalysisService();
     this.sourceCodeService = new SourceCodeService();
     this.fileSystemService = new FileSystemService();
-    this.explorerProvider = explorerProvider;
   }
 
   /**
@@ -44,28 +42,51 @@ export class AddCompositionTool {
         return; // User cancelled
       }
 
-      // Step 3: Determine inner model name and array status
-      const { innerModelName, isArray } = this.determineInnerModelInfo(fieldName);
-
-      // Step 4: Check if inner model already exists
-      await this.validateInnerModelName(cache, innerModelName);
-
-      // Step 5: Create the inner model
-      await this.createInnerModel(document, innerModelName, modelClass.name, cache);
-
-      // Step 6: Add composition field to outer model
-      await this.addCompositionField(document, modelClass.name, fieldName, innerModelName, isArray, cache);
-
-      // Step 7: Focus on the newly created field
-      await this.sourceCodeService.focusOnElement(document, fieldName);
-
-      // Step 8: Show success message
-      vscode.window.showInformationMessage(
-        `Composition relationship created successfully! Added ${innerModelName} model and ${fieldName} field.`
-      );
+      await this.addCompositionProgrammatically(cache, modelName, fieldName);
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to add composition: ${error}`);
       console.error("Error adding composition:", error);
+    }
+  }
+
+  /**
+   * Adds a composition relationship programmatically with a predefined field name.
+   * This method is used by other tools that need to create compositions without user interaction.
+   *
+   * @param cache - The metadata cache for context about existing models
+   * @param modelName - The name of the model to which the composition is being added
+   * @param fieldName - The predefined field name for the composition
+   * @returns Promise that resolves with the created inner model name when the composition is added
+   */
+  public async addCompositionProgrammatically(cache: MetadataCache, modelName: string, fieldName: string): Promise<string> {
+    try {
+      // Step 1: Validate target file
+      const { modelClass, document } = await this.validateAndPrepareTarget(modelName, cache);
+
+      // Step 2: Determine inner model name and array status
+      const { innerModelName, isArray } = this.determineInnerModelInfo(fieldName);
+
+      // Step 3: Check if inner model already exists
+      await this.validateInnerModelName(cache, innerModelName);
+
+      // Step 4: Create the inner model
+      await this.createInnerModel(document, innerModelName, modelClass.name, cache);
+
+      // Step 5: Add composition field to outer model
+      await this.addCompositionField(document, modelClass.name, fieldName, innerModelName, isArray, cache);
+
+      // Step 6: Focus on the newly created field
+      await this.sourceCodeService.focusOnElement(document, fieldName);
+
+      // Step 7: Show success message
+      vscode.window.showInformationMessage(
+        `Composition relationship created successfully! Added ${innerModelName} model and ${fieldName} field.`
+      );
+
+      return innerModelName;
+    } catch (error) {
+      console.error("Error adding composition programmatically:", error);
+      throw error;
     }
   }
 
