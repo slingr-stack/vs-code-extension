@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration, ArrowFunction, FunctionExpression, VariableDeclaration } from 'ts-morph';
+import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration, ArrowFunction, FunctionExpression, VariableDeclaration, ScriptTarget, ModuleKind } from 'ts-morph';
 import * as path from 'path';
 import { RefactorController } from '../refactor/RefactorController';
 import { ChangeObject } from '../refactor/refactorInterfaces';
@@ -114,11 +114,30 @@ export class MetadataCache {
      * @param extensionPath The absolute path to the extension's directory.
      */
     constructor(extensionPath: string) {
+        // Try to find the workspace's tsconfig.json first, fallback to a basic configuration
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        let tsConfigPath: string | undefined;
+        
+        if (workspaceFolder) {
+            const workspaceTsConfig = path.join(workspaceFolder.uri.fsPath, "tsconfig.json");
+            try {
+                // Check if workspace tsconfig exists
+                require('fs').accessSync(workspaceTsConfig);
+                tsConfigPath = workspaceTsConfig;
+                console.log('[Cache] Using workspace tsconfig.json:', tsConfigPath);
+            } catch {
+                console.log('[Cache] No workspace tsconfig.json found, using default configuration');
+            }
+        }
+
         this.tsMorphProject = new Project({
-            tsConfigFilePath: path.join(extensionPath, "tsconfig.json"),
+            tsConfigFilePath: tsConfigPath,
             compilerOptions: {
                 experimentalDecorators: true,
                 emitDecoratorMetadata: true,
+                allowJs: true,
+                target: ScriptTarget.ES2020,
+                module: ModuleKind.CommonJS,
             },
         });
     }
@@ -126,6 +145,7 @@ export class MetadataCache {
     /**
      * Initializes the cache by parsing all relevant files in the workspace
      * and setting up a file watcher to keep the cache up-to-date.
+     * This is the "shallow" initialization phase that loads basic structure without references.
      */
     public async initialize(): Promise<void> {
         
@@ -134,8 +154,21 @@ export class MetadataCache {
             this.addSourceFile(file);
         }
 
-        this.buildAllReferences();
         this.setupFileWatcher();
+    }
+
+    /**
+     * Builds all references in the background after the initial shallow load.
+     * This allows the UI to render quickly while references are computed asynchronously.
+     */
+    public buildAllReferencesInBackground(): void {
+        // Run reference building in the background
+        setTimeout(async () => {
+            await this.buildAllReferences();
+            
+            // Notify that deep data is now available
+            this._onDidUpdate.fire();
+        }, 0);
     }
 
     /**
@@ -752,10 +785,11 @@ export class MetadataCache {
      * This includes direct references found by ts-morph and implicit references
      * from string literals in places like ModelView `getFields` methods.
      * 
-     * Performance optimized version that can rebuild references incrementally for specific files.
+     * Optimized version that builds references efficiently using proven ts-morph methods.
      * @param targetFilePath Optional file path to rebuild references for. If not provided, rebuilds all.
      */
-    private buildAllReferences(targetFilePath?: string): void {
+    private async buildAllReferences(targetFilePath?: string): Promise<void> {
+        
         // If targetFilePath is provided, only rebuild references for that specific file
         if (targetFilePath) {
             this.buildReferencesForFile(targetFilePath);
@@ -763,21 +797,80 @@ export class MetadataCache {
         }
 
         // Full rebuild - clear all references first
+        let totalItems = 0;
         for (const file of Object.values(this.cache)) {
             for (const cls of Object.values(file.classes)) {
                 cls.references = [];
+                totalItems++;
                 for (const prop of Object.values(cls.properties)) {
                     prop.references = [];
+                    totalItems++;
                 }
             }
             for (const ds of Object.values(file.dataSources)) {
                 ds.references = [];
+                totalItems++;
             }
         }
 
-        // Build references for all files
+        // single pass through all source files
+        await this.buildReferencesOptimized();
+    }
+
+    /**
+     * Optimized reference building that processes all cached items efficiently.
+     * Uses the proven ts-morph findReferences() method but optimizes by collecting all items first.
+     */
+    private async buildReferencesOptimized(): Promise<void> {
+        
+        // Ensure all TypeScript files in the workspace are loaded for proper cross-file reference resolution
+        const allTsFiles = await vscode.workspace.findFiles('{src/data/**/*.ts,src/dataSources/**/*.ts}');
+        
+        for (const file of allTsFiles) {
+            const filePath = file.fsPath.replace(/\\/g, '/');
+            if (!this.tsMorphProject.getSourceFile(filePath)) {
+                try {
+                    this.tsMorphProject.addSourceFileAtPath(filePath);
+                } catch (error) {
+                    // Silently continue if we can't load a file
+                }
+            }
+        }
+        
+        // Collect all nodes and their corresponding metadata objects
+        const nodesToProcess: Array<{ node: ClassDeclaration | PropertyDeclaration | VariableDeclaration, metadata: DecoratedClass | PropertyMetadata | DataSourceMetadata }> = [];
+        
         for (const file of Object.values(this.cache)) {
-            this.buildReferencesForFile(file.uri.fsPath);
+            const sourceFile = this.tsMorphProject.getSourceFile(file.uri.fsPath);
+            if (!sourceFile) continue;
+
+            // Collect classes and their properties
+            for (const cls of Object.values(file.classes)) {
+                const classNode = sourceFile.getClass(cls.name);
+                if (classNode) {
+                    nodesToProcess.push({ node: classNode, metadata: cls });
+                    
+                    for (const prop of Object.values(cls.properties)) {
+                        const propNode = classNode.getProperty(prop.name);
+                        if (propNode) {
+                            nodesToProcess.push({ node: propNode, metadata: prop });
+                        }
+                    }
+                }
+            }
+
+            // Collect data sources
+            for (const ds of Object.values(file.dataSources)) {
+                const varDecl = sourceFile.getVariableDeclaration(ds.name);
+                if (varDecl) {
+                    nodesToProcess.push({ node: varDecl, metadata: ds });
+                }
+            }
+        }
+        
+        // Process all nodes using the proven findReferences approach
+        for (const { node, metadata } of nodesToProcess) {
+            this.findAndStoreReferences(node, metadata);
         }
     }
 
@@ -826,31 +919,40 @@ export class MetadataCache {
      * @param metadataObject The corresponding metadata object in the cache to store the references in.
      */
     private findAndStoreReferences(node: ClassDeclaration | PropertyDeclaration | VariableDeclaration, metadataObject: DecoratedClass | PropertyMetadata | DataSourceMetadata): void {
-        const referencedSymbols = node.findReferences();
+        const nodeName = node.getKind() === SyntaxKind.ClassDeclaration ? 
+            (node as ClassDeclaration).getName() :
+            node.getKind() === SyntaxKind.PropertyDeclaration ?
+            (node as PropertyDeclaration).getName() :
+            (node as VariableDeclaration).getName();
+            
+        try {
+            const referencedSymbols = node.findReferences();
 
-        for (const referencedSymbol of referencedSymbols) {
-            for (const reference of referencedSymbol.getReferences()) {
-                const refSourceFile = reference.getSourceFile();
-                const textSpan = reference.getTextSpan();
+            for (const referencedSymbol of referencedSymbols) {
+                for (const reference of referencedSymbol.getReferences()) {
+                    const refSourceFile = reference.getSourceFile();
+                    const textSpan = reference.getTextSpan();
 
-                const start = refSourceFile.getLineAndColumnAtPos(textSpan.getStart());
-                const end = refSourceFile.getLineAndColumnAtPos(textSpan.getEnd());
+                    const start = refSourceFile.getLineAndColumnAtPos(textSpan.getStart());
+                    const end = refSourceFile.getLineAndColumnAtPos(textSpan.getEnd());
 
-                const preciseRange = new vscode.Range(
-                    new vscode.Position(start.line - 1, start.column - 1),
-                    new vscode.Position(end.line - 1, end.column - 1)
-                );
+                    const preciseRange = new vscode.Range(
+                        new vscode.Position(start.line - 1, start.column - 1),
+                        new vscode.Position(end.line - 1, end.column - 1)
+                    );
 
-                const refLocation = new vscode.Location(
-                    vscode.Uri.file(refSourceFile.getFilePath().replace(/\\/g, '/')),
-                    preciseRange
-                );
+                    const refLocation = new vscode.Location(
+                        vscode.Uri.file(refSourceFile.getFilePath().replace(/\\/g, '/')),
+                        preciseRange
+                    );
 
-                metadataObject.references.push(refLocation);
+                    metadataObject.references.push(refLocation);
+                }
             }
+        } catch (error) {
+            console.warn(`[Cache] Error finding references for ${nodeName}:`, error);
         }
     }
-
 
     /**
      * Provides a clean method to search for metadata across the entire cache.

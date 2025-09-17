@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { Project } from "ts-morph";
 import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata, DataSourceMetadata } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
-import * as fs from "fs";
+import { promises as fsPromises } from "fs";
 import * as path from "path";
 
 
@@ -322,14 +322,19 @@ export class ExplorerProvider
       const newPath = path.join(targetPath, fileName);
 
       // Check if target file already exists
-      if (fs.existsSync(newPath)) {
+      try {
+        await fsPromises.access(newPath);
         vscode.window.showErrorMessage(`A file named "${fileName}" already exists in the target folder.`);
         return;
+      } catch {
+        // File doesn't exist, which is what we want
       }
 
       // Create target directory if it doesn't exist
-      if (!fs.existsSync(targetPath)) {
-        fs.mkdirSync(targetPath, { recursive: true });
+      try {
+        await fsPromises.access(targetPath);
+      } catch {
+        await fsPromises.mkdir(targetPath, { recursive: true });
       }
 
       // Use VS Code's workspace edit API to move the file
@@ -395,14 +400,19 @@ export class ExplorerProvider
 
     try {
       // Check if target folder already exists
-      if (fs.existsSync(newPath)) {
+      try {
+        await fsPromises.access(newPath);
         vscode.window.showErrorMessage(`A folder named "${draggedData.folderName}" already exists in the target location.`);
         return;
+      } catch {
+        // Folder doesn't exist, which is what we want
       }
 
       // Create target directory if it doesn't exist
-      if (!fs.existsSync(targetBasePath)) {
-        fs.mkdirSync(targetBasePath, { recursive: true });
+      try {
+        await fsPromises.access(targetBasePath);
+      } catch {
+        await fsPromises.mkdir(targetBasePath, { recursive: true });
       }
 
       // Use VS Code's workspace edit API to move the folder
@@ -499,12 +509,12 @@ export class ExplorerProvider
 
     // --- DATA ROOT ---
     if (element.itemType === "dataRoot") {
-      return this.getDataRootChildren();
+      return await this.getDataRootChildren();
     }
 
     // --- FOLDER ---
     if (element.itemType === "folder") {
-      return this.getFolderChildren(element);
+      return await this.getFolderChildren(element);
     }
 
     // --- DATA SOURCES ROOT ---
@@ -571,9 +581,9 @@ export class ExplorerProvider
   /**
    * Gets the children for the data root, which includes folders and models in the src/data directory
    */
-  private getDataRootChildren(): AppTreeItem[] {
+  private async getDataRootChildren(): Promise<AppTreeItem[]> {
     const models = this.cache.getDataModelClasses();
-    const folderStructure = this.getCachedFolderStructure(models);
+    const folderStructure = await this.getCachedFolderStructure(models);
 
     return this.createTreeItemsFromStructure(folderStructure, "");
   }
@@ -581,10 +591,10 @@ export class ExplorerProvider
   /**
    * Gets the children for a specific folder
    */
-  private getFolderChildren(folderElement: AppTreeItem): AppTreeItem[] {
+  private async getFolderChildren(folderElement: AppTreeItem): Promise<AppTreeItem[]> {
     const models = this.cache.getDataModelClasses();
     const folderPath = folderElement.folderPath || ""; // Use folderPath property
-    const folderStructure = this.getCachedFolderStructure(models);
+    const folderStructure = await this.getCachedFolderStructure(models);
 
     return this.createTreeItemsFromStructure(folderStructure, folderPath);
   }
@@ -592,9 +602,9 @@ export class ExplorerProvider
   /**
    * Gets the cached folder structure, building it if not cached
    */
-  private getCachedFolderStructure(models: DecoratedClass[]): FolderNode {
+  private async getCachedFolderStructure(models: DecoratedClass[]): Promise<FolderNode> {
     if (!this.explorerCache.folderStructure) {
-      this.explorerCache.folderStructure = this.buildFolderStructure(models);
+      this.explorerCache.folderStructure = await this.buildFolderStructure(models);
     }
     return this.explorerCache.folderStructure;
   }
@@ -602,7 +612,7 @@ export class ExplorerProvider
   /**
    * Builds a hierarchical folder structure from model file paths
    */
-  private buildFolderStructure(models: DecoratedClass[]): FolderNode {
+  private async buildFolderStructure(models: DecoratedClass[]): Promise<FolderNode> {
     const root: FolderNode = { folders: new Map(), models: [] };
 
     for (const model of models) {
@@ -643,7 +653,7 @@ export class ExplorerProvider
       }
     }
     // Also add empty directories from the filesystem
-    this.addEmptyDirectoriesToStructure(root);
+    await this.addEmptyDirectoriesToStructure(root);
 
     return root;
   }
@@ -651,26 +661,28 @@ export class ExplorerProvider
   /**
    * Recursively scans the src/data directory and adds empty directories to the folder structure
    */
-  private addEmptyDirectoriesToStructure(root: FolderNode): void {
+  private async addEmptyDirectoriesToStructure(root: FolderNode): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       return;
     }
 
     const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
-    if (!fs.existsSync(srcDataPath)) {
-      return;
+    try {
+      await fsPromises.access(srcDataPath);
+    } catch {
+      return; // Directory doesn't exist
     }
 
-    this.scanDirectoryRecursively(srcDataPath, root, '');
+    await this.scanDirectoryRecursively(srcDataPath, root, '');
   }
 
   /**
    * Recursively scans a directory and adds empty folders to the structure
    */
-  private scanDirectoryRecursively(dirPath: string, currentNode: FolderNode, relativePath: string): void {
+  private async scanDirectoryRecursively(dirPath: string, currentNode: FolderNode, relativePath: string): Promise<void> {
     try {
-      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      const entries = await fsPromises.readdir(dirPath, { withFileTypes: true });
       
       for (const entry of entries) {
         if (entry.isDirectory()) {
@@ -685,7 +697,7 @@ export class ExplorerProvider
 
           // Recursively scan subdirectories
           const folderNode = currentNode.folders.get(folderName)!;
-          this.scanDirectoryRecursively(fullPath, folderNode, newRelativePath);
+          await this.scanDirectoryRecursively(fullPath, folderNode, newRelativePath);
         }
       }
     } catch (error) {
