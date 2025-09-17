@@ -12,6 +12,7 @@ import { AppTreeItem } from '../explorer/appTreeItem';
 import { AddDecoratorTool } from './tools/addDecorator';
 import { ChangeReferenceToCompositionRefactorTool } from './tools/changeReferenceToComposition';
 import { ChangeCompositionToReferenceRefactorTool } from './tools/changeCompositionToReference';
+import { ExtractFieldsToCompositionTool } from '../commands/fields/extractFieldsToComposition';
 import { isModelFile } from '../utils/metadata';
 import { PropertyMetadata } from '../cache/cache';
 import { fieldTypeConfig } from '../utils/fieldTypes';
@@ -29,6 +30,7 @@ import { fieldTypeConfig } from '../utils/fieldTypes';
  * - RenameFieldTool: Handles field renaming operations
  * - DeleteFieldTool: Handles field deletion operations
  * - ChangeFieldTypeTool: Handles field type modification operations
+ * - ExtractFieldsToCompositionTool: Handles extracting fields to composition models
  */
 export function getAllRefactorTools(): IRefactorTool[] {
     return [
@@ -40,6 +42,7 @@ export function getAllRefactorTools(): IRefactorTool[] {
         new AddDecoratorTool(),
         new ChangeReferenceToCompositionRefactorTool(),
         new ChangeCompositionToReferenceRefactorTool(),
+        new ExtractFieldsToCompositionTool(),
     ];
 }
 
@@ -60,12 +63,14 @@ export function registerRefactorCommands(controller: RefactorController, context
 
     for (const tool of controller.getTools()) {
         disposables.push(
-            vscode.commands.registerCommand(tool.getCommandId(), (context?: vscode.Uri | AppTreeItem | ManualRefactorContext, decoratorName?: string) => {
-                // The command can now be called with more complex arguments from CodeActions
+            vscode.commands.registerCommand(tool.getCommandId(), (context?: vscode.Uri | AppTreeItem | ManualRefactorContext, secondArg?: any) => {
+                // The command can now be called with more complex arguments from CodeActions or tree view multi-selection
                 if (context && 'cache' in context && 'uri' in context) {
-                    controller.handleManualRefactorCommand(tool.getCommandId(), context, decoratorName);
+                    // ManualRefactorContext case - secondArg might be decoratorName
+                    controller.handleManualRefactorCommand(tool.getCommandId(), context, secondArg);
                 } else {
-                    controller.handleManualRefactorCommand(tool.getCommandId(), context);
+                    // Tree view context case - secondArg might be the selected items array
+                    controller.handleManualRefactorCommand(tool.getCommandId(), context, secondArg);
                 }
             })
         );

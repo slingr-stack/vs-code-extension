@@ -193,6 +193,161 @@ export class AddFieldTool implements AIEnhancedTool {
   }
 
   /**
+   * Creates a WorkspaceEdit for adding a field programmatically without applying it.
+   * This method prepares all the necessary changes (field insertion, imports, enums) 
+   * and returns them as a WorkspaceEdit that can be applied later or combined with other edits.
+   *
+   * @param targetUri - The URI of the model file where the field should be added
+   * @param fieldInfo - Predefined field information
+   * @param modelName - The name of the model class to which the field will be added
+   * @param cache - The metadata cache for context about existing models
+   * @param enumValues - For Choice fields, the enum values to use (if not provided, default values will be used)
+   * @returns Promise that resolves to a WorkspaceEdit containing all necessary changes
+   * @throws Error if validation fails or field already exists
+   * 
+   */
+  public async createAddFieldWorkspaceEdit(
+    targetUri: vscode.Uri,
+    fieldInfo: FieldInfo,
+    modelName: string,
+    cache: MetadataCache,
+    enumValues?: string[]
+  ): Promise<vscode.WorkspaceEdit> {
+    // Step 1: Validate target file
+    const { modelClass, document } = await this.validateAndPrepareTarget(targetUri, modelName, cache);
+
+    // Step 2: Check if field already exists
+    if (modelClass) {
+      const existingFields = Object.keys(modelClass.properties || {});
+      if (existingFields.includes(fieldInfo.name)) {
+        throw new Error(`Field '${fieldInfo.name}' already exists in model ${modelClass.name}`);
+      }
+    }
+
+    // Step 3: Generate basic field structure
+    const fieldCode = this.generateFieldCode(fieldInfo);
+
+    // Step 4: Create the workspace edit
+    const edit = new vscode.WorkspaceEdit();
+
+    // Step 5: Add field insertion edit (delegate to source code service but intercept the edit)
+    await this.addFieldEditToWorkspace(edit, document, modelName, fieldInfo, fieldCode, cache);
+
+    // Step 6: If it's a Choice field, also add enum creation edit
+    if (fieldInfo.type.decorator === "Choice") {
+      await this.addEnumEditToWorkspace(edit, document, fieldInfo, enumValues);
+    }
+
+    return edit;
+  }
+
+  /**
+   * Adds field insertion edits to the provided WorkspaceEdit.
+   * This mirrors the logic from sourceCodeService.insertField but adds to the edit instead of applying.
+   */
+  private async addFieldEditToWorkspace(
+    edit: vscode.WorkspaceEdit,
+    document: vscode.TextDocument,
+    modelClassName: string,
+    fieldInfo: FieldInfo,
+    fieldCode: string,
+    cache?: MetadataCache
+  ): Promise<void> {
+    const lines = document.getText().split("\n");
+    const newImports = new Set<string>(["Field", fieldInfo.type.decorator]);
+    
+    if (fieldInfo.type.decorator === "Composition") {
+      newImports.add("PersistentComponentModel");
+    }
+
+    // Add imports using source code service logic (we need to call a helper method)
+    await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, newImports);
+
+    // Add model import if needed
+    if (fieldInfo.additionalConfig?.targetModel) {
+      await this.sourceCodeService.addModelImport(document, fieldInfo.additionalConfig.targetModel, edit, cache);
+    }
+
+    // Find class boundaries and add field
+    const { classEndLine } = this.sourceCodeService.findClassBoundaries(lines, modelClassName);
+    const indentation = detectIndentation(lines, 0, lines.length);
+    const indentedFieldCode = applyIndentation(fieldCode, indentation);
+
+    edit.insert(document.uri, new vscode.Position(classEndLine, 0), `\n${indentedFieldCode}\n`);
+  }
+
+  /**
+   * Adds enum creation edits to the provided WorkspaceEdit for Choice fields.
+   */
+  private async addEnumEditToWorkspace(
+    edit: vscode.WorkspaceEdit,
+    document: vscode.TextDocument,
+    fieldInfo: FieldInfo,
+    enumValues?: string[]
+  ): Promise<void> {
+    const enumName = this.generateEnumName(fieldInfo.name);
+
+    // Use provided enum values or generate default ones
+    let values = enumValues;
+    if (!values || values.length === 0) {
+      values = this.generateDefaultEnumValues(fieldInfo.name);
+    }
+
+    // Normalize the values
+    const normalizedValues = values.map(value => this.normalizeEnumValue(value));
+
+    // Generate enum code
+    const enumCode = this.generateEnumCode(enumName, normalizedValues);
+
+    // Find insertion point at the end of the file
+    const content = document.getText();
+    const lines = content.split("\n");
+
+    let insertionLine = lines.length;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].trim()) {
+        insertionLine = i + 1;
+        break;
+      }
+    }
+
+    const insertPosition = new vscode.Position(insertionLine, 0);
+    const codeToInsert = "\n" + enumCode + "\n";
+
+    edit.insert(document.uri, insertPosition, codeToInsert);
+  }
+
+  /**
+   * Generates default enum values for a Choice field when none are provided.
+   */
+  private generateDefaultEnumValues(fieldName: string): string[] {
+    const fieldLower = fieldName.toLowerCase();
+
+    // Generate context-appropriate default values
+    if (fieldLower.includes("status")) {
+      return ["Active", "Inactive", "Pending"];
+    }
+    if (fieldLower.includes("type")) {
+      return ["TypeA", "TypeB", "TypeC"];
+    }
+    if (fieldLower.includes("category")) {
+      return ["General", "Important", "Urgent"];
+    }
+    if (fieldLower.includes("state")) {
+      return ["Open", "InProgress", "Closed"];
+    }
+    if (fieldLower.includes("priority")) {
+      return ["Low", "Medium", "High"];
+    }
+    if (fieldLower.includes("level")) {
+      return ["Basic", "Intermediate", "Advanced"];
+    }
+
+    // Default generic values
+    return ["Option1", "Option2", "Option3"];
+  }
+
+  /**
    * Validates the target file and prepares it for field addition.
    */
   private async validateAndPrepareTarget(

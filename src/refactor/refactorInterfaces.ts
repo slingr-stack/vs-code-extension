@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DecoratedClass, DecoratorMetadata, FileMetadata, MetadataCache, PropertyMetadata } from '../cache/cache';
+import { TreeViewContext } from '../commands/commandHelpers';
 
 /**
  * Context object containing all necessary information for performing refactoring operations.
@@ -129,6 +130,23 @@ export interface ChangeReferenceToCompositionPayload {
     isManual: boolean;
 }
 
+/**
+ * Payload interface for extracting fields to a composition model.
+ * This involves moving selected fields from a source model to a new composition model
+ * and creating a composition relationship between them.
+ * 
+ * @property {string} sourceModelName - The name of the source model containing the fields to extract
+ * @property {string} compositionFieldName - The name of the new composition field to be created
+ * @property {PropertyMetadata[]} fieldsToExtract - The field metadata for all fields being extracted
+ * @property {boolean} isManual - Whether the extraction was initiated manually by the user
+ */
+export interface ExtractFieldsToCompositionPayload {
+    sourceModelName: string;
+    compositionFieldName: string;
+    fieldsToExtract: PropertyMetadata[];
+    isManual: boolean;
+}
+
 
 /**
  * Represents the specific type of refactoring change being applied.
@@ -141,8 +159,9 @@ export interface ChangeReferenceToCompositionPayload {
  * - `CHANGE_FIELD_TYPE`: A change that modifies the data type of a field.
  * - `ADD_DECORATOR`: A change that adds a decorator to a field.
  * - `CHANGE_REFERENCE_TO_COMPOSITION`: A change that converts a reference field to a composition field.
+ * - `EXTRACT_FIELDS_TO_COMPOSITION`: A change that extracts selected fields to a new composition model.
  */
-export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR' | 'CHANGE_REFERENCE_TO_COMPOSITION' | 'CHANGE_COMPOSITION_TO_REFERENCE';
+export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR' | 'CHANGE_REFERENCE_TO_COMPOSITION' | 'CHANGE_COMPOSITION_TO_REFERENCE' | 'EXTRACT_FIELDS_TO_COMPOSITION';
 
 /**
  * Represents a single, atomic change to be applied as part of a refactoring operation.
@@ -165,7 +184,8 @@ export interface ChangeObject {
         | DeleteFieldPayload
         | ChangeFieldTypePayload
         | AddDecoratorPayload
-        | ChangeReferenceToCompositionPayload;
+        | ChangeReferenceToCompositionPayload
+        | ExtractFieldsToCompositionPayload;
 }
 
 
@@ -183,6 +203,8 @@ export interface ManualRefactorContext {
     uri: vscode.Uri;
     range: vscode.Range;
     metadata?: DecoratedClass | PropertyMetadata;
+    treeViewContext?: TreeViewContext;
+    
 }
 
 /**

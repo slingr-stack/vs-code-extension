@@ -6,6 +6,7 @@ import { ProjectAnalysisService } from "../../services/projectAnalysisService";
 import { SourceCodeService } from "../../services/sourceCodeService";
 import { FileSystemService } from "../../services/fileSystemService";
 import { ExplorerProvider } from "../../explorer/explorerProvider";
+import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 
 /**
  * Tool for adding composition relationships to existing Model classes.
@@ -88,6 +89,142 @@ export class AddCompositionTool {
       console.error("Error adding composition programmatically:", error);
       throw error;
     }
+  }
+
+  /**
+   * Creates a WorkspaceEdit for adding a composition relationship programmatically without applying it.
+   * This method prepares all the necessary changes (inner model creation and composition field addition)
+   * and returns them as a WorkspaceEdit that can be applied later or combined with other edits.
+   *
+   * @param cache - The metadata cache for context about existing models
+   * @param modelName - The name of the model to which the composition is being added
+   * @param fieldName - The predefined field name for the composition
+   * @returns Promise that resolves to a WorkspaceEdit containing all necessary changes and the inner model name
+   * @throws Error if validation fails or models already exist
+   * 
+   */
+  public async createAddCompositionWorkspaceEdit(
+    cache: MetadataCache,
+    modelName: string,
+    fieldName: string
+  ): Promise<{ edit: vscode.WorkspaceEdit; innerModelName: string }> {
+    // Step 1: Validate target file
+    const { modelClass, document } = await this.validateAndPrepareTarget(modelName, cache);
+
+    // Step 2: Determine inner model name and array status
+    const { innerModelName, isArray } = this.determineInnerModelInfo(fieldName);
+
+    // Step 3: Check if inner model already exists
+    await this.validateInnerModelName(cache, innerModelName);
+
+    // Step 4: Check if composition field already exists
+    const existingFields = Object.keys(modelClass.properties || {});
+    if (existingFields.includes(fieldName)) {
+      throw new Error(`Field '${fieldName}' already exists in model ${modelClass.name}`);
+    }
+
+    // Step 5: Create the workspace edit
+    const edit = new vscode.WorkspaceEdit();
+
+    // Step 6: Add inner model creation edit
+    await this.addInnerModelEditToWorkspace(edit, document, innerModelName, modelClass.name, cache);
+
+    // Step 7: Add composition field edit
+    await this.addCompositionFieldEditToWorkspace(edit, document, modelClass.name, fieldName, innerModelName, isArray, cache);
+
+    return { edit, innerModelName };
+  }
+
+  /**
+   * Adds inner model creation edits to the provided WorkspaceEdit.
+   */
+  private async addInnerModelEditToWorkspace(
+    edit: vscode.WorkspaceEdit,
+    document: vscode.TextDocument,
+    innerModelName: string,
+    outerModelName: string,
+    cache: MetadataCache
+  ): Promise<void> {
+    // Determine data source from outer model
+    const outerModelClass = cache.getModelByName(outerModelName);
+    if (!outerModelClass) {
+      throw new Error(`Could not find model metadata for '${outerModelName}'`);
+    }
+
+    const outerModelDecorator = cache.getModelDecoratorByName("Model", outerModelClass);
+    const dataSource = outerModelDecorator?.arguments?.[0]?.dataSource;
+
+    // Generate the inner model code
+    const innerModelCode = this.generateInnerModelCode(innerModelName, outerModelName, dataSource);
+
+    // Add required imports
+    const requiredImports = new Set(["Model", "Field", "Relationship", "PersistentComponentModel"]);
+    await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, requiredImports);
+
+    // Find insertion point after the outer model
+    const lines = document.getText().split("\n");
+    let insertionLine = lines.length; // Default to end of file
+
+    try {
+      const { classEndLine } = this.sourceCodeService.findClassBoundaries(lines, outerModelName);
+      insertionLine = classEndLine + 1;
+    } catch (error) {
+      // If we can't find the specified model, fall back to end of file
+      console.warn(`Could not find model ${outerModelName}, inserting at end of file`);
+    }
+
+    // Insert the inner model with appropriate spacing
+    const spacing = insertionLine < lines.length ? "\n\n" : "\n";
+    edit.insert(document.uri, new vscode.Position(insertionLine, 0), `${spacing}${innerModelCode}\n`);
+  }
+
+  /**
+   * Adds composition field creation edits to the provided WorkspaceEdit.
+   */
+  private async addCompositionFieldEditToWorkspace(
+    edit: vscode.WorkspaceEdit,
+    document: vscode.TextDocument,
+    outerModelName: string,
+    fieldName: string,
+    innerModelName: string,
+    isArray: boolean,
+    cache: MetadataCache
+  ): Promise<void> {
+    // Create field info for the composition field
+    const fieldType: FieldTypeOption = {
+      label: "Relationship",
+      decorator: "Composition",
+      tsType: isArray ? `${innerModelName}[]` : innerModelName,
+      description: "Composition relationship",
+    };
+
+    const fieldInfo: FieldInfo = {
+      name: fieldName,
+      type: fieldType,
+      required: false, // Compositions are typically optional
+      additionalConfig: {
+        relationshipType: "composition",
+        targetModel: innerModelName,
+        targetModelPath: document.uri.fsPath,
+      },
+    };
+
+    // Generate the field code
+    const fieldCode = this.generateCompositionFieldCode(fieldInfo, innerModelName, isArray);
+
+    // Add field insertion edits using the source code service approach
+    const lines = document.getText().split("\n");
+    const requiredImports = new Set(["Field", "Composition"]);
+
+    // Add imports
+    await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, requiredImports);
+
+    // Find class boundaries and add field
+    const { classEndLine } = this.sourceCodeService.findClassBoundaries(lines, outerModelName);
+    const indentation = detectIndentation(lines, 0, lines.length);
+    const indentedFieldCode = applyIndentation(fieldCode, indentation);
+
+    edit.insert(document.uri, new vscode.Position(classEndLine, 0), `\n${indentedFieldCode}\n`);
   }
 
   /**

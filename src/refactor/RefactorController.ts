@@ -1,17 +1,24 @@
 import * as vscode from "vscode";
-import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteModelPayload, RenameModelPayload } from "./refactorInterfaces";
+import {
+  ChangeObject,
+  IRefactorTool,
+  ManualRefactorContext,
+  DeleteModelPayload,
+  RenameModelPayload,
+} from "./refactorInterfaces";
 import { findNodeAtPosition } from "../utils/ast";
 import { MetadataCache } from "../cache/cache";
 import { AppTreeItem } from "../explorer/appTreeItem";
+import { isTreeViewContext, validateTreeViewContext, TreeViewContext } from "../commands/commandHelpers";
 
 /**
  * Controls and orchestrates refactoring operations within the VS Code extension.
- * 
+ *
  * The RefactorController serves as the central coordinator for all refactoring activities,
  * managing both manual user-initiated refactors and automatic refactors detected through
  * metadata analysis. It maintains a collection of refactoring tools and handles the
  * complete refactoring workflow from detection to user approval and application.
- * 
+ *
  * @remarks
  * Key responsibilities include:
  * - Managing a registry of refactoring tools and their supported change types
@@ -20,20 +27,20 @@ import { AppTreeItem } from "../explorer/appTreeItem";
  * - Preparing and merging workspace edits while avoiding duplicate modifications
  * - Presenting changes to users through VS Code's built-in refactor preview UI
  * - Coordinating file operations including text edits and file deletions
- * 
+ *
  * The controller uses a change handler map to efficiently route different types of
  * changes to their appropriate refactoring tools. It includes safeguards to prevent
  * concurrent edit operations and provides comprehensive error handling throughout
  * the refactoring process.
- * 
+ *
  * @example
  * ```typescript
  * const tools = [new RenameActionTool(), new DeleteModelTool()];
  * const controller = new RefactorController(tools, metadataCache);
- * 
+ *
  * // Handle manual refactor command
  * await controller.handleManualRefactorCommand('rename-action', treeItem);
- * 
+ *
  * // Process automatic refactors
  * await controller.proposeAutomaticRefactors(detectedChanges);
  * ```
@@ -66,15 +73,30 @@ export class RefactorController {
    * @param commandId - The identifier of the refactoring command to execute
    * @param context - Optional context providing either a URI or AppTreeItem for the refactoring target.
    * If not provided, uses the active text editor as the target.
+   * @param secondArg - Optional second argument, used for tree view multi-selection contexts
    * @returns A Promise that resolves when the refactoring operation is complete
    * @remarks
    * - Shows error message if the command ID is not recognized
    * - For AppTreeItem context, uses the item's metadata for refactoring scope
    * - For URI context or no context, uses the active editor's selection or cursor position
+   * - Detects tree view multi-selection context and passes field selection information
    * - Presents changes for user approval before applying them
    * - Shows information message if no changes are needed
    */
-  public async handleManualRefactorCommand(commandId: string, context?: vscode.Uri | AppTreeItem | ManualRefactorContext, decoratorName?: string) {
+  public async handleManualRefactorCommand(
+    commandId: string,
+    context?: vscode.Uri | AppTreeItem | ManualRefactorContext,
+    secondArg?: any
+  ) {
+    console.log('[RefactorController] handleManualRefactorCommand called with:', {
+      commandId,
+      contextType: context ? typeof context : 'undefined',
+      contextItemType: context && typeof context === 'object' && 'itemType' in context ? context.itemType : 'N/A',
+      secondArgType: secondArg ? typeof secondArg : 'undefined',
+      secondArgIsArray: Array.isArray(secondArg),
+      secondArgLength: Array.isArray(secondArg) ? secondArg.length : 'N/A'
+    });
+
     const tool = this.tools.find((t) => t.getCommandId() === commandId);
     if (!tool) {
       vscode.window.showErrorMessage(`Unknown refactoring command: ${commandId}`);
@@ -83,53 +105,108 @@ export class RefactorController {
 
     let refactorContext: ManualRefactorContext | undefined;
 
-    if (context instanceof AppTreeItem) {
-      if (!context.metadata) {
-        vscode.window.showInformationMessage("No metadata found for the selected item.");
-        return;
+    // Check if this is a tree view multi-selection context
+    if (context && typeof context === "object" && "itemType" in context && secondArg && Array.isArray(secondArg)) {
+      try {
+        if (isTreeViewContext(context, secondArg)) {
+          const treeContext = validateTreeViewContext(context, secondArg);
+
+          // Create the refactor context from the tree view context
+          const targetModel = treeContext.fieldItems[0]?.parent?.metadata;
+          if (targetModel && "declaration" in targetModel) {
+            refactorContext = {
+              cache: this.cache,
+              uri: targetModel.declaration.uri,
+              range: targetModel.declaration.range,
+              metadata: targetModel,
+              treeViewContext: treeContext,
+            };
+          }
+        }
+      } catch (error) {
+        // If tree view context validation fails, fall back to regular handling
+        console.warn("Failed to process tree view context:", error);
       }
-      refactorContext = {
-        cache: this.cache,
-        uri: context.metadata.declaration.uri,
-        range: context.metadata.declaration.range,
-        metadata: context.metadata,
-      };
-    } else if (context instanceof vscode.Uri) {
-      const fileMeta = this.cache.getMetadataForFile(context.fsPath);
-      if (!fileMeta || Object.keys(fileMeta.classes).length === 0) {
-        vscode.window.showInformationMessage("No class found in the selected file to refactor.");
-        return;
+    }
+    // Check if this is a single field selection from tree view
+    else if (context instanceof AppTreeItem && 
+             (context.itemType === "field" || context.itemType === "referenceField") && 
+             context.parent?.metadata && 
+             'name' in context.parent.metadata) {
+      try {
+        // Create a tree view context for single field selection
+        const singleFieldTreeContext: TreeViewContext = {
+          clickedItem: context,
+          selectedItems: [context],
+          fieldItems: [context],
+          modelName: context.parent.metadata.name,
+          modelPath: context.parent.metadata.declaration.uri.fsPath
+        };
+
+        refactorContext = {
+          cache: this.cache,
+          uri: context.parent.metadata.declaration.uri,
+          range: context.parent.metadata.declaration.range,
+          metadata: context.parent.metadata,
+          treeViewContext: singleFieldTreeContext,
+        };
+      } catch (error) {
+        console.warn("Failed to process single field tree view context:", error);
       }
-      // When triggered from file explorer, we assume the target is the first class in the file.
-      const targetClass = Object.values(fileMeta.classes)[0];
-      refactorContext = {
-        cache: this.cache,
-        uri: context,
-        range: targetClass.declaration.range,
-        metadata: targetClass,
-      };
-    } else if (context && 'cache' in context && 'uri' in context) {
-      refactorContext = context as ManualRefactorContext;
-    } else {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) {
-        vscode.window.showInformationMessage("Cannot determine file for refactoring. Please open a file.");
-        return;
+    }
+
+    // If not a tree view context or tree view processing failed, handle as before
+    if (!refactorContext) {
+      if (context instanceof AppTreeItem) {
+        if (!context.metadata) {
+          vscode.window.showInformationMessage("No metadata found for the selected item.");
+          return;
+        }
+        refactorContext = {
+          cache: this.cache,
+          uri: context.metadata.declaration.uri,
+          range: context.metadata.declaration.range,
+          metadata: context.metadata,
+        };
+      } else if (context instanceof vscode.Uri) {
+        const fileMeta = this.cache.getMetadataForFile(context.fsPath);
+        if (!fileMeta || Object.keys(fileMeta.classes).length === 0) {
+          vscode.window.showInformationMessage("No class found in the selected file to refactor.");
+          return;
+        }
+        // When triggered from file explorer, we assume the target is the first class in the file.
+        const targetClass = Object.values(fileMeta.classes)[0];
+        refactorContext = {
+          cache: this.cache,
+          uri: context,
+          range: targetClass.declaration.range,
+          metadata: targetClass,
+        };
+      } else if (context && "cache" in context && "uri" in context) {
+        refactorContext = context as ManualRefactorContext;
+      } else {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+          vscode.window.showInformationMessage("Cannot determine file for refactoring. Please open a file.");
+          return;
+        }
+        const position = editor.selection.active;
+        refactorContext = {
+          cache: this.cache,
+          uri: editor.document.uri,
+          range: new vscode.Range(position, position),
+          metadata: await findNodeAtPosition(editor.document.uri, position),
+        };
       }
-      const position = editor.selection.active;
-      refactorContext = {
-        cache: this.cache,
-        uri: editor.document.uri,
-        range: new vscode.Range(position, position),
-        metadata: await findNodeAtPosition(editor.document.uri, position),
-      };
     }
 
     if (!refactorContext) {
       vscode.window.showErrorMessage("Could not determine the context for refactoring.");
       return;
     }
-    const changeObject = await (tool as any).initiateManualRefactor(refactorContext, decoratorName);
+
+    // Call the tool with the refactor context (tree view context is included in the context)
+    const changeObject = await (tool as any).initiateManualRefactor(refactorContext);
     if (changeObject) {
       const workspaceEdit = await this.prepareWorkspaceEdit([changeObject]);
       if (!workspaceEdit) {
@@ -138,7 +215,7 @@ export class RefactorController {
 
       const hasTextEdits = workspaceEdit.size > 0;
       let hasFileDeletions = false;
-      if (changeObject.type === 'DELETE_MODEL') {
+      if (changeObject.type === "DELETE_MODEL") {
         const deletePayload = changeObject.payload as DeleteModelPayload;
         hasFileDeletions = Array.isArray(deletePayload.urisToDelete) && deletePayload.urisToDelete.length > 0;
       }
@@ -152,17 +229,17 @@ export class RefactorController {
 
   /**
    * Presents workspace changes to the user for approval and handles post-approval analysis.
-   * 
+   *
    * This method applies the workspace edit with proper confirmation metadata on existing edits
    * to trigger VS Code's refactoring preview UI, and optionally runs AI analysis on the changes
    * after user approval to help identify and fix potential errors.
-   * 
+   *
    * @param workspaceEdit - The VS Code WorkspaceEdit containing all file changes to be applied
    * @param changeObject - The primary change object being processed, used as an anchor for the preview
    * @param allChanges - Optional array of all changes for automatic refactors with multiple operations
-   * 
+   *
    * @returns A Promise that resolves when the approval process and any follow-up analysis is complete
-   * 
+   *
    * @remarks
    * - Annotates existing text edits with confirmation metadata to trigger VS Code's preview UI
    * - Prefers to annotate edits on the anchor URI when available, otherwise uses the first available edit
@@ -173,10 +250,10 @@ export class RefactorController {
   private async presentChangesForApproval(
     workspaceEdit: vscode.WorkspaceEdit,
     changeObject: ChangeObject,
-    allChanges?: ChangeObject[] 
+    allChanges?: ChangeObject[]
   ): Promise<void> {
     const anchorUri = changeObject.uri;
-    const isDelete = changeObject.type.startsWith('DELETE_');
+    const isDelete = changeObject.type.startsWith("DELETE_");
 
     let uriForDummyChange = anchorUri;
 
@@ -247,7 +324,7 @@ export class RefactorController {
         // We have to add the file renames and deletions from the original changes
         const changesToProcess = allChanges || [changeObject];
         for (const change of changesToProcess) {
-          if (change.type === 'DELETE_MODEL') {
+          if (change.type === "DELETE_MODEL") {
             const deletePayload = change.payload as DeleteModelPayload;
             if (Array.isArray(deletePayload.urisToDelete)) {
               for (const uri of deletePayload.urisToDelete) {
@@ -255,8 +332,8 @@ export class RefactorController {
               }
             }
           }
-          
-          if (change.type === 'RENAME_MODEL') {
+
+          if (change.type === "RENAME_MODEL") {
             const renamePayload = change.payload as RenameModelPayload;
             if (renamePayload.newUri) {
               annotated.renameFile(change.uri, renamePayload.newUri);
@@ -264,7 +341,7 @@ export class RefactorController {
           }
         }
         editToApply = annotated;
-      } 
+      }
     } catch (e) {
       console.error("Error while annotating workspace edits for review:", e);
     }
@@ -276,7 +353,7 @@ export class RefactorController {
         await vscode.workspace.saveAll(false);
         const changesToProcess = allChanges || [changeObject];
         // Check for compilation errors after applying changes
-        const changesWithPrompts = changesToProcess.filter(change => {
+        const changesWithPrompts = changesToProcess.filter((change) => {
           const tool = this.changeHandlerMap.get(change.type);
           return tool?.executePrompt;
         });
@@ -324,14 +401,14 @@ export class RefactorController {
 
   /**
    * Proposes automatic refactoring suggestions based on detected changes.
-   * 
+   *
    * This method analyzes the provided changes and prepares a workspace edit containing
    * potential refactoring operations. If changes are detected, it prompts the user for
    * permission to review the proposed refactors before applying them.
-   * 
+   *
    * @param changes - Array of change objects representing detected modifications that could benefit from refactoring
    * @returns A promise that resolves when the refactoring proposal process is complete
-   * 
+   *
    * @remarks
    * - Returns early if currently applying an edit or if no changes are provided
    * - Only proceeds with user confirmation before presenting changes for review
@@ -357,14 +434,14 @@ export class RefactorController {
 
   /**
    * Prepares a workspace edit by processing an array of change objects and merging their edits.
-   * 
+   *
    * This method iterates through the provided changes, uses the appropriate change handlers to generate
    * text edits, and ensures no duplicate edits are applied to the same range. It also handles file
    * deletions when specified in the change payload.
-   * 
+   *
    * @param changes - Array of change objects to be processed into workspace edits
    * @returns A Promise that resolves to a WorkspaceEdit containing all merged changes, or undefined if an error occurs
-   * 
+   *
    * @remarks
    * - Edits are deduplicated based on their exact range location (line and character positions)
    * - File deletions are processed with recursive and ignoreIfNotExists options
@@ -380,7 +457,6 @@ export class RefactorController {
       const tool = this.changeHandlerMap.get(change.type);
       if (tool) {
         try {
-
           const editFromTool = await tool.prepareEdit(change, this.cache);
           for (const [uri, textEdits] of editFromTool.entries()) {
             const uriString = uri.toString();
@@ -399,10 +475,9 @@ export class RefactorController {
             if (existingEdits.length > 0) {
               allUniqueEdits.set(uriString, existingEdits);
             }
-
           }
 
-          if (change.type === 'DELETE_MODEL') {
+          if (change.type === "DELETE_MODEL") {
             const deletePayload = change.payload as DeleteModelPayload;
             if (Array.isArray(deletePayload.urisToDelete)) {
               for (const uri of deletePayload.urisToDelete) {
@@ -411,13 +486,12 @@ export class RefactorController {
             }
           }
 
-          if (change.type === 'RENAME_MODEL') {
+          if (change.type === "RENAME_MODEL") {
             const renamePayload = change.payload as RenameModelPayload;
             if (renamePayload.newUri) {
               mergedEdit.renameFile(change.uri, renamePayload.newUri);
             }
           }
-
         } catch (error) {
           vscode.window.showErrorMessage(`Error preparing refactor for '${change.description}': ${error}`);
           return undefined;
@@ -433,10 +507,10 @@ export class RefactorController {
 
   /**
    * Collects all file URIs that were modified during the refactoring operation.
-   * 
+   *
    * This method gathers URIs from both the workspace edit entries and the change objects
    * to create a comprehensive list of files that should be checked for compilation errors.
-   * 
+   *
    * @param workspaceEdit - The workspace edit containing text modifications
    * @param changes - Array of change objects that triggered the refactoring
    * @returns A Set of unique URIs representing all modified files
@@ -455,14 +529,14 @@ export class RefactorController {
 
   /**
    * Checks for compilation errors in the specified files.
-   * 
+   *
    * This method uses VS Code's diagnostic API to detect compilation errors
    * in the provided file URIs. It's useful for determining whether a refactoring
    * operation has introduced any syntax or type errors that need attention.
-   * 
+   *
    * @param uris - Set of file URIs to check for compilation errors
    * @returns A Promise that resolves to true if any compilation errors are found, false otherwise
-   * 
+   *
    * @remarks
    * - Only checks for diagnostics with Error severity level
    * - Gracefully handles cases where diagnostics cannot be retrieved for a file
@@ -472,7 +546,7 @@ export class RefactorController {
     for (const uri of uris) {
       try {
         const diagnostics = vscode.languages.getDiagnostics(uri);
-        const errors = diagnostics.filter(d => d.severity === vscode.DiagnosticSeverity.Error);
+        const errors = diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error);
         if (errors.length > 0) {
           return true;
         }
@@ -486,7 +560,7 @@ export class RefactorController {
 
   /**
    * Retrieves the list of available refactor tools.
-   * 
+   *
    * @returns An array of refactor tools that are currently registered with this controller.
    */
   public getTools(): IRefactorTool[] {

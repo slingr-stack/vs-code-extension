@@ -858,4 +858,45 @@ export class SourceCodeService {
     return lines.join('\n');
   }
 
+  /**
+   * Extracts enum definitions from a document.
+   */
+  public extractEnumDefinitions(document: vscode.TextDocument): string[] {
+    const content = document.getText();
+    const lines = content.split('\n');
+    const enumDefinitions: string[] = [];
+    
+    let currentEnum: string[] = [];
+    let inEnum = false;
+    let braceCount = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Check if we're starting an enum
+      if (line.trim().startsWith('export enum ') || line.trim().startsWith('enum ')) {
+        inEnum = true;
+        braceCount = 0;
+      }
+      
+      if (inEnum) {
+        currentEnum.push(line);
+        
+        // Count braces
+        const openBraces = (line.match(/{/g) || []).length;
+        const closeBraces = (line.match(/}/g) || []).length;
+        braceCount += openBraces - closeBraces;
+        
+        // If we've closed all braces, we're done with this enum
+        if (braceCount === 0 && line.includes('}')) {
+          inEnum = false;
+          enumDefinitions.push(currentEnum.join('\n'));
+          currentEnum = [];
+        }
+      }
+    }
+    
+    return enumDefinitions;
+  }
+
 }

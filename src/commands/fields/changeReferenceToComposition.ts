@@ -245,7 +245,7 @@ export class ChangeReferenceToCompositionTool {
     const dataSource = sourceModelDecorator?.arguments?.[0]?.dataSource;
     
     // Step 4: Extract any enums from the target model file
-    const enumDefinitions = this.extractEnumDefinitions(targetDocument);
+    const enumDefinitions = this.sourceCodeService.extractEnumDefinitions(targetDocument);
     
     // Step 5: Check for enum name conflicts and resolve them
     const sourceDocument = await vscode.workspace.openTextDocument(sourceModel.declaration.uri);
@@ -273,46 +273,6 @@ export class ChangeReferenceToCompositionTool {
     return componentModelParts;
   }
 
-  /**
-   * Extracts enum definitions from a document.
-   */
-  private extractEnumDefinitions(document: vscode.TextDocument): string[] {
-    const content = document.getText();
-    const lines = content.split('\n');
-    const enumDefinitions: string[] = [];
-    
-    let currentEnum: string[] = [];
-    let inEnum = false;
-    let braceCount = 0;
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      
-      // Check if we're starting an enum
-      if (line.trim().startsWith('export enum ') || line.trim().startsWith('enum ')) {
-        inEnum = true;
-        braceCount = 0;
-      }
-      
-      if (inEnum) {
-        currentEnum.push(line);
-        
-        // Count braces
-        const openBraces = (line.match(/{/g) || []).length;
-        const closeBraces = (line.match(/}/g) || []).length;
-        braceCount += openBraces - closeBraces;
-        
-        // If we've closed all braces, we're done with this enum
-        if (braceCount === 0 && line.includes('}')) {
-          inEnum = false;
-          enumDefinitions.push(currentEnum.join('\n'));
-          currentEnum = [];
-        }
-      }
-    }
-    
-    return enumDefinitions;
-  }
 
   /**
    * Resolves enum name conflicts between target and source files.
