@@ -10,8 +10,6 @@ import { registerInfraStatus } from './infrastructure/infraStatusRegistration';
 export let cache: MetadataCache;
 
 export async function activate(context: vscode.ExtensionContext) {
-    const startTime = Date.now();
-
 	// --- 1. Core Services Initialization (Shallow Load) ---
     cache = new MetadataCache(context.extensionPath);
     await cache.initialize(); // Fast shallow initialization
@@ -34,9 +32,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // --- 4. Push remaining disposables ---
     context.subscriptions.push(cache, ...generalCommandDisposables);
-
-    const endTime = Date.now();
-    console.log(`Extension activated in ${endTime - startTime} ms`);
 }
 
 // This method is called when your extension is deactivated
