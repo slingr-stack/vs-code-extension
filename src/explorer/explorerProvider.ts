@@ -582,31 +582,51 @@ export class ExplorerProvider
    * Gets the children for the data root, which includes folders and models in the src/data directory
    */
   private async getDataRootChildren(): Promise<AppTreeItem[]> {
-    const models = this.cache.getDataModelClasses();
-    const folderStructure = await this.getCachedFolderStructure(models);
+    try {
+      const models = this.cache.getDataModelClasses();
+      const folderStructure = await this.getCachedFolderStructure(models);
 
-    return this.createTreeItemsFromStructure(folderStructure, "");
+      return this.createTreeItemsFromStructure(folderStructure, "");
+    } catch (error) {
+      console.error("[Explorer] Error getting data root children:", error);
+      return [];
+    }
   }
 
   /**
    * Gets the children for a specific folder
    */
   private async getFolderChildren(folderElement: AppTreeItem): Promise<AppTreeItem[]> {
-    const models = this.cache.getDataModelClasses();
-    const folderPath = folderElement.folderPath || ""; // Use folderPath property
-    const folderStructure = await this.getCachedFolderStructure(models);
+    try {
+      const models = this.cache.getDataModelClasses();
+      const folderPath = folderElement.folderPath || "";
+      const folderStructure = await this.getCachedFolderStructure(models);
 
-    return this.createTreeItemsFromStructure(folderStructure, folderPath);
+      return this.createTreeItemsFromStructure(folderStructure, folderPath);
+    } catch (error) {
+      console.error("[Explorer] Error getting folder children:", error);
+      return []; 
+    }
   }
 
   /**
    * Gets the cached folder structure, building it if not cached
    */
   private async getCachedFolderStructure(models: DecoratedClass[]): Promise<FolderNode> {
-    if (!this.explorerCache.folderStructure) {
-      this.explorerCache.folderStructure = await this.buildFolderStructure(models);
+    try {
+      if (!this.explorerCache.folderStructure) {
+        this.explorerCache.folderStructure = await this.buildFolderStructure(models);
+      }
+      // Ensure the structure is valid
+      if (!this.explorerCache.folderStructure || !this.explorerCache.folderStructure.folders) {
+        console.warn("[Explorer] Cached folder structure is invalid, rebuilding...");
+        this.explorerCache.folderStructure = await this.buildFolderStructure(models);
+      }
+      return this.explorerCache.folderStructure;
+    } catch (error) {
+      console.error("[Explorer] Error getting folder structure:", error);
+      return { folders: new Map(), models: [] };
     }
-    return this.explorerCache.folderStructure;
   }
 
   /**
@@ -712,17 +732,31 @@ export class ExplorerProvider
   private createTreeItemsFromStructure(structure: FolderNode, basePath: string): AppTreeItem[] {
     const items: AppTreeItem[] = [];
 
+    if (!structure || !structure.folders) {
+      console.warn("[Explorer] Folder structure is undefined or invalid, returning empty items");
+      return items;
+    }
+
     // Get the current node for the given base path
     let currentNode = structure;
     if (basePath) {
       const pathParts = basePath.split(/[\/\\]/);
       for (const part of pathParts) {
+        if (!currentNode.folders) {
+          console.warn("[Explorer] Current node has no folders property, returning empty items");
+          return items;
+        }
         const nextNode = currentNode.folders.get(part);
         if (!nextNode) {
           return items; // Path not found
         }
         currentNode = nextNode;
       }
+    }
+
+    if (!currentNode.folders) {
+      console.warn("[Explorer] Current node has no folders property after path traversal, returning empty items");
+      return items;
     }
 
     // Add folders (sorted alphabetically)
