@@ -1,6 +1,5 @@
 import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn, Index, BeforeInsert } from 'typeorm';
 import { TypeORMTypeMapper } from './TypeORMTypeMapper';
-import { v7 as uuidv7 } from 'uuid';
 
 /**
  * Factory class for creating dynamic array element entities.
@@ -102,8 +101,9 @@ export class ArrayEntityFactory {
     PrimaryColumn('uuid')(entityClass.prototype, 'id');
 
     // Add UUID v7 generation method
-    entityClass.prototype.generateId = function() {
+    entityClass.prototype.generateId = async function() {
       if (!this.id) {
+        const { v7: uuidv7 } = await import('uuid');
         this.id = uuidv7();
       }
     };

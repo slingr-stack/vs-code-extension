@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "Node16",
     "target": "esnext",
+    "moduleResolution": "node16",
     "types": ["node", "jest"],
     "sourceMap": true,
     "declaration": true,

@@ -46,7 +46,7 @@
   "dependencies": {
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
-    "financial-arithmetic-functions": "https://github.com/slingr-stack/financial-arithmetic-functions",
+    "financial-arithmetic-functions": "https://github.com/slingr-stack/financial-arithmetic-functions#fix/buildScripts",
     "financial-number": "^4.0.4",
     "typeorm": "^0.3.26",
     "uuid": "^13.0.0"
