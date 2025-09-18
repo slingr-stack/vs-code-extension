@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { Project } from "ts-morph";
 import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata, DataSourceMetadata, DatasetMetadata, DatasetFileMetadata, CacheUpdateEvent } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
-import * as fs from "fs";
+import { promises as fsPromises } from "fs";
 import * as path from "path";
 
 
@@ -17,6 +17,13 @@ interface FolderNode {
   models: DecoratedClass[];
 }
 
+// Cache interface for performance optimizations
+interface ExplorerCache {
+  folderStructure?: FolderNode;
+  compositionModelReferences?: Set<string>;
+  lastCacheUpdate?: number;
+}
+
 export class ExplorerProvider
   implements vscode.TreeDataProvider<AppTreeItem>, vscode.TreeDragAndDropController<AppTreeItem>
 {
@@ -29,16 +36,41 @@ export class ExplorerProvider
   public dropMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
   isDatasetDesynchronized: boolean = false;
 
+  // Performance optimization cache
+  private explorerCache: ExplorerCache = {};
+  private refreshTimeout: NodeJS.Timeout | undefined;
+
   constructor(private cache: MetadataCache, private extensionUri: vscode.Uri) {
     // --- Listen for the cache's update event ---
     this.cache.onDidUpdate(() => {
+      this.invalidateCache();
       if (!this.isDatasetDesynchronized) {
         this.isDatasetDesynchronized = true;
         this.refresh();
       }
+      this.debouncedRefresh();
     });
   }
-  
+
+  /**
+   * Invalidates the explorer cache when underlying data changes
+   */
+  private invalidateCache(): void {
+    this.explorerCache = {};
+  }
+
+  /**
+   * Debounced refresh to prevent too frequent UI updates
+   */
+  private debouncedRefresh(): void {
+    if (this.refreshTimeout) {
+      clearTimeout(this.refreshTimeout);
+    }
+    this.refreshTimeout = setTimeout(() => {
+      this.refresh();
+    }, 100); // 100ms debounce
+  }
+
   public markDatasetsAsSynced() {
     if (this.isDatasetDesynchronized) {
       this.isDatasetDesynchronized = false;
@@ -302,14 +334,19 @@ export class ExplorerProvider
       const newPath = path.join(targetPath, fileName);
 
       // Check if target file already exists
-      if (fs.existsSync(newPath)) {
+      try {
+        await fsPromises.access(newPath);
         vscode.window.showErrorMessage(`A file named "${fileName}" already exists in the target folder.`);
         return;
+      } catch {
+        // File doesn't exist, which is what we want
       }
 
       // Create target directory if it doesn't exist
-      if (!fs.existsSync(targetPath)) {
-        fs.mkdirSync(targetPath, { recursive: true });
+      try {
+        await fsPromises.access(targetPath);
+      } catch {
+        await fsPromises.mkdir(targetPath, { recursive: true });
       }
 
       // Use VS Code's workspace edit API to move the file
@@ -375,14 +412,19 @@ export class ExplorerProvider
 
     try {
       // Check if target folder already exists
-      if (fs.existsSync(newPath)) {
+      try {
+        await fsPromises.access(newPath);
         vscode.window.showErrorMessage(`A folder named "${draggedData.folderName}" already exists in the target location.`);
         return;
+      } catch {
+        // Folder doesn't exist, which is what we want
       }
 
       // Create target directory if it doesn't exist
-      if (!fs.existsSync(targetBasePath)) {
-        fs.mkdirSync(targetBasePath, { recursive: true });
+      try {
+        await fsPromises.access(targetBasePath);
+      } catch {
+        await fsPromises.mkdir(targetBasePath, { recursive: true });
       }
 
       // Use VS Code's workspace edit API to move the folder
@@ -479,12 +521,12 @@ export class ExplorerProvider
 
     // --- DATA ROOT ---
     if (element.itemType === "dataRoot") {
-      return this.getDataRootChildren();
+      return await this.getDataRootChildren();
     }
 
     // --- FOLDER ---
     if (element.itemType === "folder") {
-      return this.getFolderChildren(element);
+      return await this.getFolderChildren(element);
     }
 
     // --- DATA SOURCES ROOT ---
@@ -579,28 +621,58 @@ private getDatasetChildren(dataset: DatasetMetadata): AppTreeItem[] {
   /**
    * Gets the children for the data root, which includes folders and models in the src/data directory
    */
-  private getDataRootChildren(): AppTreeItem[] {
-    const models = this.cache.getDataModelClasses();
-    const folderStructure = this.buildFolderStructure(models);
+  private async getDataRootChildren(): Promise<AppTreeItem[]> {
+    try {
+      const models = this.cache.getDataModelClasses();
+      const folderStructure = await this.getCachedFolderStructure(models);
 
-    return this.createTreeItemsFromStructure(folderStructure, "");
+      return this.createTreeItemsFromStructure(folderStructure, "");
+    } catch (error) {
+      console.error("[Explorer] Error getting data root children:", error);
+      return [];
+    }
   }
 
   /**
    * Gets the children for a specific folder
    */
-  private getFolderChildren(folderElement: AppTreeItem): AppTreeItem[] {
-    const models = this.cache.getDataModelClasses();
-    const folderPath = folderElement.folderPath || ""; // Use folderPath property
-    const folderStructure = this.buildFolderStructure(models);
+  private async getFolderChildren(folderElement: AppTreeItem): Promise<AppTreeItem[]> {
+    try {
+      const models = this.cache.getDataModelClasses();
+      const folderPath = folderElement.folderPath || "";
+      const folderStructure = await this.getCachedFolderStructure(models);
 
-    return this.createTreeItemsFromStructure(folderStructure, folderPath);
+      return this.createTreeItemsFromStructure(folderStructure, folderPath);
+    } catch (error) {
+      console.error("[Explorer] Error getting folder children:", error);
+      return []; 
+    }
+  }
+
+  /**
+   * Gets the cached folder structure, building it if not cached
+   */
+  private async getCachedFolderStructure(models: DecoratedClass[]): Promise<FolderNode> {
+    try {
+      if (!this.explorerCache.folderStructure) {
+        this.explorerCache.folderStructure = await this.buildFolderStructure(models);
+      }
+      // Ensure the structure is valid
+      if (!this.explorerCache.folderStructure || !this.explorerCache.folderStructure.folders) {
+        console.warn("[Explorer] Cached folder structure is invalid, rebuilding...");
+        this.explorerCache.folderStructure = await this.buildFolderStructure(models);
+      }
+      return this.explorerCache.folderStructure;
+    } catch (error) {
+      console.error("[Explorer] Error getting folder structure:", error);
+      return { folders: new Map(), models: [] };
+    }
   }
 
   /**
    * Builds a hierarchical folder structure from model file paths
    */
-  private buildFolderStructure(models: DecoratedClass[]): FolderNode {
+  private async buildFolderStructure(models: DecoratedClass[]): Promise<FolderNode> {
     const root: FolderNode = { folders: new Map(), models: [] };
 
     for (const model of models) {
@@ -641,7 +713,7 @@ private getDatasetChildren(dataset: DatasetMetadata): AppTreeItem[] {
       }
     }
     // Also add empty directories from the filesystem
-    this.addEmptyDirectoriesToStructure(root);
+    await this.addEmptyDirectoriesToStructure(root);
 
     return root;
   }
@@ -649,26 +721,28 @@ private getDatasetChildren(dataset: DatasetMetadata): AppTreeItem[] {
   /**
    * Recursively scans the src/data directory and adds empty directories to the folder structure
    */
-  private addEmptyDirectoriesToStructure(root: FolderNode): void {
+  private async addEmptyDirectoriesToStructure(root: FolderNode): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       return;
     }
 
     const srcDataPath = path.join(workspaceFolder.uri.fsPath, 'src', 'data');
-    if (!fs.existsSync(srcDataPath)) {
-      return;
+    try {
+      await fsPromises.access(srcDataPath);
+    } catch {
+      return; // Directory doesn't exist
     }
 
-    this.scanDirectoryRecursively(srcDataPath, root, '');
+    await this.scanDirectoryRecursively(srcDataPath, root, '');
   }
 
   /**
    * Recursively scans a directory and adds empty folders to the structure
    */
-  private scanDirectoryRecursively(dirPath: string, currentNode: FolderNode, relativePath: string): void {
+  private async scanDirectoryRecursively(dirPath: string, currentNode: FolderNode, relativePath: string): Promise<void> {
     try {
-      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      const entries = await fsPromises.readdir(dirPath, { withFileTypes: true });
       
       for (const entry of entries) {
         if (entry.isDirectory()) {
@@ -683,7 +757,7 @@ private getDatasetChildren(dataset: DatasetMetadata): AppTreeItem[] {
 
           // Recursively scan subdirectories
           const folderNode = currentNode.folders.get(folderName)!;
-          this.scanDirectoryRecursively(fullPath, folderNode, newRelativePath);
+          await this.scanDirectoryRecursively(fullPath, folderNode, newRelativePath);
         }
       }
     } catch (error) {
@@ -698,17 +772,31 @@ private getDatasetChildren(dataset: DatasetMetadata): AppTreeItem[] {
   private createTreeItemsFromStructure(structure: FolderNode, basePath: string): AppTreeItem[] {
     const items: AppTreeItem[] = [];
 
+    if (!structure || !structure.folders) {
+      console.warn("[Explorer] Folder structure is undefined or invalid, returning empty items");
+      return items;
+    }
+
     // Get the current node for the given base path
     let currentNode = structure;
     if (basePath) {
       const pathParts = basePath.split(/[\/\\]/);
       for (const part of pathParts) {
+        if (!currentNode.folders) {
+          console.warn("[Explorer] Current node has no folders property, returning empty items");
+          return items;
+        }
         const nextNode = currentNode.folders.get(part);
         if (!nextNode) {
           return items; // Path not found
         }
         currentNode = nextNode;
       }
+    }
+
+    if (!currentNode.folders) {
+      console.warn("[Explorer] Current node has no folders property after path traversal, returning empty items");
+      return items;
     }
 
     // Add folders (sorted alphabetically)
@@ -744,7 +832,7 @@ private getDatasetChildren(dataset: DatasetMetadata): AppTreeItem[] {
       const label = decorator?.arguments[0]?.label || model.name;
 
       // Only show models that are NOT referenced by composition relationships
-      if (!this.isModelReferencedByComposition(model)) {
+      if (!this.isModelReferencedByCompositionCached(model)) {
         const modelItem = new AppTreeItem(label, vscode.TreeItemCollapsibleState.Collapsed, "model", this.extensionUri, model);
         
         // Set command for click handling (single vs double-click detection)
@@ -797,51 +885,55 @@ private getDatasetChildren(dataset: DatasetMetadata): AppTreeItem[] {
     );
   }
 
-  private isModelReferencedByComposition(item: DecoratedClass): boolean {
-      // Instead of relying on pre-computed references, scan all models in the cache
-      // to find composition relationships. This is more reliable after file moves.
-      const allModels = this.cache.getDataModelClasses();
-      
-      for (const model of allModels) {
-          // Skip the model itself
-          if (model.name === item.name) {
-              continue;
-          }
+  /**
+   * Cached version of isModelReferencedByComposition for better performance
+   */
+  private isModelReferencedByCompositionCached(item: DecoratedClass): boolean {
+    if (!this.explorerCache.compositionModelReferences) {
+      this.buildCompositionModelReferencesCache();
+    }
+    return this.explorerCache.compositionModelReferences!.has(item.name);
+  }
+
+  /**
+   * Builds a cache of all models that are referenced by composition relationships
+   */
+  private buildCompositionModelReferencesCache(): void {
+    const compositionModels = new Set<string>();
+    const allModels = this.cache.getDataModelClasses();
+    
+    for (const model of allModels) {
+      // Check all properties of this model
+      for (const property of Object.values(model.properties)) {
+        // Check if this property has a @Field decorator (indicating it's a field)
+        const hasFieldDecorator = property.decorators.some((d) => d.name === "Field");
+        
+        if (hasFieldDecorator) {
+          // Check if this property has a @Relationship decorator with type: "Composition"
+          const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
           
-          // Check all properties of this model
-          for (const property of Object.values(model.properties)) {
-              // Check if this property references our target model type
-              const baseType = this.extractBaseTypeFromArrayType(property.type);
-              
-              if (baseType === item.name) {
-                  // Check if this property has a @Field decorator (indicating it's a field)
-                  const hasFieldDecorator = property.decorators.some((d) => d.name === "Field");
-                  
-                  if (hasFieldDecorator) {
-                      // Check if this property has a @Relationship decorator with type: "Composition"
-                      const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
-                      
-                      if (relationshipDecorator) {
-                          // Check if the relationship decorator has type: "Composition" or "composition"
-                          const hasCompositionType = relationshipDecorator.arguments.some(
-                              (arg) => {
-                                  if (typeof arg === "object" && arg !== null) {
-                                      return arg.type === "Composition" || arg.type === "composition";
-                                  }
-                                  return arg === "Composition" || arg === "composition";
-                              }
-                          );
-
-                          if (hasCompositionType) {
-                              return true;
-                          }
-                      }
-                  }
+          if (relationshipDecorator) {
+            // Check if the relationship decorator has type: "Composition" or "composition"
+            const hasCompositionType = relationshipDecorator.arguments.some(
+              (arg) => {
+                if (typeof arg === "object" && arg !== null) {
+                  return arg.type === "Composition" || arg.type === "composition";
+                }
+                return arg === "Composition" || arg === "composition";
               }
-          }
-      }
+            );
 
-      return false;
+            if (hasCompositionType) {
+              // Extract the base type from the property type and add to cache
+              const baseType = this.extractBaseTypeFromArrayType(property.type);
+              compositionModels.add(baseType);
+            }
+          }
+        }
+      }
+    }
+    
+    this.explorerCache.compositionModelReferences = compositionModels;
   }
 
   /**

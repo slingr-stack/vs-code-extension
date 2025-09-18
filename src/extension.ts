@@ -11,27 +11,30 @@ import { setupSqlToolsIntegration } from './tools/sqlToolsIntegration';
 export let cache: MetadataCache;
 
 export async function activate(context: vscode.ExtensionContext) {
-
-	// --- Core Services Initialization ---
+	// --- 1. Core Services Initialization (Shallow Load) ---
     cache = new MetadataCache(context.extensionPath);
-    await cache.initialize();
+    await cache.initialize(); // Fast shallow initialization
     
     const refactorTools = getAllRefactorTools();
 	const refactorController = new RefactorController(refactorTools, cache);
 	cache.setRefactorController(refactorController);
 
-    // --- Feature Registration ---
+    // --- 2. Feature Registration (UI can render immediately) ---
     // Each function now handles the setup for a specific feature.
     const quickInfoProvider = registerInfoPanel(context, cache);
     const explorerRegistration = registerExplorer(context, cache, quickInfoProvider);
     const generalCommandDisposables = registerGeneralCommands(context, cache, explorerRegistration.provider);
     registerRefactorCommands(refactorController, context); // Pass context if needed for subscriptions
     registerInfraStatus(context, cache);
-    
+
+    // --- Background Reference Building (Deep Load) ---
+    // Start building references in the background after UI is ready
+    cache.buildAllReferencesInBackground();
+
     // --- SQLTools Integration ---
     setupSqlToolsIntegration(context, cache);
 
-    // --- Push remaining disposables ---
+    // --- 4. Push remaining disposables ---
     context.subscriptions.push(cache, ...generalCommandDisposables);
 }
 
