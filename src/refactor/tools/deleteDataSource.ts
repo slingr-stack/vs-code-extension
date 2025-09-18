@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteDataSourcePayload } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache } from '../../cache/cache';
 
@@ -31,7 +33,7 @@ export class DeleteDataSourceTool implements IRefactorTool {
             const dataSourceName = oldDataSourceNames[0];
             const payload: DeleteDataSourcePayload = {
                 dataSourceName,
-                urisToDelete: [oldFileMeta.uri],
+                urisToDelete: [oldFileMeta.uri, ...this.getDatasetFoldersToDelete(dataSourceName)],
                 isManual: false,
             };
             return [{
@@ -65,7 +67,7 @@ export class DeleteDataSourceTool implements IRefactorTool {
 
         const payload: DeleteDataSourcePayload = {
             dataSourceName,
-            urisToDelete: [context.uri],
+            urisToDelete: [context.uri, ...this.getDatasetFoldersToDelete(dataSourceName)],
             isManual: true,
         };
 
@@ -78,8 +80,47 @@ export class DeleteDataSourceTool implements IRefactorTool {
     }
 
     async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
+        if (change.type !== 'DELETE_DATA_SOURCE') {
+            throw new Error(`DeleteDataSourceTool can only handle DELETE_DATA_SOURCE changes, received: ${change.type}`);
+        }
+        
+        // For delete operations, we don't need to prepare any text edits
+        // All file deletions are handled by the RefactorController via the payload
         const workspaceEdit = new vscode.WorkspaceEdit();
-        workspaceEdit.deleteFile(change.uri);
         return workspaceEdit;
+    }
+
+    /**
+     * Gets the list of dataset folders to delete for the given data source.
+     * @param dataSourceName The name of the data source being deleted.
+     * @returns An array of URIs for dataset folders to delete.
+     */
+    private getDatasetFoldersToDelete(dataSourceName: string): vscode.Uri[] {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            return [];
+        }
+
+        const datasetsPath = path.join(workspaceFolder.uri.fsPath, 'src', 'datasets');
+        if (!fs.existsSync(datasetsPath)) {
+            return [];
+        }
+
+        const foldersToDelete: vscode.Uri[] = [];
+
+        try {
+            const entries = fs.readdirSync(datasetsPath, { withFileTypes: true });
+            
+            for (const entry of entries) {
+                if (entry.isDirectory() && entry.name.startsWith(`${dataSourceName}-`)) {
+                    const folderUri = vscode.Uri.file(path.join(datasetsPath, entry.name));
+                    foldersToDelete.push(folderUri);
+                }
+            }
+        } catch (error) {
+            console.error(`Error while scanning dataset folders for data source '${dataSourceName}':`, error);
+        }
+
+        return foldersToDelete;
     }
 }

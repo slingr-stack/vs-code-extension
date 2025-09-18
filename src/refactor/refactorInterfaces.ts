@@ -60,6 +60,7 @@ export interface RenameDataSourcePayload extends BasePayload {
     oldName: string;
     newName: string;
     newUri?: vscode.Uri;
+    additionalRenames?: { oldUri: vscode.Uri; newUri: vscode.Uri }[];
 }
 
 export interface DeleteDataSourcePayload extends BasePayload {

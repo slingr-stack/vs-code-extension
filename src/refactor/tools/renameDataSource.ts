@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ChangeObject, IRefactorTool, ManualRefactorContext, RenameDataSourcePayload } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache } from '../../cache/cache';
 import { areRangesEqual } from '../../utils/metadata';
@@ -40,6 +42,7 @@ export class RenameDataSourceTool implements IRefactorTool {
                 newName,
                 newUri: vscode.Uri.joinPath(oldFileMeta.uri, '..', `${newName}.ts`),
                 isManual: false,
+                additionalRenames: this.getDatasetFolderRenames(oldName, newName),
             };
             return [{
                 type: 'RENAME_DATA_SOURCE',
@@ -84,6 +87,7 @@ export class RenameDataSourceTool implements IRefactorTool {
             newName,
             newUri: vscode.Uri.joinPath(context.uri, '..', `${newName}.ts`),
             isManual: true,
+            additionalRenames: this.getDatasetFolderRenames(oldName, newName),
         };
 
         return {
@@ -127,14 +131,45 @@ export class RenameDataSourceTool implements IRefactorTool {
             workspaceEdit.replace(declarationUri, declarationRange, newName);
         }
 
-        // Rename the file if its name matches the old data source name
-        const oldFileName = oldUri.path.split('/').pop()?.replace('.ts', '');
-        if (oldFileName === oldName) {
-            const newUri = vscode.Uri.joinPath(oldUri, '..', `${newName}.ts`);
-            workspaceEdit.renameFile(oldUri, newUri);
+        return workspaceEdit;
+    }
+
+    /**
+     * Gets the list of dataset folder rename operations for the given data source rename.
+     * @param oldName The old data source name.
+     * @param newName The new data source name.
+     * @returns An array of rename operations for dataset folders.
+     */
+    private getDatasetFolderRenames(oldName: string, newName: string): { oldUri: vscode.Uri; newUri: vscode.Uri }[] {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            return [];
         }
 
-        return workspaceEdit;
+        const datasetsPath = path.join(workspaceFolder.uri.fsPath, 'src', 'datasets');
+        if (!fs.existsSync(datasetsPath)) {
+            return [];
+        }
+
+        const renames: { oldUri: vscode.Uri; newUri: vscode.Uri }[] = [];
+
+        try {
+            const entries = fs.readdirSync(datasetsPath, { withFileTypes: true });
+            
+            for (const entry of entries) {
+                if (entry.isDirectory() && entry.name.startsWith(`${oldName}-`)) {
+                    const datasetSuffix = entry.name.substring(oldName.length); // includes the '-' and dataset name
+                    const oldFolderUri = vscode.Uri.file(path.join(datasetsPath, entry.name));
+                    const newFolderUri = vscode.Uri.file(path.join(datasetsPath, `${newName}${datasetSuffix}`));
+                    
+                    renames.push({ oldUri: oldFolderUri, newUri: newFolderUri });
+                }
+            }
+        } catch (error) {
+            console.error(`Error while scanning dataset folders for data source '${oldName}':`, error);
+        }
+
+        return renames;
     }
 
 }

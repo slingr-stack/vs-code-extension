@@ -147,7 +147,8 @@ export class RefactorController {
       }
 
       const hasFileOps = ('urisToDelete' in changeObject.payload && (changeObject.payload as any).urisToDelete?.length > 0) ||
-                         ('newUri' in changeObject.payload && !!(changeObject.payload as any).newUri);
+                         ('newUri' in changeObject.payload && !!(changeObject.payload as any).newUri) ||
+                         ('additionalRenames' in changeObject.payload && (changeObject.payload as any).additionalRenames?.length > 0);
 
       if (workspaceEdit.size === 0 && !hasFileOps) {
         vscode.window.showInformationMessage("No changes were needed for this refactoring.");
@@ -243,6 +244,17 @@ export class RefactorController {
               isMetadataApplied = true;
             } else {
               annotatedEdit.renameFile(change.uri, payload.newUri);
+            }
+          }
+
+          if ('additionalRenames' in payload && Array.isArray(payload.additionalRenames)) {
+            for (const rename of payload.additionalRenames) {
+              if (!isMetadataApplied) {
+                annotatedEdit.renameFile(rename.oldUri, rename.newUri, undefined, metadata);
+                isMetadataApplied = true;
+              } else {
+                annotatedEdit.renameFile(rename.oldUri, rename.newUri);
+              }
             }
           }
         }
@@ -392,6 +404,12 @@ export class RefactorController {
 
           if ('newUri' in change.payload && (change.payload as any).newUri) {
             mergedEdit.renameFile(change.uri, (change.payload as any).newUri);
+          }
+
+          if ('additionalRenames' in change.payload && Array.isArray((change.payload as any).additionalRenames)) {
+            for (const rename of (change.payload as any).additionalRenames) {
+              mergedEdit.renameFile(rename.oldUri, rename.newUri);
+            }
           }
 
         } catch (error) {
