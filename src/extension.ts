@@ -6,12 +6,13 @@ import { registerExplorer } from './explorer/explorerRegistration';
 import { registerInfoPanel } from './quickInfoPanel/infoPanelRegistration';
 import { registerGeneralCommands } from './commands/commandRegistration';
 import { registerInfraStatus } from './infrastructure/infraStatusRegistration';
+import { setupSqlToolsIntegration } from './tools/sqlToolsIntegration';
 
 export let cache: MetadataCache;
 
 export async function activate(context: vscode.ExtensionContext) {
 
-	// --- 1. Core Services Initialization ---
+	// --- Core Services Initialization ---
     cache = new MetadataCache(context.extensionPath);
     await cache.initialize();
     
@@ -19,15 +20,18 @@ export async function activate(context: vscode.ExtensionContext) {
 	const refactorController = new RefactorController(refactorTools, cache);
 	cache.setRefactorController(refactorController);
 
-    // --- 2. Feature Registration ---
+    // --- Feature Registration ---
     // Each function now handles the setup for a specific feature.
     const quickInfoProvider = registerInfoPanel(context, cache);
     const explorerRegistration = registerExplorer(context, cache, quickInfoProvider);
     const generalCommandDisposables = registerGeneralCommands(context, cache, explorerRegistration.provider);
     registerRefactorCommands(refactorController, context); // Pass context if needed for subscriptions
     registerInfraStatus(context, cache);
+    
+    // --- SQLTools Integration ---
+    setupSqlToolsIntegration(context, cache);
 
-    // --- 3. Push remaining disposables ---
+    // --- Push remaining disposables ---
     context.subscriptions.push(cache, ...generalCommandDisposables);
 }
 

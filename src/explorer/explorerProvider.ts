@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { Project } from "ts-morph";
-import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata, DataSourceMetadata, DatasetMetadata, DatasetFileMetadata } from "../cache/cache";
+import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata, DataSourceMetadata, DatasetMetadata, DatasetFileMetadata, CacheUpdateEvent } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
 import * as fs from "fs";
 import * as path from "path";
@@ -32,17 +32,13 @@ export class ExplorerProvider
   constructor(private cache: MetadataCache, private extensionUri: vscode.Uri) {
     // --- Listen for the cache's update event ---
     this.cache.onDidUpdate(() => {
-      this.refresh();
-    });
-
-    this.cache.onDidUpdate(() => {
       if (!this.isDatasetDesynchronized) {
         this.isDatasetDesynchronized = true;
         this.refresh();
       }
     });
   }
-
+  
   public markDatasetsAsSynced() {
     if (this.isDatasetDesynchronized) {
       this.isDatasetDesynchronized = false;
