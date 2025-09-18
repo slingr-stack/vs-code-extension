@@ -598,15 +598,15 @@ export class ExplorerProvider
     return []; // Default empty
   }
 
-  private getDataSourceChildren(dataSource: DataSourceMetadata): AppTreeItem[] {
-    return dataSource.datasets.map(dataset => {
+  private async getDataSourceChildren(dataSource: DataSourceMetadata): Promise<AppTreeItem[]> {
+    return Promise.all(dataSource.datasets.map(async dataset => {
         const collapsibleState = dataset.files.length > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
         return new AppTreeItem(dataset.name, collapsibleState, "dataset", this.extensionUri, dataset);
-    });
+    }));
 }
 
-private getDatasetChildren(dataset: DatasetMetadata): AppTreeItem[] {
-    return dataset.files.map(file => {
+private async getDatasetChildren(dataset: DatasetMetadata): Promise<AppTreeItem[]> {
+    return Promise.all(dataset.files.map(async file => {
         const item = new AppTreeItem(file.name, vscode.TreeItemCollapsibleState.None, "datasetFile", this.extensionUri, file);
         item.command = {
             command: "slingr-vscode-extension.handleTreeItemClick",
@@ -614,7 +614,7 @@ private getDatasetChildren(dataset: DatasetMetadata): AppTreeItem[] {
             arguments: [item],
         };
         return item;
-    });
+    }));
 }
 
 

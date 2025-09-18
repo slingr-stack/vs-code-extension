@@ -203,7 +203,7 @@ export class MetadataCache {
             await this.buildAllReferences();
             
             // Notify that deep data is now available
-            this._onDidUpdate.fire();
+            this._onDidUpdate.fire({ type: 'fullRefresh' });
         }, 0);
     }
 
