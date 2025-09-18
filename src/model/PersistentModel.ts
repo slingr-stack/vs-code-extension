@@ -2,7 +2,6 @@ import { BaseModel } from './BaseModel';
 import { Model } from './Model';
 import { Field } from './Field';
 import { PrimaryColumn, BeforeInsert } from 'typeorm';
-import { v7 as uuidv7 } from 'uuid';
 
 /**
  * Abstract base class for persistent models that need to be stored in a data source.
@@ -34,9 +33,10 @@ export abstract class PersistentModel extends BaseModel {
   id!: string
 
   @BeforeInsert()
-  generateId() {
+  async generateId() {
     if (!this.id) {
-      this.id = uuidv7();
+      const { v7 } = await import('uuid');
+      this.id = v7();
     }
   }
 }
