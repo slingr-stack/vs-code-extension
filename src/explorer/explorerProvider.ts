@@ -35,6 +35,8 @@ export class ExplorerProvider
   public dragMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
   public dropMimeTypes: readonly string[] = [FIELD_MIME_TYPE, MODEL_MIME_TYPE, FOLDER_MIME_TYPE];
   isDatasetDesynchronized: boolean = false;
+  private outdatedDataSources: Set<string> = new Set(); // Track which data sources need dataset updates
+  private modelToDataSourceMap: Map<string, string[]> = new Map(); // Maps model names to data source names
 
   // Performance optimization cache
   private explorerCache: ExplorerCache = {};
@@ -42,14 +44,118 @@ export class ExplorerProvider
 
   constructor(private cache: MetadataCache, private extensionUri: vscode.Uri) {
     // --- Listen for the cache's update event ---
-    this.cache.onDidUpdate(() => {
+    this.cache.onDidUpdate((event) => {
       this.invalidateCache();
-      if (!this.isDatasetDesynchronized) {
-        this.isDatasetDesynchronized = true;
-        this.refresh();
-      }
+      this.handleCacheUpdate(event);
       this.debouncedRefresh();
     });
+  }
+
+  /**
+   * Handles cache update events to determine which data sources need dataset updates
+   */
+  private handleCacheUpdate(event: CacheUpdateEvent): void {
+    if (event.type === 'dataModel') {
+      if (event.uri) {
+        this.handleModelChange(event.uri);
+      }
+    }
+    
+    // Update the global flag based on whether any data sources are outdated
+    const wasDesynchronized = this.isDatasetDesynchronized;
+    this.isDatasetDesynchronized = this.outdatedDataSources.size > 0;
+    
+    // Only refresh if the desynchronization status changed
+    if (wasDesynchronized !== this.isDatasetDesynchronized) {
+      this.refresh();
+    }
+  }
+
+  /**
+   * Handles changes to model files by determining which data sources use those models
+   */
+  private handleModelChange(modelUri: vscode.Uri): void {
+    const modelName = this.extractModelNameFromUri(modelUri);
+    if (modelName) {
+      const affectedDataSources = this.findDataSourcesUsingModel(modelName);
+      
+      affectedDataSources.forEach(dsName => {
+        this.outdatedDataSources.add(dsName);
+      });
+
+      this.modelToDataSourceMap.set(modelName, affectedDataSources);
+    }
+  }
+
+  /**
+   * Extracts model name from URI by looking at the cache or parsing the file path
+   */
+  private extractModelNameFromUri(uri: vscode.Uri): string | undefined {
+    const fileMetadata = this.cache.getMetadataForFile(uri.fsPath);
+    if (fileMetadata) {
+      for (const className in fileMetadata.classes) {
+        const classInfo = fileMetadata.classes[className];
+        if (classInfo.isDataModel) {
+          return className;
+        }
+      }
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * Finds data sources that use models by checking the @Model decorator's dataSource property
+   */
+  private findDataSourcesUsingModel(modelName: string): string[] {
+    if (this.modelToDataSourceMap.has(modelName)) {
+      return this.modelToDataSourceMap.get(modelName) || [];
+    }
+
+    const affectedDataSources: string[] = [];
+    const models = this.cache.getDataModels();
+    const model = models.find(m => m.name === modelName);
+    if (!model) {
+      this.modelToDataSourceMap.set(modelName, affectedDataSources);
+      return affectedDataSources;
+    }
+    
+    const modelDecorator = model.decorators.find(d => d.name === 'Model');
+    if (!modelDecorator || !modelDecorator.arguments.length) {
+      // No @Model decorator or no arguments -> model is not associated with any data source
+      this.modelToDataSourceMap.set(modelName, affectedDataSources);
+      return affectedDataSources;
+    }
+    
+    for (const decoratorArg of modelDecorator.arguments) {
+      if (typeof decoratorArg === 'object' && decoratorArg !== null) {
+        // Handle object-style decorator: @Model({ dataSource: 'myDb', ... })
+        if (decoratorArg.dataSource && typeof decoratorArg.dataSource === 'string') {
+          affectedDataSources.push(decoratorArg.dataSource);
+          break;
+        }
+      } 
+    }
+    this.modelToDataSourceMap.set(modelName, affectedDataSources);
+    
+    return affectedDataSources;
+  }
+
+  /**
+   * Checks if a specific data source has outdated datasets
+   */
+  public isDataSourceOutdated(dataSourceName: string): boolean {
+    return this.outdatedDataSources.has(dataSourceName);
+  }
+
+  /**
+   * Marks a specific data source as having up-to-date datasets
+   */
+  public markDataSourceAsSynced(dataSourceName: string): void {
+    this.outdatedDataSources.delete(dataSourceName);
+    
+    this.isDatasetDesynchronized = this.outdatedDataSources.size > 0;
+    this.refresh();
   }
 
   /**
@@ -57,6 +163,7 @@ export class ExplorerProvider
    */
   private invalidateCache(): void {
     this.explorerCache = {};
+    this.modelToDataSourceMap.clear();
   }
 
   /**
@@ -72,6 +179,7 @@ export class ExplorerProvider
   }
 
   public markDatasetsAsSynced() {
+    this.outdatedDataSources.clear();
     if (this.isDatasetDesynchronized) {
       this.isDatasetDesynchronized = false;
       this.refresh();
@@ -533,7 +641,8 @@ export class ExplorerProvider
     if (element.itemType === "dataSourcesRoot") {
         const dataSources = this.cache.getDataSources();
         return dataSources.map(ds => {
-            const item = new AppTreeItem(ds.name, vscode.TreeItemCollapsibleState.Collapsed, "dataSource", this.extensionUri, ds, undefined, undefined, this.isDatasetDesynchronized);
+            const isOutdated = this.isDataSourceOutdated(ds.name);
+            const item = new AppTreeItem(ds.name, vscode.TreeItemCollapsibleState.Collapsed, "dataSource", this.extensionUri, ds, undefined, undefined, isOutdated);
             item.command = {
                 command: "slingr-vscode-extension.handleTreeItemClick",
                 title: "Handle Click",

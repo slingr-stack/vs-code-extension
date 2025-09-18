@@ -19,8 +19,11 @@ export class AppTreeItem extends vscode.TreeItem {
     this.folderPath = folderPath;
 
     if (this.isDesynchronized) {
-      this.description = "⚠️ Desynchronized";
-      this.tooltip = "Datasets are out of sync with the data model.";
+      this.description = "⚠️ OUT OF SYNC";
+      this.tooltip = "Datasets are out of sync with the data model. Click to update datasets.";
+      
+      // Use a warning context value for potential styling extensions
+      this.contextValue = `${itemType}-warning`;
     }
 
     // Icon logic

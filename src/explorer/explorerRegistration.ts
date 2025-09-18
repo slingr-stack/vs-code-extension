@@ -62,7 +62,11 @@ export function registerExplorer(
         }
     });
 
-    context.subscriptions.push(treeView, selectionDisposable, handleTreeItemClick);
+    context.subscriptions.push(
+        treeView, 
+        selectionDisposable, 
+        handleTreeItemClick
+    );
     
     return { treeView, provider: explorerProvider };
 }

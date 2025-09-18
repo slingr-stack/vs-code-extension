@@ -115,6 +115,10 @@
       {
         "command": "slingr-vscode-extension.updateDataset",
         "title": "Update"
+      },
+      {
+        "command": "slingr-vscode-extension.updateAllDatasets",
+        "title": "Update all datasets"
       }
     ],
     "submenus": [
@@ -239,28 +243,33 @@
         },
         {
           "command": "slingr-vscode-extension.renameDataSource",
-          "when": "view == slingrExplorer && viewItem == 'dataSource'",
+          "when": "view == slingrExplorer && (viewItem == 'dataSource' || viewItem == 'dataSource-warning')",
           "group": "1_modification"
         },
         {
           "command": "slingr-vscode-extension.deleteDataSource",
-          "when": "view == slingrExplorer && viewItem == 'dataSource'",
+          "when": "view == slingrExplorer && (viewItem == 'dataSource' || viewItem == 'dataSource-warning')",
           "group": "2_modification"
         },
         {
             "command": "slingr-vscode-extension.newDataset",
-            "when": "view == slingrExplorer && viewItem == 'dataSource'",
+            "when": "view == slingrExplorer && (viewItem == 'dataSource' || viewItem == 'dataSource-warning')",
             "group": "3_dataset"
         },
         {
             "command": "slingr-vscode-extension.regenerateDataset",
-            "when": "view == slingrExplorer && viewItem == 'dataset'",
+            "when": "view == slingrExplorer && (viewItem == 'dataset' || viewItem == 'dataset-warning')",
             "group": "3_dataset"
         },
         {
             "command": "slingr-vscode-extension.updateDataset",
-            "when": "view == slingrExplorer && viewItem == 'dataset'",
+            "when": "view == slingrExplorer && (viewItem == 'dataset' || viewItem == 'dataset-warning')",
             "group": "3_dataset"
+        },
+        {
+            "command": "slingr-vscode-extension.updateAllDatasets",
+            "when": "view == slingrExplorer && (viewItem == 'dataSource' || viewItem == 'dataSource-warning')",
+            "group": "4_dataset_bulk"
         }
       ],
       "slingr-vscode-extension.actions": [
