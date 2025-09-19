@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DataSourceMetadata, DecoratedClass, PropertyMetadata } from '../cache/cache';
+import { DataSourceMetadata, DecoratedClass, PropertyMetadata, DatasetMetadata } from '../cache/cache';
 import { IRendererContext } from '../quickInfoPanel/renderers/iMetadataRenderer';
 
 /**
@@ -85,6 +85,18 @@ export class TestMetadataFactory {
                 password: 'password',
             },
             datasets: []
+        };
+        return { ...defaults, ...overrides };
+    }
+
+    static createDataset(overrides: Partial<DatasetMetadata> = {}): DatasetMetadata {
+        const defaults: DatasetMetadata = {
+            name: 'TestDataset',
+            declaration: {
+                uri: vscode.Uri.file('/test/dataset.ts'),
+                range: new vscode.Range(0, 0, 10, 0)
+            },
+            files: []
         };
         return { ...defaults, ...overrides };
     }
@@ -229,6 +241,13 @@ export class TestContextFactory {
                 // Return a basic data source for common test data source names
                 if (name === 'TestDataSource' || name === 'UserDataSource') {
                     return TestMetadataFactory.createDataSource({ name });
+                }
+                return undefined;
+            },
+            findDataset: (name: string) => {
+                // Return a basic dataset for common test dataset names
+                if (name === 'TestDataset' || name === 'UserDataset') {
+                    return TestMetadataFactory.createDataset({ name });
                 }
                 return undefined;
             }

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DecoratedClass, MetadataCache, PropertyMetadata, DecoratorMetadata, DataSourceMetadata } from '../cache/cache';
+import { DecoratedClass, MetadataCache, PropertyMetadata, DecoratorMetadata, DataSourceMetadata, DatasetMetadata } from '../cache/cache';
 import { rendererRegistry } from './renderers/rendererRegistry';
 import { IMetadataRenderer, IRendererContext } from './renderers/iMetadataRenderer'; 
 
@@ -7,7 +7,7 @@ import { IMetadataRenderer, IRendererContext } from './renderers/iMetadataRender
  * Union type for info provider metadata items.
  * Represents all the different types of metadata that can be displayed in the Quick Info Panel.
  */
-export type MetadataItem = DecoratedClass | PropertyMetadata | DecoratorMetadata | DataSourceMetadata;
+export type MetadataItem = DecoratedClass | PropertyMetadata | DecoratorMetadata | DataSourceMetadata | DatasetMetadata;
 
 /**
  * The QuickInfoProvider class implements VS Code's WebviewViewProvider interface to create
@@ -182,6 +182,16 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
         } else if (itemType === 'dataSource') {
             const dataSources = this.cache.getDataSources();
             foundMetadata = dataSources.find(ds => ds.name === name);
+        } else if (itemType === 'dataset') {
+            // Find dataset by name across all data sources
+            const dataSources = this.cache.getDataSources();
+            for (const dataSource of dataSources) {
+                const dataset = dataSource.datasets.find(ds => ds.name === name);
+                if (dataset) {
+                    foundMetadata = dataset;
+                    break;
+                }
+            }
         }
         if (foundMetadata) {
             // If we found the metadata, update the panel with it
@@ -225,7 +235,18 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                 findModel: (name: string) => this.cache.findMetadata(
                     item => 'properties' in item && item.name === name
                 )[0] as DecoratedClass | undefined,
-                findDataSource: (name: string) => this.cache.getDataSources().find(ds => ds.name === name)
+                findDataSource: (name: string) => this.cache.getDataSources().find(ds => ds.name === name),
+                findDataset: (name: string) => {
+                    // Find dataset by name across all data sources
+                    const dataSources = this.cache.getDataSources();
+                    for (const dataSource of dataSources) {
+                        const dataset = dataSource.datasets.find(ds => ds.name === name);
+                        if (dataset) {
+                            return dataset;
+                        }
+                    }
+                    return undefined;
+                }
             };
             if (!metadata) {
                 contentHtml = `<h1>No metadata found</h1>`;
@@ -233,8 +254,22 @@ export class QuickInfoProvider implements vscode.WebviewViewProvider {
                 contentHtml = renderer.render(metadata, context);
             }
         } else {
-            // Fallback for unknown types
-            contentHtml = `<pre><code>${JSON.stringify(metadata, null, 2)}</code></pre>`;
+            // Special handling for specific item types that shouldn't show content
+            if (itemType === 'datasetFile') {
+                // Dataset files (JSONL) shouldn't show detailed info - the dataset itself provides that context
+                contentHtml = `
+                <div style="display:flex;align-items:center;justify-content:center;height:100%;padding:1.5em;">
+                    <div style="width:100%;max-width:560px;text-align:center;border:1px solid var(--vscode-editor-widget-border);background:var(--vscode-editor-widget-background);padding:1.25em;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                    <div style="font-size:48px;line-height:1;margin-bottom:0.25em;color:var(--vscode-icon-foreground)">📄</div>
+                    <h1 style="margin:0.25em 0;color:var(--vscode-editor-foreground);font-size:1.25em;justify-content:center;">Dataset File</h1>
+                    <p style="margin:0.5em 0;color:var(--vscode-description-foreground);">This is a dataset file. Select the parent dataset to view detailed information.</p>
+                    </div>
+                </div>
+                `;
+            } else {
+                // Fallback for other unknown types
+                contentHtml = `<pre><code>${JSON.stringify(metadata, null, 2)}</code></pre>`;
+            }
         }
 
         const backButtonHtml = this._navigationHistory.length > 0

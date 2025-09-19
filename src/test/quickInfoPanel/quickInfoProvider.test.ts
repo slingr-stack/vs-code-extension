@@ -211,5 +211,27 @@ suite('QuickInfoProvider Tests', () => {
             // Verify provider can handle cache events
             assert.ok(cache.onDidUpdate, 'Cache should have update events');
         });
+
+        test('should handle datasetFile items gracefully', () => {
+            provider.resolveWebviewView(mockWebviewView, mockContext, mockToken);
+            
+            // Create a mock dataset file metadata
+            const datasetFile = {
+                name: 'User.jsonl',
+                declaration: {
+                    uri: vscode.Uri.file('/test/dataset/User.jsonl'),
+                    range: new vscode.Range(0, 0, 10, 0)
+                }
+            };
+            
+            // This should not throw and should show a nice message instead of raw JSON
+            provider.update('datasetFile', datasetFile as any);
+            
+            // Check that the webview HTML contains the expected content
+            const html = mockWebviewView.webview.html;
+            assert.ok(html.includes('Dataset File'), 'Should show dataset file message');
+            assert.ok(html.includes('Select the parent dataset'), 'Should suggest selecting parent dataset');
+            assert.ok(!html.includes('{"name"'), 'Should not show raw JSON');
+        });
     });
 });

@@ -1,5 +1,5 @@
 import vscode from 'vscode';
-import { DecoratedClass } from '../../cache/cache';
+import { DecoratedClass, DatasetMetadata } from '../../cache/cache';
 import { MetadataItem } from '../quickInfoProvider';
 
 /**
@@ -24,6 +24,7 @@ export interface IRendererContext {
     /** Function to find model metadata by name for creating cross-references */
     findModel: (name: string) => DecoratedClass | undefined;
     findDataSource: (name: string) => MetadataItem | undefined;
+    findDataset: (name: string) => DatasetMetadata | undefined;
 }
 
 /**
