@@ -323,11 +323,13 @@ export class ExplorerProvider
 
       // Check if target file already exists
       try {
-        await fsPromises.access(newPath);
+        await fsPromises.stat(newPath);
         vscode.window.showErrorMessage(`A file named "${fileName}" already exists in the target folder.`);
         return;
-      } catch {
-        // File doesn't exist, which is what we want
+      } catch (err: any) {
+        if (err.code !== "ENOENT") {
+          throw err;
+        }
       }
 
       // Create target directory if it doesn't exist
@@ -401,11 +403,15 @@ export class ExplorerProvider
     try {
       // Check if target folder already exists
       try {
-        await fsPromises.access(newPath);
+        await fsPromises.stat(newPath);
         vscode.window.showErrorMessage(`A folder named "${draggedData.folderName}" already exists in the target location.`);
         return;
-      } catch {
-        // Folder doesn't exist, which is what we want
+      } catch (error: any) {
+        if (error.code === 'ENOENT') {
+          // Folder doesn't exist, which is what we want
+        } else {
+          throw error;
+        }
       }
 
       // Create target directory if it doesn't exist

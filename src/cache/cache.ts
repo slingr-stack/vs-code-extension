@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { Project, SourceFile, ClassDeclaration, PropertyDeclaration, Decorator, Node, Type, MethodDeclaration, SyntaxKind, ObjectLiteralExpression, ArrayLiteralExpression, ParameterDeclaration, ArrowFunction, FunctionExpression, VariableDeclaration, ScriptTarget, ModuleKind } from 'ts-morph';
 import * as path from 'path';
+import { accessSync } from 'fs';
 import { RefactorController } from '../refactor/RefactorController';
 import { ChangeObject } from '../refactor/refactorInterfaces';
 import * as crypto from 'crypto';
@@ -122,7 +123,7 @@ export class MetadataCache {
             const workspaceTsConfig = path.join(workspaceFolder.uri.fsPath, "tsconfig.json");
             try {
                 // Check if workspace tsconfig exists
-                require('fs').accessSync(workspaceTsConfig);
+                accessSync(workspaceTsConfig);
                 tsConfigPath = workspaceTsConfig;
                 console.log('[Cache] Using workspace tsconfig.json:', tsConfigPath);
             } catch {
