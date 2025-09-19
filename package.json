@@ -248,17 +248,17 @@
         {
           "command": "slingr-vscode-extension.renameDataSource",
           "when": "view == slingrExplorer && (viewItem == 'dataSource' || viewItem == 'dataSource-warning')",
-          "group": "1_modification"
+          "group": "1_modification@1"
         },
         {
           "command": "slingr-vscode-extension.deleteDataSource",
           "when": "view == slingrExplorer && (viewItem == 'dataSource' || viewItem == 'dataSource-warning')",
-          "group": "2_modification"
+          "group": "1_modification@2"
         },
         {
             "command": "slingr-vscode-extension.newDataset",
             "when": "view == slingrExplorer && (viewItem == 'dataSource' || viewItem == 'dataSource-warning')",
-            "group": "3_dataset"
+            "group": "2_dataset@1"
         },
         {
             "command": "slingr-vscode-extension.regenerateDataset",
@@ -278,12 +278,12 @@
         {
             "command": "slingr-vscode-extension.loadDataset",
             "when": "view == slingrExplorer && (viewItem == 'dataSource' || viewItem == 'dataSource-warning')",
-            "group": "3_dataset"
+            "group": "2_dataset@2"
         },
         {
             "command": "slingr-vscode-extension.updateAllDatasets",
             "when": "view == slingrExplorer && (viewItem == 'dataSource' || viewItem == 'dataSource-warning')",
-            "group": "4_dataset_bulk"
+            "group": "2_dataset@3"
         }
       ],
       "slingr-vscode-extension.actions": [
