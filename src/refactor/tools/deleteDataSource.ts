@@ -79,7 +79,7 @@ export class DeleteDataSourceTool implements IRefactorTool {
 
     async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
         const workspaceEdit = new vscode.WorkspaceEdit();
-        workspaceEdit.deleteFile(change.uri);
+        workspaceEdit.deleteFile(change.uri, {}, {label: `Delete data source file`, needsConfirmation: true});
         return workspaceEdit;
     }
 }

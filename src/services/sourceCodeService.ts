@@ -7,6 +7,7 @@ import { FileSystemService } from "./fileSystemService";
 import { ProjectAnalysisService } from "./projectAnalysisService";
 
 export class SourceCodeService {
+  
   private fileSystemService: FileSystemService;
   private projectAnalysisService: ProjectAnalysisService;
   constructor() {
@@ -25,14 +26,14 @@ export class SourceCodeService {
     const edit = new vscode.WorkspaceEdit();
     const lines = document.getText().split("\n");
     const newImports = new Set<string>(["Field", fieldInfo.type.decorator]);
-    if(fieldInfo.type.decorator === "Composition") {
+    if (fieldInfo.type.decorator === "Composition") {
       newImports.add("PersistentComponentModel");
     }
 
     await this.ensureSlingrFrameworkImports(document, edit, newImports);
 
     if (importModel && fieldInfo.additionalConfig) {
-        await this.addModelImport(document, fieldInfo.additionalConfig.targetModel, edit, cache);
+      await this.addModelImport(document, fieldInfo.additionalConfig.targetModel, edit, cache);
     }
 
     const { classEndLine } = this.findClassBoundaries(lines, modelClassName);
@@ -120,6 +121,7 @@ export class SourceCodeService {
       edit.insert(document.uri, new vscode.Position(0, 0), newImportString);
     }
   }
+
 
   /**
    * Adds an import for a target model type.
@@ -391,7 +393,7 @@ export class SourceCodeService {
 
   /**
    * Extracts the complete class body (everything between the class braces) from a model.
-   * 
+   *
    * @param document - The document containing the model
    * @param className - The name of the class to extract from
    * @returns The class body content including proper indentation
@@ -399,7 +401,7 @@ export class SourceCodeService {
   public extractClassBody(document: vscode.TextDocument, className: string): string {
     const lines = document.getText().split("\n");
     const { classStartLine, classEndLine } = this.findClassBoundaries(lines, className);
-    
+
     // Find the opening brace of the class
     let openBraceIndex = -1;
     for (let i = classStartLine; i <= classEndLine; i++) {
@@ -408,25 +410,25 @@ export class SourceCodeService {
         break;
       }
     }
-    
+
     if (openBraceIndex === -1) {
       throw new Error(`Could not find opening brace for class ${className}`);
     }
-    
+
     // Extract content between the braces (excluding the braces themselves)
     const classBodyLines = lines.slice(openBraceIndex + 1, classEndLine);
-    
+
     // Remove any empty lines at the end
     while (classBodyLines.length > 0 && classBodyLines[classBodyLines.length - 1].trim() === "") {
       classBodyLines.pop();
     }
-    
+
     return classBodyLines.join("\n");
   }
 
   /**
    * Creates a complete model file with the given class body content.
-   * 
+   *
    * @param modelName - The name of the new model class
    * @param classBody - The complete class body content
    * @param baseClass - The base class to extend (default: "PersistentModel")
@@ -444,28 +446,28 @@ export class SourceCodeService {
     isComponent: boolean = false
   ): string {
     const lines: string[] = [];
-    
+
     // Determine required imports
     const imports = new Set(["Model", "Field"]);
-    
+
     // Add base class to imports (handle complex base classes like PersistentComponentModel<ParentModel>)
-    const baseClassCore = baseClass.split('<')[0]; // Extract base class name before generic
+    const baseClassCore = baseClass.split("<")[0]; // Extract base class name before generic
     imports.add(baseClassCore);
-    
+
     // Add existing imports if provided
     if (existingImports) {
-      existingImports.forEach(imp => imports.add(imp));
+      existingImports.forEach((imp) => imports.add(imp));
     }
-    
+
     // Analyze the class body to determine additional needed imports
     const bodyImports = this.extractImportsFromClassBody(classBody);
-    bodyImports.forEach(imp => imports.add(imp));
-    
+    bodyImports.forEach((imp) => imports.add(imp));
+
     // Add import statement
     const sortedImports = Array.from(imports).sort();
     lines.push(`import { ${sortedImports.join(", ")} } from "slingr-framework";`);
-    lines.push('');
-    
+    lines.push("");
+
     // Add model decorator
     if (dataSource) {
       lines.push(`@Model({`);
@@ -474,64 +476,84 @@ export class SourceCodeService {
     } else {
       lines.push(`@Model()`);
     }
-    
+
     // Add class declaration (export only if not a component model)
     const exportKeyword = isComponent ? "" : "export ";
     lines.push(`${exportKeyword}class ${modelName} extends ${baseClass} {`);
-    
+
     // Add class body (if not empty)
     if (classBody.trim()) {
-      lines.push('');
+      lines.push("");
       lines.push(classBody);
-      lines.push('');
+      lines.push("");
     }
-    
+
     lines.push(`}`);
-    
+
     return lines.join("\n");
   }
 
   /**
    * Analyzes class body content to determine which imports are needed.
-   * 
+   *
    * @param classBody - The class body content to analyze
    * @returns Set of import names that should be included
    */
   private extractImportsFromClassBody(classBody: string): Set<string> {
     const imports = new Set<string>();
-    
+
     // Look for decorator patterns
     const decoratorPatterns = [
-      /@Text\b/g, /@LongText\b/g, /@Email\b/g, /@Html\b/g,
-      /@Integer\b/g, /@Money\b/g, /@Number\b/g, /@Boolean\b/g,
-      /@Date\b/g, /@DateRange\b/g, /@Choice\b/g,
-      /@Reference\b/g, /@Composition\b/g, /@Relationship\b/g
+      /@Text\b/g,
+      /@LongText\b/g,
+      /@Email\b/g,
+      /@Html\b/g,
+      /@Integer\b/g,
+      /@Money\b/g,
+      /@Number\b/g,
+      /@Boolean\b/g,
+      /@Date\b/g,
+      /@DateRange\b/g,
+      /@Choice\b/g,
+      /@Reference\b/g,
+      /@Composition\b/g,
+      /@Relationship\b/g,
     ];
-    
+
     const decoratorNames = [
-      "Text", "LongText", "Email", "Html",
-      "Integer", "Money", "Number", "Boolean", 
-      "Date", "DateRange", "Choice",
-      "Reference", "Composition", "Relationship"
+      "Text",
+      "LongText",
+      "Email",
+      "Html",
+      "Integer",
+      "Money",
+      "Number",
+      "Boolean",
+      "Date",
+      "DateRange",
+      "Choice",
+      "Reference",
+      "Composition",
+      "Relationship",
     ];
-    
+
     decoratorPatterns.forEach((pattern, index) => {
       if (pattern.test(classBody)) {
         imports.add(decoratorNames[index]);
       }
     });
-    
+
     // Always include Field if there are any field declarations
     if (classBody.includes("!:") || classBody.includes(":")) {
       imports.add("Field");
     }
-    
+
     return imports;
   }
 
   /**
    * Extracts all model imports from a document (excluding slingr-framework imports).
-   * 
+   *
    * @param document - The document to extract imports from
    * @returns Array of import statements for other models
    */
@@ -539,19 +561,21 @@ export class SourceCodeService {
     const content = document.getText();
     const lines = content.split("\n");
     const modelImports: string[] = [];
-    
+
     for (const line of lines) {
       // Look for import statements that are not from slingr-framework
-      if (line.includes("import") && 
-          line.includes("from") && 
-          !line.includes("slingr-framework") &&
-          !line.includes("vscode") &&
-          !line.includes("path") &&
-          line.trim().startsWith("import")) {
+      if (
+        line.includes("import") &&
+        line.includes("from") &&
+        !line.includes("slingr-framework") &&
+        !line.includes("vscode") &&
+        !line.includes("path") &&
+        line.trim().startsWith("import")
+      ) {
         modelImports.push(line);
       }
     }
-    
+
     return modelImports;
   }
 
@@ -578,36 +602,43 @@ export class SourceCodeService {
       // Look for different patterns in order of specificity
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        
+
         // Pattern 1: Property declarations (fieldName!: Type or fieldName: Type)
         if (line.includes(`${elementName}!:`) || line.includes(`${elementName}:`)) {
           elementLine = i;
           elementIndex = line.indexOf(elementName);
           break;
         }
-        
+
         // Pattern 2: Method declarations (methodName() or methodName(
-        if (line.includes(`${elementName}(`) && (line.includes('function') || line.includes('){') || line.includes(') {'))) {
+        if (
+          line.includes(`${elementName}(`) &&
+          (line.includes("function") || line.includes("){") || line.includes(") {"))
+        ) {
           elementLine = i;
           elementIndex = line.indexOf(elementName);
           break;
         }
-        
+
         // Pattern 3: Class declarations (class ClassName)
         if (line.includes(`class ${elementName}`)) {
           elementLine = i;
           elementIndex = line.indexOf(elementName);
           break;
         }
-        
+
         // Pattern 4: Variable declarations (const elementName, let elementName, var elementName)
-        if ((line.includes(`const ${elementName}`) || line.includes(`let ${elementName}`) || line.includes(`var ${elementName}`)) && 
-            (line.includes('=') || line.includes(';'))) {
+        if (
+          (line.includes(`const ${elementName}`) ||
+            line.includes(`let ${elementName}`) ||
+            line.includes(`var ${elementName}`)) &&
+          (line.includes("=") || line.includes(";"))
+        ) {
           elementLine = i;
           elementIndex = line.indexOf(elementName);
           break;
         }
-        
+
         // Pattern 5: General word boundary match (as fallback)
         const wordBoundaryRegex = new RegExp(`\\b${elementName}\\b`);
         if (wordBoundaryRegex.test(line)) {
@@ -640,29 +671,29 @@ export class SourceCodeService {
 
   /**
    * Deletes a specific model class from a file that contains multiple models.
-   * 
+   *
    * @param fileUri - The URI of the file containing the model
    * @param modelMetadata - The metadata of the model to delete
    * @param workspaceEdit - The workspace edit to add the deletion to
    */
   public async deleteModelClassFromFile(
-    fileUri: vscode.Uri, 
-    modelMetadata: any, 
+    fileUri: vscode.Uri,
+    modelMetadata: any,
     workspaceEdit: vscode.WorkspaceEdit
   ): Promise<void> {
     try {
       const document = await vscode.workspace.openTextDocument(fileUri);
       const text = document.getText();
-      const lines = text.split('\n');
-      
+      const lines = text.split("\n");
+
       // Find the class declaration range
       const classDeclaration = modelMetadata.declaration;
       const startLine = classDeclaration.range.start.line;
       const endLine = classDeclaration.range.end.line;
-      
+
       // Find the @Model decorator using cache information
       let actualStartLine = startLine;
-      
+
       // Check if the model has decorators in the cache
       if (modelMetadata.decorators && modelMetadata.decorators.length > 0) {
         // Find the @Model decorator specifically
@@ -672,14 +703,14 @@ export class SourceCodeService {
           actualStartLine = Math.min(actualStartLine, modelDecorator.position.start.line);
         }
       }
-      
+
       // Also look backwards to find any other decorators and comments that belong to this class
       for (let i = actualStartLine - 1; i >= 0; i--) {
         const line = lines[i].trim();
-        if (line === '' || line.startsWith('//') || line.startsWith('/*') || line.endsWith('*/')) {
+        if (line === "" || line.startsWith("//") || line.startsWith("/*") || line.endsWith("*/")) {
           // Empty lines, single-line comments, or comment blocks - continue looking
           actualStartLine = i;
-        } else if (line.startsWith('@')) {
+        } else if (line.startsWith("@")) {
           // Decorator - include it
           actualStartLine = i;
         } else {
@@ -687,20 +718,20 @@ export class SourceCodeService {
           break;
         }
       }
-      
+
       // Look forward to find the complete class body (including closing brace)
       let actualEndLine = endLine;
       let braceCount = 0;
       let foundOpenBrace = false;
-      
+
       for (let i = startLine; i < lines.length; i++) {
         const line = lines[i];
-        
+
         for (const char of line) {
-          if (char === '{') {
+          if (char === "{") {
             braceCount++;
             foundOpenBrace = true;
-          } else if (char === '}') {
+          } else if (char === "}") {
             braceCount--;
             if (foundOpenBrace && braceCount === 0) {
               actualEndLine = i;
@@ -708,25 +739,24 @@ export class SourceCodeService {
             }
           }
         }
-        
+
         if (foundOpenBrace && braceCount === 0) {
           break;
         }
       }
-      
+
       // Include any trailing empty lines that belong to this class
-      while (actualEndLine + 1 < lines.length && lines[actualEndLine + 1].trim() === '') {
+      while (actualEndLine + 1 < lines.length && lines[actualEndLine + 1].trim() === "") {
         actualEndLine++;
       }
-      
+
       // Create the range to delete (include the newline of the last line)
       const rangeToDelete = new vscode.Range(
         new vscode.Position(actualStartLine, 0),
         new vscode.Position(actualEndLine + 1, 0)
       );
-      
+
       workspaceEdit.delete(fileUri, rangeToDelete);
-      
     } catch (error) {
       console.error(`Error deleting model class from file ${fileUri.fsPath}:`, error);
       // Fallback: just comment out the class declaration
@@ -738,36 +768,36 @@ export class SourceCodeService {
    * Extracts enums that are related to a model's Choice fields.
    * This analyzes the model's properties and identifies any enums
    * that are referenced in @Choice decorators.
-   * 
+   *
    * @param sourceDocument - The document containing the model
    * @param componentModel - The model metadata to analyze
    * @param classBody - The class body content (optional optimization)
    * @returns Array of enum definition strings
    */
   public async extractRelatedEnums(
-    sourceDocument: vscode.TextDocument, 
-    componentModel: any, 
+    sourceDocument: vscode.TextDocument,
+    componentModel: any,
     classBody?: string
   ): Promise<string[]> {
     const relatedEnums: string[] = [];
     const sourceContent = sourceDocument.getText();
-    
+
     // Find all Choice fields in the component model
-    const choiceFields = Object.values(componentModel.properties || {}).filter((property: any) => 
+    const choiceFields = Object.values(componentModel.properties || {}).filter((property: any) =>
       property.decorators?.some((decorator: any) => decorator.name === "Choice")
     );
-    
+
     if (choiceFields.length === 0) {
       return relatedEnums;
     }
-    
+
     // For each Choice field, try to find referenced enums
     for (const field of choiceFields) {
       const choiceDecorator = (field as any).decorators?.find((d: any) => d.name === "Choice");
       if (choiceDecorator) {
         // Look for enum references in the property type declaration
         const enumNames = this.extractEnumNamesFromChoiceProperty(field);
-        
+
         for (const enumName of enumNames) {
           // Find the enum definition in the source file
           const enumDefinition = this.extractEnumDefinition(sourceContent, enumName);
@@ -777,7 +807,7 @@ export class SourceCodeService {
         }
       }
     }
-    
+
     return relatedEnums;
   }
 
@@ -788,23 +818,23 @@ export class SourceCodeService {
    */
   private extractEnumNamesFromChoiceProperty(property: any): string[] {
     const enumNames: string[] = [];
-    
+
     // The enum name is in the property's type field
-    if (property.type && typeof property.type === 'string') {
+    if (property.type && typeof property.type === "string") {
       // Remove array brackets if present (e.g., "TaskStatus[]" -> "TaskStatus")
-      const cleanType = property.type.replace(/\[\]$/, '');
-      
+      const cleanType = property.type.replace(/\[\]$/, "");
+
       // Check if this looks like an enum (starts with uppercase, follows enum naming conventions)
       // Also exclude common TypeScript types that aren't enums
-      const isCommonType = ['string', 'number', 'boolean', 'Date', 'any', 'object', 'void'].includes(cleanType);
+      const isCommonType = ["string", "number", "boolean", "Date", "any", "object", "void"].includes(cleanType);
       const enumMatch = cleanType.match(/^[A-Z][a-zA-Z0-9_]*$/);
-      
+
       if (enumMatch && !isCommonType) {
         enumNames.push(cleanType);
         console.log(`Found potential enum "${cleanType}" in Choice field "${property.name}"`);
       }
     }
-    
+
     return enumNames;
   }
 
@@ -813,16 +843,13 @@ export class SourceCodeService {
    */
   private extractEnumDefinition(sourceContent: string, enumName: string): string | null {
     // Create regex to match enum definition including export keyword
-    const enumRegex = new RegExp(
-      `(export\\s+)?enum\\s+${enumName}\\s*\\{[^}]*\\}`,
-      'gs'
-    );
-    
+    const enumRegex = new RegExp(`(export\\s+)?enum\\s+${enumName}\\s*\\{[^}]*\\}`, "gs");
+
     const match = enumRegex.exec(sourceContent);
     if (match) {
       return match[0];
     }
-    
+
     return null;
   }
 
@@ -833,29 +860,29 @@ export class SourceCodeService {
     if (enums.length === 0) {
       return modelFileContent;
     }
-    
-    const lines = modelFileContent.split('\n');
-    
+
+    const lines = modelFileContent.split("\n");
+
     // Find the position to insert enums (after imports, before the model class)
     let insertPosition = 0;
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].startsWith('import ')) {
+      if (lines[i].startsWith("import ")) {
         insertPosition = i + 1;
-      } else if (lines[i].trim() === '' && insertPosition > 0) {
+      } else if (lines[i].trim() === "" && insertPosition > 0) {
         // Found empty line after imports
         insertPosition = i;
         break;
-      } else if (lines[i].includes('@Model') || lines[i].includes('class ')) {
+      } else if (lines[i].includes("@Model") || lines[i].includes("class ")) {
         // Found the start of the model definition
         break;
       }
     }
-    
+
     // Insert enums with proper spacing
-    const enumContent = enums.join('\n\n') + '\n\n';
+    const enumContent = enums.join("\n\n") + "\n\n";
     lines.splice(insertPosition, 0, enumContent);
-    
-    return lines.join('\n');
+
+    return lines.join("\n");
   }
 
   /**
@@ -863,40 +890,39 @@ export class SourceCodeService {
    */
   public extractEnumDefinitions(document: vscode.TextDocument): string[] {
     const content = document.getText();
-    const lines = content.split('\n');
+    const lines = content.split("\n");
     const enumDefinitions: string[] = [];
-    
+
     let currentEnum: string[] = [];
     let inEnum = false;
     let braceCount = 0;
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      
+
       // Check if we're starting an enum
-      if (line.trim().startsWith('export enum ') || line.trim().startsWith('enum ')) {
+      if (line.trim().startsWith("export enum ") || line.trim().startsWith("enum ")) {
         inEnum = true;
         braceCount = 0;
       }
-      
+
       if (inEnum) {
         currentEnum.push(line);
-        
+
         // Count braces
         const openBraces = (line.match(/{/g) || []).length;
         const closeBraces = (line.match(/}/g) || []).length;
         braceCount += openBraces - closeBraces;
-        
+
         // If we've closed all braces, we're done with this enum
-        if (braceCount === 0 && line.includes('}')) {
+        if (braceCount === 0 && line.includes("}")) {
           inEnum = false;
-          enumDefinitions.push(currentEnum.join('\n'));
+          enumDefinitions.push(currentEnum.join("\n"));
           currentEnum = [];
         }
       }
     }
-    
+
     return enumDefinitions;
   }
-
 }

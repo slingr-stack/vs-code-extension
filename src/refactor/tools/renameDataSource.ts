@@ -119,19 +119,19 @@ export class RenameDataSourceTool implements IRefactorTool {
             if (ref.uri.fsPath === declarationUri.fsPath && areRangesEqual(ref.range, declarationRange)) {
                 continue;
             }
-            workspaceEdit.replace(ref.uri, ref.range, newName);
+            workspaceEdit.replace(ref.uri, ref.range, newName, {label: `Update reference to data source '${oldName}'`, needsConfirmation: true} );
         }
 
         // If it's a manual rename, we also need to change the declaration
         if (isManual) {
-            workspaceEdit.replace(declarationUri, declarationRange, newName);
+            workspaceEdit.replace(declarationUri, declarationRange, newName, {label: `Rename data source declaration from '${oldName}' to '${newName}'`, needsConfirmation: true} );
         }
 
         // Rename the file if its name matches the old data source name
         const oldFileName = oldUri.path.split('/').pop()?.replace('.ts', '');
         if (oldFileName === oldName) {
             const newUri = vscode.Uri.joinPath(oldUri, '..', `${newName}.ts`);
-            workspaceEdit.renameFile(oldUri, newUri);
+            workspaceEdit.renameFile(oldUri, newUri, {}, {label: `Rename data source file from '${oldName}.ts' to '${newName}.ts'`, needsConfirmation: true} );
         }
 
         return workspaceEdit;

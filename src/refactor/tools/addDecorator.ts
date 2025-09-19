@@ -121,7 +121,7 @@ export class AddDecoratorTool implements IRefactorTool {
         const indentation = fieldLine.text.substring(0, fieldLine.firstNonWhitespaceCharacterIndex);
         const textToInsert = `@${decoratorName}()\n${indentation}`;
         const insertPosition = new vscode.Position(fieldMetadata.declaration.range.start.line, fieldMetadata.declaration.range.start.character);
-        workspaceEdit.insert(fieldMetadata.declaration.uri, insertPosition, textToInsert);
+        workspaceEdit.insert(fieldMetadata.declaration.uri, insertPosition, textToInsert, {label: `Add @${decoratorName} decorator to '${fieldMetadata.name}'`, needsConfirmation: true});
 
         return workspaceEdit;
     }

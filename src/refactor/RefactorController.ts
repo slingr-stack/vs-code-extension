@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteModelPayload, RenameModelPayload } from "./refactorInterfaces";
+import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteModelPayload, RenameModelPayload, ExtractFieldsToReferencePayload } from "./refactorInterfaces";
 import { findNodeAtPosition } from "../utils/ast";
 import { MetadataCache } from "../cache/cache";
 import { AppTreeItem } from "../explorer/appTreeItem";
@@ -219,16 +219,16 @@ export class RefactorController {
 
     this.isApplyingEdit = true;
     try {
-      const success = await vscode.workspace.applyEdit(confirmedEdit);
+      const success = await vscode.workspace.applyEdit(workspaceEdit,{isRefactoring: true});
       if (success) {
         await vscode.workspace.saveAll(false);
         const changesToProcess = allChanges || [changeObject];
+        // Check for compilation errors after applying changes
         const changesWithPrompts = changesToProcess.filter(change => {
           const tool = this.changeHandlerMap.get(change.type);
           return tool?.executePrompt;
         });
 
-        // Ask user if they want to execute prompts to analyze changes and fix errors
         if (changesWithPrompts.length > 0) {
           const modifiedUris = this.collectModifiedUris(workspaceEdit, changesToProcess);
 
@@ -244,16 +244,17 @@ export class RefactorController {
               "No, Skip Analysis"
             );
 
-          if (promptConfirmation === "Yes, Analyze Changes") {
-            // Execute custom prompts for the changes
-            for (const change of changesWithPrompts) {
-              const tool = this.changeHandlerMap.get(change.type);
-              if (tool?.executePrompt) {
-                try {
-                  await tool.executePrompt(change);
-                } catch (error) {
-                  console.error(`Error executing prompt for change ${change.type}:`, error);
-                  vscode.window.showWarningMessage(`Failed to execute analysis for ${change.description}: ${error}`);
+            if (promptConfirmation === "Yes, Analyze Errors") {
+              // Execute custom prompts for the changes
+              for (const change of changesWithPrompts) {
+                const tool = this.changeHandlerMap.get(change.type);
+                if (tool?.executePrompt) {
+                  try {
+                    await tool.executePrompt(change);
+                  } catch (error) {
+                    console.error(`Error executing prompt for change ${change.type}:`, error);
+                    vscode.window.showWarningMessage(`Failed to execute analysis for ${change.description}: ${error}`);
+                  }
                 }
               }
             }
@@ -322,13 +323,17 @@ export class RefactorController {
     const mergedEdit = new vscode.WorkspaceEdit();
     const modifiedRanges = new Set<string>();
     const allUniqueEdits = new Map<string, vscode.TextEdit[]>();
+    const fileOperations = new Set<string>(); // Track file operations to avoid duplicates
+    let editFromTool: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
 
     for (const change of changes) {
       const tool = this.changeHandlerMap.get(change.type);
       if (tool) {
         try {
 
-          const editFromTool = await tool.prepareEdit(change, this.cache);
+          editFromTool = await tool.prepareEdit(change, this.cache);
+          
+          // Handle text edits with deduplication
           for (const [uri, textEdits] of editFromTool.entries()) {
             const uriString = uri.toString();
             const existingEdits = allUniqueEdits.get(uriString) || [];
@@ -340,23 +345,49 @@ export class RefactorController {
                 existingEdits.push(edit);
               }
             }
-            // Note: modifiedRanges was not part of the original payload interface
-            // change.payload.modifiedRanges = Array.from(modifiedRanges);
 
             if (existingEdits.length > 0) {
               allUniqueEdits.set(uriString, existingEdits);
             }
-
           }
 
-          if ('urisToDelete' in change.payload && Array.isArray((change.payload as any).urisToDelete)) {
-            for (const uri of (change.payload as any).urisToDelete) {
-              mergedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
+          // Handle file creation operations from change payload
+          if ('urisToCreate' in change.payload && Array.isArray(change.payload.urisToCreate)) {
+            for (const createInfo of change.payload.urisToCreate) {
+              const createOpId = `CREATE::${createInfo.uri.toString()}`;
+              if (!fileOperations.has(createOpId)) {
+                fileOperations.add(createOpId);
+                // If content is provided, create file with content, otherwise just create the file
+                if (createInfo.content !== undefined) {
+                  mergedEdit.createFile(createInfo.uri, { 
+                    ignoreIfExists: true,
+                    contents: Buffer.from(createInfo.content, 'utf8')
+                  });
+                } else {
+                  mergedEdit.createFile(createInfo.uri, { ignoreIfExists: true });
+                }
+              }
             }
           }
 
+          // Handle delete operations from change payload
+          if ('urisToDelete' in change.payload && Array.isArray((change.payload as any).urisToDelete)) {
+            for (const uri of (change.payload as any).urisToDelete) {
+              const deleteOpId = `DELETE::${uri.toString()}`;
+              if (!fileOperations.has(deleteOpId)) {
+                fileOperations.add(deleteOpId);
+                mergedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
+              }
+            }
+          }
+
+          // Handle rename operations from change payload
           if ('newUri' in change.payload && (change.payload as any).newUri) {
-            mergedEdit.renameFile(change.uri, (change.payload as any).newUri);
+            const renameOpId = `RENAME::${change.uri.toString()}::${(change.payload as any).newUri.toString()}`;
+            if (!fileOperations.has(renameOpId)) {
+              fileOperations.add(renameOpId);
+              mergedEdit.renameFile(change.uri, (change.payload as any).newUri);
+            }
           }
 
         } catch (error) {
@@ -366,10 +397,11 @@ export class RefactorController {
       }
     }
 
+    // Apply all unique text edits
     for (const [uriString, edits] of allUniqueEdits) {
       mergedEdit.set(vscode.Uri.parse(uriString), edits);
     }
-    return mergedEdit;
+    return editFromTool;
   }
 
   /**

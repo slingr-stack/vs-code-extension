@@ -236,8 +236,8 @@ export class DeleteFieldTool implements IRefactorTool {
                     continue;
                 }
                 
-                workspaceEdit.replace(ref.uri, ref.range, '/* DELETED_FIELD_REFERENCE */');
-                edit?.replace(ref.uri, ref.range, '/* DELETED_FIELD_REFERENCE */');
+                workspaceEdit.replace(ref.uri, ref.range, '/* DELETED_FIELD_REFERENCE */', {label: `Reference to deleted field '${field.name}'`, needsConfirmation: true});
+                edit?.replace(ref.uri, ref.range, '/* DELETED_FIELD_REFERENCE */',{label: `Reference to deleted field '${field.name}'`, needsConfirmation: true});
             }
         }
 
@@ -255,8 +255,8 @@ export class DeleteFieldTool implements IRefactorTool {
             const endLine = doc.lineAt(field.declaration.range.end.line);
             const fullRangeToDelete = new vscode.Range(startPosition, endLine.rangeIncludingLineBreak.end);
 
-            workspaceEdit.delete(field.declaration.uri, fullRangeToDelete);
-            edit?.delete(field.declaration.uri, fullRangeToDelete);
+            workspaceEdit.delete(field.declaration.uri, fullRangeToDelete, {label: `Delete field '${field.name}'`, needsConfirmation: true} );
+            edit?.delete(field.declaration.uri, fullRangeToDelete, {label: `Delete field '${field.name}'`, needsConfirmation: true} );
         }
 
         return workspaceEdit;

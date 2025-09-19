@@ -280,18 +280,18 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                 : `@${newType}()`; 
 
             if (isReplacing) {
-                workspaceEdit.replace(change.uri, positionToActOn, decoratorString);
+                workspaceEdit.replace(change.uri, positionToActOn, decoratorString, {label: `Change field '${field.name}' type to '${newType}'`, needsConfirmation: true});
             } else {
                 const document = await vscode.workspace.openTextDocument(change.uri);
                 const decoratorLine = document.lineAt(positionToActOn.start.line);
                 const indentation = decoratorLine.text.substring(0, decoratorLine.firstNonWhitespaceCharacterIndex);
                 const textToInsert = `${decoratorString}\n${indentation}`;
-                workspaceEdit.insert(change.uri, positionToActOn.start, textToInsert);
+                workspaceEdit.insert(change.uri, positionToActOn.start, textToInsert, {label: `Add @${newType} decorator to '${field.name}'`, needsConfirmation: true} );
             }
 
             const typeCorrectionEdit = await this.validateAndCorrectType(field, newType, change.uri);
             if (typeCorrectionEdit) {
-                workspaceEdit.replace(change.uri, typeCorrectionEdit.range, typeCorrectionEdit.newText);
+                workspaceEdit.replace(change.uri, typeCorrectionEdit.range, typeCorrectionEdit.newText, {label: `Replace type of '${field.name}' to '${typeCorrectionEdit.newText}'`, needsConfirmation: true});
             }
         }
         return workspaceEdit;
@@ -338,17 +338,17 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         const enumString = `\n\nexport enum ${enumName} {\n${enumMembers}\n}`;
         const document = await vscode.workspace.openTextDocument(uri);
         const endOfFile = document.lineAt(document.lineCount - 1).range.end;
-        workspaceEdit.insert(uri, endOfFile, enumString);
+        workspaceEdit.insert(uri, endOfFile, enumString, {label: `Create enum '${enumName}'`, needsConfirmation: true});
 
         // Generate the new @Choice decorator
         const labels = values.map(v => `            ${v}: "${this.toTitleCase(v)}"`).join(',\n');
         const decoratorString = `@Choice<${enumName}>({\n        labels: {\n${labels}\n        }\n    })`;
-        workspaceEdit.replace(uri, decoratorPosition, decoratorString);
+        workspaceEdit.replace(uri, decoratorPosition, decoratorString, {label: `Change field '${field.name}' type to 'Choice'`, needsConfirmation: true});
 
         // Create an edit to change the property's type from 'string' to the new enum name
         const typeCorrectionEdit = await this.validateAndCorrectType(field, enumName, uri, true);
         if (typeCorrectionEdit) {
-            workspaceEdit.replace(uri, typeCorrectionEdit.range, typeCorrectionEdit.newText);
+            workspaceEdit.replace(uri, typeCorrectionEdit.range, typeCorrectionEdit.newText, {label: `Change type of '${field.name}' to '${enumName}'`, needsConfirmation: true});
         }
     }
 

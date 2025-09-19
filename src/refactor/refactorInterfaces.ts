@@ -1,6 +1,15 @@
 import * as vscode from 'vscode';
 import { DataSourceMetadata, DecoratedClass, DecoratorMetadata, FileMetadata, MetadataCache, PropertyMetadata } from '../cache/cache';
 import { TreeViewContext } from '../commands/commandHelpers';
+import { ChangeCompositionToReferencePayload } from './tools/changeCompositionToReference';
+
+/**
+ * Information about a file to be created.
+ */
+export interface FileCreationInfo {
+    uri: vscode.Uri;
+    content?: string; // Optional content for the file
+}
 
 /**
  * Common properties shared across all refactoring payloads.
@@ -174,27 +183,7 @@ export interface BaseExtractFieldsPayload {
     sourceModelName: string;
     fieldsToExtract: PropertyMetadata[];
     isManual: boolean;
-}
-export interface ExtractFieldsToCompositionPayload extends BaseExtractFieldsPayload {
-    compositionFieldName: string;
-}
-
-
-/**
- * Payload interface for extracting fields to a reference model.
- * This involves moving selected fields from a source model to a new reference model in a separate file
- * and creating a reference relationship between them.
- * 
- * @property {string} sourceModelName - The name of the source model containing the fields to extract
- * @property {string} newModelName - The name of the new reference model to be created
- * @property {string} referenceFieldName - The name of the new reference field to be created
- * @property {PropertyMetadata[]} fieldsToExtract - The field metadata for all fields being extracted
- * @property {boolean} isManual - Whether the extraction was initiated manually by the user
- */
-export interface ExtractFieldsToReferencePayload {
-    sourceModelName: string;
-    newModelName: string;
-    referenceFieldName: string;
+    urisToCreate?: FileCreationInfo[];
 }
 
 /**
@@ -220,15 +209,12 @@ export interface ExtractFieldsToCompositionPayload extends BaseExtractFieldsPayl
  * @property {string} sourceModelName - The name of the source model containing the fields to extract
  * @property {string} newModelName - The name of the new reference model to be created
  * @property {string} referenceFieldName - The name of the new reference field to be created
- * @property {PropertyMetadata[]} fieldsToExtract - The field metadata for all fields being extracted
- * @property {boolean} isManual - Whether the extraction was initiated manually by the user
+ * @property {fileCreationInfo?: FileCreationInfo} - Optional info for creating the new model file
  */
-export interface ExtractFieldsToReferencePayload {
+export interface ExtractFieldsToReferencePayload extends BaseExtractFieldsPayload {
     sourceModelName: string;
     newModelName: string;
     referenceFieldName: string;
-    fieldsToExtract: PropertyMetadata[];
-    isManual: boolean;
 }
 
 export interface DeleteDataSourcePayload extends BasePayload {
@@ -252,7 +238,7 @@ export type ChangePayloadMap = {
     'RENAME_DATA_SOURCE': RenameDataSourcePayload;
     'DELETE_DATA_SOURCE': DeleteDataSourcePayload;
     'CHANGE_REFERENCE_TO_COMPOSITION': ChangeReferenceToCompositionPayload;
-    'CHANGE_COMPOSITION_TO_REFERENCE': ChangeReferenceToCompositionPayload;
+    'CHANGE_COMPOSITION_TO_REFERENCE': ChangeCompositionToReferencePayload;
     'EXTRACT_FIELDS_TO_COMPOSITION': ExtractFieldsToCompositionPayload;
     'EXTRACT_FIELDS_TO_REFERENCE': ExtractFieldsToReferencePayload;
     // Add more change types and their payloads as needed

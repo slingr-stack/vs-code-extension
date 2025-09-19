@@ -257,11 +257,11 @@ export class DeleteModelTool implements IRefactorTool {
         const doc = await vscode.workspace.openTextDocument(ref.uri);
         const line = doc.lineAt(ref.range.start.line);
         if (!line.isEmptyOrWhitespace) {
-          workspaceEdit.delete(ref.uri, line.rangeIncludingLineBreak);
+          workspaceEdit.delete(ref.uri, line.rangeIncludingLineBreak, {label: `Delete reference to deleted model '${deletedModelName}'`, needsConfirmation: true});
         }
       } catch (e) {
         console.error(`Could not process reference in ${ref.uri.fsPath}:`, e);
-        workspaceEdit.replace(ref.uri, ref.range, "/* DELETED_REFERENCE */");
+        workspaceEdit.replace(ref.uri, ref.range, "/* DELETED_REFERENCE */", {label: `Reference to deleted model '${deletedModelName}'`, needsConfirmation: true} );
       }
     }
     
@@ -349,12 +349,12 @@ export class DeleteModelTool implements IRefactorTool {
         new vscode.Position(actualEndLine + 1, 0)
       );
       
-      workspaceEdit.delete(fileUri, rangeToDelete);
+      workspaceEdit.delete(fileUri, rangeToDelete, {label: `Delete model class '${modelMetadata.name}'`, needsConfirmation: true});
       
     } catch (error) {
       console.error(`Error deleting model class from file ${fileUri.fsPath}:`, error);
       // Fallback: just comment out the class declaration
-      workspaceEdit.replace(fileUri, modelMetadata.declaration.range, `/* DELETED_MODEL: ${modelMetadata.name} */`);
+      workspaceEdit.replace(fileUri, modelMetadata.declaration.range, `/* DELETED_MODEL: ${modelMetadata.name} */`, {label: `Comment out model class '${modelMetadata.name}'`, needsConfirmation: true} );
     }
   }
 
@@ -434,7 +434,7 @@ export class DeleteModelTool implements IRefactorTool {
       
       // Apply all deletions
       for (const range of rangesToDelete) {
-        workspaceEdit.delete(field.declaration.uri, range);
+        workspaceEdit.delete(field.declaration.uri, range, {label: `Delete decorator for field '${field.name}'`, needsConfirmation: true} );
       }
       
     } catch (e) {

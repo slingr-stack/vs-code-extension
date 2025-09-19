@@ -136,7 +136,7 @@ export class ChangeCompositionToReferenceRefactorTool implements IRefactorTool {
         } as any;
         
         const tool = new ChangeCompositionToReferenceTool(explorerProvider);
-        await tool.changeCompositionToReference(
+          await tool.changeCompositionToReference(
           cache,
           payload.sourceModelName,
           payload.fieldName

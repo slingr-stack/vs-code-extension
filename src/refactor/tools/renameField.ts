@@ -225,11 +225,11 @@ export class RenameFieldTool implements IRefactorTool {
             if (ref.uri.fsPath === declarationUri.fsPath && areRangesEqual(ref.range, declarationRange)) {
                 continue;
             }
-            workspaceEdit.replace(ref.uri, ref.range, newName);
+            workspaceEdit.replace(ref.uri, ref.range, newName, {label: `Update reference to field '${oldFieldMetadata.name}'`, needsConfirmation: true} );
         }
 
         if (change.payload.isManual) {
-            workspaceEdit.replace(declarationUri, declarationRange, newName);
+            workspaceEdit.replace(declarationUri, declarationRange, newName, {label: `Rename field declaration from '${oldFieldMetadata.name}' to '${newName}'`, needsConfirmation: true} );
         }
 
         return workspaceEdit;
