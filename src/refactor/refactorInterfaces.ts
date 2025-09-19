@@ -64,6 +64,7 @@ export interface CreateModelPayload {
 export interface DeleteFieldPayload {
     oldFieldMetadata: PropertyMetadata;
     modelName: string;
+    isManual: boolean;
 }
 
 export interface ChangeFieldTypePayload extends BasePayload {
@@ -250,6 +251,11 @@ export type ChangePayloadMap = {
     'ADD_DECORATOR': AddDecoratorPayload;
     'RENAME_DATA_SOURCE': RenameDataSourcePayload;
     'DELETE_DATA_SOURCE': DeleteDataSourcePayload;
+    'CHANGE_REFERENCE_TO_COMPOSITION': ChangeReferenceToCompositionPayload;
+    'CHANGE_COMPOSITION_TO_REFERENCE': ChangeReferenceToCompositionPayload;
+    'EXTRACT_FIELDS_TO_COMPOSITION': ExtractFieldsToCompositionPayload;
+    'EXTRACT_FIELDS_TO_REFERENCE': ExtractFieldsToReferencePayload;
+    // Add more change types and their payloads as needed
 };
 
 /**
