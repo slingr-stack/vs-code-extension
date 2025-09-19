@@ -1044,7 +1044,16 @@ export class ExplorerProvider
         if (hasFieldDecorator) {
           // Check if this property has a @Relationship decorator with type: "Composition"
           const relationshipDecorator = property.decorators.find((d) => d.name === "Relationship");
+          const compositionDecorator = property.decorators.find((d) => d.name === "Composition");
           
+          // If there's a @Composition decorator, we can directly consider it
+          if (compositionDecorator) {
+            const baseType = this.extractBaseTypeFromArrayType(property.type);
+            compositionModels.add(baseType);
+            continue; // No need to check further
+          }
+          
+          // If there's a @Relationship decorator, check its arguments
           if (relationshipDecorator) {
             // Check if the relationship decorator has type: "Composition" or "composition"
             const hasCompositionType = relationshipDecorator.arguments.some(

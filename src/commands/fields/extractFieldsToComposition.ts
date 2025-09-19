@@ -155,6 +155,8 @@ export class ExtractFieldsToCompositionTool implements IRefactorTool {
    */
   async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
     const payload = change.payload as ExtractFieldsToCompositionPayload;
+    let edit = new vscode.WorkspaceEdit();
+    let innerModelName = "";
 
     try {
       const sourceModel = cache.getModelByName(payload.sourceModelName);
@@ -169,23 +171,22 @@ export class ExtractFieldsToCompositionTool implements IRefactorTool {
       const fieldsToAdd = payload.fieldsToExtract; // These are already PropertyMetadata objects
 
       // Create the composition with the fields included
-      const { edit: compositionEdit, innerModelName } = await this.createCompositionWithFields(
+      const result = await this.createCompositionWithFields(
         cache,
         payload.sourceModelName,
         payload.compositionFieldName,
         fieldsToAdd
       );
+      edit = result.edit;
+      innerModelName = result.innerModelName;
 
-      // Merge composition edit
-      this.mergeWorkspaceEdits(combinedEdit, compositionEdit);
 
       // Step 2: Remove the fields from the source model
       for (const field of payload.fieldsToExtract) {
-        const deleteEdit = await this.deleteFieldTool.deleteFieldProgrammatically(field, sourceModel.name, cache);
-        this.mergeWorkspaceEdits(combinedEdit, deleteEdit);
+        await this.deleteFieldTool.deleteFieldProgrammatically(field, sourceModel.name, cache,edit);
       }
 
-      return combinedEdit;
+      return edit;
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to prepare extract fields to composition edit: ${error}`);
       throw error;
@@ -585,10 +586,6 @@ export class ExtractFieldsToCompositionTool implements IRefactorTool {
 
     // Generate the field code
     const fieldCode = this.generateCompositionFieldCode(fieldInfo, innerModelName, isArray);
-
-    // Add required imports
-    const requiredImports = new Set(["Field", "Composition"]);
-    await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, requiredImports);
 
     // Find class boundaries and add field
     const lines = document.getText().split("\n");
