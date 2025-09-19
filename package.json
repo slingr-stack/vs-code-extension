@@ -119,6 +119,10 @@
       {
         "command": "slingr-vscode-extension.updateAllDatasets",
         "title": "Update all datasets"
+      },
+      {
+        "command": "slingr-vscode-extension.loadDataset",
+        "title": "Load dataset"
       }
     ],
     "submenus": [
@@ -264,6 +268,16 @@
         {
             "command": "slingr-vscode-extension.updateDataset",
             "when": "view == slingrExplorer && (viewItem == 'dataset' || viewItem == 'dataset-warning')",
+            "group": "3_dataset"
+        },
+        {
+            "command": "slingr-vscode-extension.loadDataset",
+            "when": "view == slingrExplorer && (viewItem == 'dataset' || viewItem == 'dataset-warning')",
+            "group": "3_dataset"
+        },
+        {
+            "command": "slingr-vscode-extension.loadDataset",
+            "when": "view == slingrExplorer && (viewItem == 'dataSource' || viewItem == 'dataSource-warning')",
             "group": "3_dataset"
         },
         {

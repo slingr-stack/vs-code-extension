@@ -16,6 +16,7 @@ import { NewDataSourceTool } from './newDataSource';
 import { NewDatasetTool } from './datasets/newDataset';
 import { RegenerateDatasetTool } from './datasets/regenerateDataset';
 import { UpdateDatasetTool } from './datasets/updateDataset';
+import { LoadDatasetTool } from './datasets/loadDataset';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -223,6 +224,13 @@ export function registerGeneralCommands(
         return updateDatasetTool.updateDataset(item);
     });
     disposables.push(updateDatasetCommand);
+
+    // Load Dataset Tool
+    const loadDatasetTool = new LoadDatasetTool(cache);
+    const loadDatasetCommand = vscode.commands.registerCommand('slingr-vscode-extension.loadDataset', (item: AppTreeItem) => {
+        return loadDatasetTool.loadDataset(item);
+    });
+    disposables.push(loadDatasetCommand);
 
     return disposables;
 }
