@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext, DeleteFieldPayload, ChangeType, RenameModelPayload, RenameFieldPayload } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
-import { isModel, isModelFile, isField } from '../../utils/metadata';
+import { isModel, isModelFile, isField, isPositionWithinRange } from '../../utils/metadata';
 import { areRangesEqual } from '../../utils/metadata';
 import * as fs from 'fs';
 
@@ -169,14 +169,6 @@ export class DeleteFieldTool implements IRefactorTool {
         }
 
         const field: PropertyMetadata = context.metadata;
-        const confirmation = await vscode.window.showWarningMessage(
-              `Are you sure you want to delete the Field '${field.name}' and all its references? This action cannot be undone.`,
-              "Yes, Delete All"
-            );
-        
-            if (confirmation !== "Yes, Delete All") {
-              return undefined;
-            }
             
         // Find the model name by getting the file metadata and looking for the class containing this field
         const fileMetadata = context.cache.getMetadataForFile(context.uri.fsPath);
@@ -234,9 +226,16 @@ export class DeleteFieldTool implements IRefactorTool {
 
         if (field.references) {
             for (const ref of field.references) {
+                // Skip references that are the field declaration itself
                 if (ref.uri.fsPath === field.declaration.uri.fsPath && areRangesEqual(ref.range, field.declaration.range)) {
                     continue;
                 }
+                
+                // Skip references that are within the field's own decorators
+                if (this.isReferenceWithinFieldDecorators(ref, field)) {
+                    continue;
+                }
+                
                 workspaceEdit.replace(ref.uri, ref.range, '/* DELETED_FIELD_REFERENCE */');
             }
         }
@@ -259,6 +258,33 @@ export class DeleteFieldTool implements IRefactorTool {
         }
 
         return workspaceEdit;
+    }
+
+    /**
+     * Checks if a reference is within the field's own decorators.
+     * This prevents conflicts when deleting a field that has references to itself
+     * in its decorator arguments (e.g., validation functions that reference the field).
+     * 
+     * @param reference The reference to check
+     * @param field The field being deleted
+     * @returns True if the reference is within the field's decorators, false otherwise
+     */
+    private isReferenceWithinFieldDecorators(reference: vscode.Location, field: PropertyMetadata): boolean {
+        // If the reference is not in the same file as the field, it can't be in the decorators
+        if (reference.uri.fsPath !== field.declaration.uri.fsPath) {
+            return false;
+        }
+
+        // Check if the reference is within any of the field's decorators
+        if (field.decorators && field.decorators.length > 0) {
+            for (const decorator of field.decorators) {
+                if (decorator.position && isPositionWithinRange(reference.range.start, decorator.position)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -285,22 +311,53 @@ export class DeleteFieldTool implements IRefactorTool {
         const payload = change.payload;
         const { modelName, oldFieldMetadata } = payload;
         const fieldName = oldFieldMetadata?.name || 'unknown';
+        const fieldType = oldFieldMetadata?.type || 'unknown';
         
-        // Note: modifiedRanges was not part of the original payload interface
-        // If this functionality is needed, it should be added to DeleteFieldPayload interface
-        let affectedPathsMessage = '';
+        // Build decorator information for context
+        let decoratorInfo = '';
+        if (oldFieldMetadata?.decorators && oldFieldMetadata.decorators.length > 0) {
+            const decoratorNames = oldFieldMetadata.decorators.map(d => `@${d.name}`).join(', ');
+            decoratorInfo = `\n\nThe deleted field had the following decorators: ${decoratorNames}`;
+        }
 
-        const prompt = `I have just deleted the field "${fieldName}" from the model "${modelName}".
-        This has left broken references in the code, marked with a "/* DELETED_FIELD_REFERENCE */" comment.
+        // Count references for better context
+        const referenceCount = oldFieldMetadata?.references?.length || 0;
+        const referenceInfo = referenceCount > 0 
+            ? `\n\nThis field was referenced in ${referenceCount} location(s) throughout the codebase.`
+            : '';
 
-        Your task is to help me fix these broken references by proposing concrete code modifications and asking the user if it wants you to apply them.
+        const prompt = `## Field Deletion - Code Cleanup Required
 
-        Please do the following:
-        1.  Analyze the code where "/* DELETED_FIELD_REFERENCE */" appears.
-        2.  For each occurrence, provide a corrected code block. This might mean replacing the comment with new code, or suggesting the removal of the entire line or statement if it's obsolete.
-        3.  Present your suggestions as code diffs or complete, corrected code snippets that I can easily apply.
+I have deleted the field **\`${fieldName}: ${fieldType}\`** from the model **\`${modelName}\`**.${decoratorInfo}${referenceInfo}
 
-        Please focus your analysis and modifications on the files within the current workspace, especially the ones listed below:${affectedPathsMessage}`;
+**Problem:** This deletion has left broken references in the code, which are now marked with \`/* DELETED_FIELD_REFERENCE */\` comments.
+
+**Your Task:** Help me fix these broken references by analyzing each occurrence and providing specific solutions.
+
+### Instructions:
+
+1. **Search for all occurrences** of \`/* DELETED_FIELD_REFERENCE */\` in the workspace
+2. **For each occurrence, analyze the context** and determine the best fix:
+   - **Remove the entire line/statement** if it's no longer needed
+   - **Replace with alternative field** if there's a suitable replacement
+   - **Refactor the logic** if the code needs to be restructured
+   - **Add null checks or default values** if the field was optional
+
+3. **Provide specific, actionable solutions** for each broken reference:
+   - Show the **exact file and line number**
+   - Provide **before/after code snippets**
+   - Explain **why** each change is recommended
+
+4. **Ask for confirmation** before applying any changes
+
+### Common Patterns to Consider:
+- Database queries that reference the deleted field
+- Form validations that check the field
+- API responses that include the field
+- Tests that assert on the field value
+- UI components that display the field
+
+Please analyze each broken reference systematically and provide clear, implementable solutions.`;
 
         try {
             await vscode.commands.executeCommand('workbench.action.chat.open', prompt);

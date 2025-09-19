@@ -238,7 +238,7 @@ if (typeof suite !== 'undefined') {
                 assert.ok(Array.isArray(payload.urisToDelete));
             });
 
-            test('should handle user cancellation', async () => {
+            test('should create change object when initiated manually', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const modelRange = new vscode.Range(5, 0, 5, 4);
                 const model = createMockModel('User', modelUri, modelRange);
@@ -250,14 +250,13 @@ if (typeof suite !== 'undefined') {
                     metadata: model
                 };
 
-                // Mock user cancellation
-                (vscode.window as any).showWarningMessage = async () => undefined;
-
                 const change = await tool.initiateManualRefactor(context);
-                assert.strictEqual(change, undefined);
+                assert.notStrictEqual(change, undefined);
+                assert.strictEqual(change?.type, 'DELETE_MODEL');
+                assert.strictEqual(change?.description, "Delete model 'User'.");
             });
 
-            test('should handle non-confirmation response', async () => {
+            test('should create change object for confirmed deletion', async () => {
                 const modelUri = vscode.Uri.file('/test/src/data/models/User.ts');
                 const modelRange = new vscode.Range(5, 0, 5, 4);
                 const model = createMockModel('User', modelUri, modelRange);
@@ -269,11 +268,10 @@ if (typeof suite !== 'undefined') {
                     metadata: model
                 };
 
-                // Mock different response
-                (vscode.window as any).showWarningMessage = async () => 'Cancel';
-
                 const change = await tool.initiateManualRefactor(context);
-                assert.strictEqual(change, undefined);
+                assert.notStrictEqual(change, undefined);
+                assert.strictEqual(change?.type, 'DELETE_MODEL');
+                assert.strictEqual(change?.description, "Delete model 'User'.");
             });
 
             test('should handle invalid metadata', async () => {
@@ -430,6 +428,215 @@ if (typeof suite !== 'undefined') {
                 
                 assert.ok(workspaceEdit);
                 // The workspace edit should include removal of relationship decorators
+            });
+        });
+
+        suite('Multiple Models in File', () => {
+            test('should handle deletion of one model from multi-model file', () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/MultiModel.ts');
+                
+                // Create mock metadata for two models in the same file
+                const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
+                const orderModel = createMockModel('Order', modelUri, new vscode.Range(20, 0, 30, 1));
+                
+                const oldFileMeta: FileMetadata = {
+                    uri: modelUri,
+                    classes: {
+                        'User': userModel,
+                        'Order': orderModel
+                    },
+                    dataSources: {}
+                };
+
+                const newFileMeta: FileMetadata = {
+                    uri: modelUri,
+                    classes: {
+                        'Order': orderModel  // User model was deleted
+                    },
+                    dataSources: {}
+                };
+
+                const changes = tool.analyze(oldFileMeta, newFileMeta);
+                
+                assert.strictEqual(changes.length, 1);
+                assert.strictEqual(changes[0].type, 'DELETE_MODEL');
+                assert.strictEqual((changes[0].payload as DeleteModelPayload).oldModelMetadata.name, 'User');
+                
+                // Should not include the file itself in urisToDelete since other models remain
+                const urisToDelete = (changes[0].payload as DeleteModelPayload).urisToDelete;
+                const fileIsInDeleteList = urisToDelete.some(uri => uri.fsPath === modelUri.fsPath);
+                assert.strictEqual(fileIsInDeleteList, false);
+            });
+
+            test('should handle deletion of last model from file', () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/SingleModel.ts');
+                
+                // Create mock metadata for single model in file
+                const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
+                
+                const oldFileMeta: FileMetadata = {
+                    uri: modelUri,
+                    classes: {
+                        'User': userModel
+                    },
+                    dataSources: {}
+                };
+
+                const newFileMeta: FileMetadata = {
+                    uri: modelUri,
+                    classes: {}, // No models left
+                    dataSources: {}
+                };
+
+                const changes = tool.analyze(oldFileMeta, newFileMeta);
+                
+                assert.strictEqual(changes.length, 1);
+                assert.strictEqual(changes[0].type, 'DELETE_MODEL');
+                assert.strictEqual((changes[0].payload as DeleteModelPayload).oldModelMetadata.name, 'User');
+                
+                // Should include the file itself in urisToDelete since no models remain
+                const urisToDelete = (changes[0].payload as DeleteModelPayload).urisToDelete;
+                const fileIsInDeleteList = urisToDelete.some(uri => uri.fsPath === modelUri.fsPath);
+                assert.strictEqual(fileIsInDeleteList, true);
+            });
+
+            test('should handle multiple models in same file', async () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/MultiModel.ts');
+                const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
+                const orderModel = createMockModel('Order', modelUri, new vscode.Range(20, 0, 30, 1));
+                
+                // Mock cache to return multiple models for the file
+                (mockCache as any).getMetadataForFile = (filePath: string) => ({
+                    uri: modelUri,
+                    classes: {
+                        'User': userModel,
+                        'Order': orderModel
+                    },
+                    dataSources: {}
+                });
+
+                const context: ManualRefactorContext = {
+                    cache: mockCache,
+                    uri: modelUri,
+                    range: userModel.declaration.range,
+                    metadata: userModel
+                };
+
+                const change = await tool.initiateManualRefactor(context);
+                
+                // Should create a change object without asking for confirmation
+                assert.notStrictEqual(change, undefined);
+                assert.strictEqual(change?.type, 'DELETE_MODEL');
+                
+                // Should not include the entire file for deletion since other models remain
+                const payload = change?.payload as DeleteModelPayload;
+                const fileIsInDeleteList = payload.urisToDelete.some(uri => uri.fsPath === modelUri.fsPath);
+                assert.strictEqual(fileIsInDeleteList, false);
+            });
+
+            test('should handle single model in file', async () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/SingleModel.ts');
+                const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
+                
+                // Mock cache to return single model for the file
+                (mockCache as any).getMetadataForFile = (filePath: string) => ({
+                    uri: modelUri,
+                    classes: {
+                        'User': userModel
+                    },
+                    dataSources: {}
+                });
+
+                const context: ManualRefactorContext = {
+                    cache: mockCache,
+                    uri: modelUri,
+                    range: userModel.declaration.range,
+                    metadata: userModel
+                };
+
+                const change = await tool.initiateManualRefactor(context);
+                
+                // Should create a change object without asking for confirmation
+                assert.notStrictEqual(change, undefined);
+                assert.strictEqual(change?.type, 'DELETE_MODEL');
+                
+                // Should include the entire file for deletion since it's the only model
+                const payload = change?.payload as DeleteModelPayload;
+                const fileIsInDeleteList = payload.urisToDelete.some(uri => uri.fsPath === modelUri.fsPath);
+                assert.strictEqual(fileIsInDeleteList, true);
+            });
+
+            test('should not create duplicate edits when deleting model from multi-model file', async () => {
+                const modelUri = vscode.Uri.file('/test/src/data/models/MultiModel.ts');
+                const userModel = createMockModel('User', modelUri, new vscode.Range(5, 0, 15, 1));
+                const orderModel = createMockModel('Order', modelUri, new vscode.Range(20, 0, 30, 1));
+                
+                // Add a self-reference within the same file (e.g., the class declaration itself)
+                userModel.references = [
+                    { uri: modelUri, range: new vscode.Range(5, 13, 5, 17) }, // class declaration
+                    { uri: modelUri, range: new vscode.Range(8, 4, 8, 8) }   // some property or usage
+                ];
+
+                // Mock workspace operations with realistic file content
+                (vscode.workspace as any).openTextDocument = async (uri: vscode.Uri) => {
+                    const mockFileContent = `import { Model, Field } from '@slingr/platform';
+
+@Model()
+export class User extends PersistentModel {
+    @Field()
+    name: string;
+    
+    @Field()
+    email: string;
+}
+
+@Model()
+export class Order extends PersistentModel {
+    @Field()
+    orderNumber: string;
+}`;
+                    return {
+                        getText: () => mockFileContent,
+                        lineAt: (line: number) => {
+                            const lines = mockFileContent.split('\n');
+                            return {
+                                text: lines[line] || '',
+                                isEmptyOrWhitespace: (lines[line] || '').trim() === '',
+                                rangeIncludingLineBreak: new vscode.Range(line, 0, line + 1, 0)
+                            };
+                        }
+                    };
+                };
+                
+                const change: ChangeObject = {
+                    type: 'DELETE_MODEL',
+                    uri: modelUri,
+                    description: 'Delete User model',
+                    payload: {
+                        oldModelMetadata: userModel,
+                        urisToDelete: [], // No file deletion since there are multiple models
+                        isManual: true
+                    } as DeleteModelPayload
+                };
+
+                const workspaceEdit = await tool.prepareEdit(change, mockCache);
+                
+                // Get all the edits for this file
+                const fileEdits = workspaceEdit.get(modelUri) || [];
+                
+                // Should have only ONE edit for this file (the class deletion), not multiple
+                // The class declaration reference should NOT be processed separately
+                assert.strictEqual(fileEdits.length, 1, 
+                    `Expected only 1 edit for the file, but got ${fileEdits.length}. ` +
+                    `This suggests duplicate edits are being created.`);
+                
+                // The single edit should be a delete operation (either proper deletion or fallback comment)
+                assert.ok(fileEdits[0].range, 'Edit should have a range');
+                // Accept either proper deletion or fallback comment replacement
+                const isProperDeletion = fileEdits[0].newText === '';
+                const isFallbackComment = fileEdits[0].newText.includes('/* DELETED_MODEL:');
+                assert.ok(isProperDeletion || isFallbackComment, 
+                    'Edit should be either a deletion or fallback comment replacement');
             });
         });
     });

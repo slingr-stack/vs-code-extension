@@ -160,19 +160,20 @@ export class RefactorController {
   /**
    * Presents workspace changes to the user for approval and handles post-approval analysis.
    * 
-   * This method applies the workspace edit with proper confirmation metadata on existing edits
-   * to trigger VS Code's refactoring preview UI, and optionally runs AI analysis on the changes
-   * after user approval to help identify and fix potential errors.
+   * This method applies the workspace edit with confirmation metadata to ensure
+   * users must review and approve all changes before they are applied.
+   * Optionally runs AI analysis on the changes after user approval to help identify
+   * and fix potential errors.
    * 
    * @param workspaceEdit - The VS Code WorkspaceEdit containing all file changes to be applied
-   * @param changeObject - The primary change object being processed, used as an anchor for the preview
+   * @param changeObject - The primary change object being processed
    * @param allChanges - Optional array of all changes for automatic refactors with multiple operations
    * 
    * @returns A Promise that resolves when the approval process and any follow-up analysis is complete
    * 
    * @remarks
-   * - Annotates existing text edits with confirmation metadata to trigger VS Code's preview UI
-   * - Prefers to annotate edits on the anchor URI when available, otherwise uses the first available edit
+   * - Creates a new workspace edit with confirmation metadata to trigger VS Code's review UI
+   * - All text edits are marked as needing confirmation before application
    * - Includes file operations (deletions and renames) from the change payloads in the workspace edit
    * - After successful application, saves all documents and optionally runs AI analysis
    * - Uses a timeout to reset the `isApplyingEdit` flag to prevent race conditions
@@ -182,113 +183,78 @@ export class RefactorController {
     changeObject: ChangeObject,
     allChanges?: ChangeObject[] 
   ): Promise<void> {
-    const anchorUri = changeObject.uri;
-    const isDelete = changeObject.type.startsWith('DELETE_');
+    // Create a new workspace edit with confirmation metadata
+    const confirmedEdit = new vscode.WorkspaceEdit();
+    const metadata: vscode.WorkspaceEditEntryMetadata = {
+      needsConfirmation: true,
+      label: "Review Refactoring Changes",
+    };
 
-    let uriForDummyChange = anchorUri;
-
-    if (isDelete) {
-      const safeUriFromEdit = workspaceEdit.entries().find(([uri]) => uri.toString() !== anchorUri.toString())?.[0];
-      if (safeUriFromEdit) {
-        uriForDummyChange = safeUriFromEdit;
-      } else {
-        const safeDocument = vscode.workspace.textDocuments.find(
-          (doc) => !doc.isClosed && doc.uri.toString() !== anchorUri.toString()
-        );
-        if (safeDocument) {
-          uriForDummyChange = safeDocument.uri;
-        }
+    // Copy all text edits with confirmation metadata
+    for (const [uri, textEdits] of workspaceEdit.entries()) {
+      for (const edit of textEdits) {
+        confirmedEdit.replace(uri, edit.range, edit.newText, metadata);
       }
     }
 
-    let editToApply: vscode.WorkspaceEdit = workspaceEdit;
-    try {
-      const metadata: vscode.WorkspaceEditEntryMetadata = {
-        needsConfirmation: true,
-        label: "Review All Refactoring Changes",
-      };
-
-      const annotatedEdit = new vscode.WorkspaceEdit();
-      let isMetadataApplied = false;
-
-      for (const [uri, textEdits] of workspaceEdit.entries()) {
-        textEdits.forEach(te => {
-          if (!isMetadataApplied && uri.toString() === anchorUri.toString()) {
-            annotatedEdit.replace(uri, te.range, te.newText, metadata);
-            isMetadataApplied = true;
-          } else {
-            annotatedEdit.replace(uri, te.range, te.newText);
+    // Add file operations from change payloads to the workspace edit
+    const changesToProcess = allChanges || [changeObject];
+    for (const change of changesToProcess) {
+      if (change.type === 'DELETE_MODEL') {
+        const deletePayload = change.payload as DeleteModelPayload;
+        if (Array.isArray(deletePayload.urisToDelete)) {
+          for (const uri of deletePayload.urisToDelete) {
+            confirmedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
           }
-        });
+        }
       }
       
-        // We have to add the file renames and deletions from the original changes
-      const changesToProcess = allChanges || [changeObject];
-        for (const change of changesToProcess) {
-          const payload = change.payload as any;
-          if ('urisToDelete' in payload && Array.isArray(payload.urisToDelete)) {
-            for (const uri of payload.urisToDelete) {
-              const options = { recursive: true, ignoreIfNotExists: true };
-              if (!isMetadataApplied) {
-                annotatedEdit.deleteFile(uri, options, metadata);
-                isMetadataApplied = true;
-              } else {
-                annotatedEdit.deleteFile(uri, options);
-              }
-            }
-          }
-          if ('newUri' in payload && payload.newUri) {
-            if (!isMetadataApplied) {
-              annotatedEdit.renameFile(change.uri, payload.newUri, undefined, metadata);
-              isMetadataApplied = true;
-            } else {
-              annotatedEdit.renameFile(change.uri, payload.newUri);
-            }
-          }
+      if (change.type === 'RENAME_MODEL') {
+        const renamePayload = change.payload as RenameModelPayload;
+        if (renamePayload.newUri) {
+          confirmedEdit.renameFile(change.uri, renamePayload.newUri);
         }
-        
-        // If there are still no text or file edits to apply metadata to (an unlikely edge case),
-        // we add a dummy edit as a final fallback to ensure the UI appears.
-        if (!isMetadataApplied && changesToProcess.length > 0) {
-          annotatedEdit.insert(uriForDummyChange, new vscode.Position(0, 0), '', metadata);
-        }
-
-        editToApply = annotatedEdit;
-    } catch (e) {
-      console.error("Error while annotating workspace edits for review:", e);
-      editToApply = workspaceEdit; // Fallback to original edit
+      }
     }
 
     this.isApplyingEdit = true;
     try {
-      const success = await vscode.workspace.applyEdit(editToApply);
+      const success = await vscode.workspace.applyEdit(confirmedEdit);
       if (success) {
         await vscode.workspace.saveAll(false);
         const changesToProcess = allChanges || [changeObject];
+        // Check for compilation errors after applying changes
         const changesWithPrompts = changesToProcess.filter(change => {
           const tool = this.changeHandlerMap.get(change.type);
           return tool?.executePrompt;
         });
 
-        // Ask user if they want to execute prompts to analyze changes and fix errors
         if (changesWithPrompts.length > 0) {
-          const promptConfirmation = await vscode.window.showInformationMessage(
-            `Would you like to run AI analysis on the applied changes to help identify and fix potential errors?`,
-            { modal: false },
-            "Yes, Analyze Changes",
-            "No, Skip Analysis"
-          );
+          const modifiedUris = this.collectModifiedUris(workspaceEdit, changesToProcess);
 
-          if (promptConfirmation === "Yes, Analyze Changes") {
-            // Execute custom prompts for the changes
-            for (const change of changesWithPrompts) {
-              const tool = this.changeHandlerMap.get(change.type);
-              if (tool?.executePrompt) {
-                try {
-                  await tool.executePrompt(change);
-                } catch (error) {
-                  console.error(`Error executing prompt for change ${change.type}:`, error);
-                  vscode.window.showWarningMessage(`Failed to execute analysis for ${change.description}: ${error}`);
+          // this catches pre-existing and new errors added by the refactor
+          const hasErrors = await this.awaitAndCheckForErrors(modifiedUris);
+
+          // Only prompt for AI analysis if errors are detected
+          if (hasErrors) {
+            const promptConfirmation = await vscode.window.showWarningMessage(
+              `Compilation errors were detected after applying the refactoring changes. Would you like to run AI analysis to help identify and fix these errors?`,
+              { modal: false },
+              "Yes, Analyze Errors",
+              "No, Skip Analysis"
+            );
+
+            if (promptConfirmation === "Yes, Analyze Errors") {
+              // Execute custom prompts for the changes
+              for (const change of changesWithPrompts) {
+                const tool = this.changeHandlerMap.get(change.type);
+                if (tool?.executePrompt) {
+                  try {
+                    await tool.executePrompt(change);
+                  } catch (error) {
+                    console.error(`Error executing prompt for change ${change.type}:`, error);
+                    vscode.window.showWarningMessage(`Failed to execute analysis for ${change.description}: ${error}`);
+                  }
                 }
               }
             }
@@ -406,6 +372,102 @@ export class RefactorController {
     }
     return mergedEdit;
   }
+
+  /**
+   * Collects all file URIs that were modified during the refactoring operation.
+   * 
+   * This method gathers URIs from both the workspace edit entries and the change objects
+   * to create a comprehensive list of files that should be checked for compilation errors.
+   * 
+   * @param workspaceEdit - The workspace edit containing text modifications
+   * @param changes - Array of change objects that triggered the refactoring
+   * @returns A Set of unique URIs representing all modified files
+   */
+  private collectModifiedUris(workspaceEdit: vscode.WorkspaceEdit, changes: ChangeObject[]): Set<vscode.Uri> {
+    const modifiedUris = new Set<vscode.Uri>();
+    for (const [uri] of workspaceEdit.entries()) {
+      modifiedUris.add(uri);
+    }
+    for (const change of changes) {
+      modifiedUris.add(change.uri);
+    }
+
+    return modifiedUris;
+  }
+
+  /**
+   * Checks for compilation errors in the specified files.
+   * 
+   * This method uses VS Code's diagnostic API to detect compilation errors
+   * in the provided file URIs. It's useful for determining whether a refactoring
+   * operation has introduced any syntax or type errors that need attention.
+   * 
+   * @param uris - Set of file URIs to check for compilation errors
+   * @returns A Promise that resolves to true if any compilation errors are found, false otherwise
+   * 
+   * @remarks
+   * - Only checks for diagnostics with Error severity level
+   * - Gracefully handles cases where diagnostics cannot be retrieved for a file
+   * - Returns false if all files are error-free or if no diagnostics can be obtained
+   */
+  private async checkForCompilationErrors(uris: Set<vscode.Uri>): Promise<boolean> {
+    for (const uri of uris) {
+      try {
+        const diagnostics = vscode.languages.getDiagnostics(uri);
+        const errors = diagnostics.filter(d => d.severity === vscode.DiagnosticSeverity.Error);
+        if (errors.length > 0) {
+          return true;
+        }
+      } catch (error) {
+        // If we can't get diagnostics, we'll skip the error check for this file
+        console.warn(`Could not get diagnostics for ${uri.fsPath}:`, error);
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Awaits changes in diagnostics for the specified file URIs and checks for errors.
+   * @param uris Set of file URIs to monitor for diagnostic changes
+   * @returns A Promise that resolves to true if any errors are found, false otherwise
+   */
+  private async awaitAndCheckForErrors(uris: Set<vscode.Uri>): Promise<boolean> {
+    return new Promise((resolve) => {
+      const targetUris = Array.from(uris).map(uri => uri.toString());
+      let timeout: NodeJS.Timeout | undefined;
+
+      const disposable = vscode.languages.onDidChangeDiagnostics(e => {
+          // Check if any of the updated files are the ones we're watching.
+          const changedUris = e.uris.map(uri => uri.toString());
+          const hasRelevantChange = changedUris.some(uri => targetUris.includes(uri));
+
+          if (hasRelevantChange) {
+              disposable.dispose();
+              if (timeout) clearTimeout(timeout);
+
+              this.checkForCompilationErrors(uris).then(hasErrors => {
+                  resolve(hasErrors);
+              });
+          }
+      });
+
+      // Set a timeout as a safeguard.
+      timeout = setTimeout(() => {
+          disposable.dispose();
+          console.warn("Timeout waiting for diagnostics to update.");
+          resolve(false); 
+      }, 5000);
+
+      // Initial check
+      this.checkForCompilationErrors(uris).then(hasErrors => {
+          if (hasErrors) {
+              disposable.dispose();
+              if (timeout) clearTimeout(timeout);
+              resolve(true);
+          }
+      });
+  });
+}
 
   /**
    * Retrieves the list of available refactor tools.
