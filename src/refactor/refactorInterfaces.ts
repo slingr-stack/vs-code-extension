@@ -67,6 +67,16 @@ export interface DeleteDataSourcePayload extends BasePayload {
     urisToDelete: vscode.Uri[];
 }
 
+export interface ChangeFieldToArrayPayload extends BasePayload {
+    field: PropertyMetadata;
+    modelName: string;
+}
+
+export interface ChangeFieldToSingleValuePayload extends BasePayload {
+    field: PropertyMetadata;
+    modelName: string;
+}
+
 // --- Discriminated Union for ChangeObject ---
 
 /**
@@ -82,6 +92,8 @@ export type ChangePayloadMap = {
     'ADD_DECORATOR': AddDecoratorPayload;
     'RENAME_DATA_SOURCE': RenameDataSourcePayload;
     'DELETE_DATA_SOURCE': DeleteDataSourcePayload;
+    'CHANGE_FIELD_TO_ARRAY': ChangeFieldToArrayPayload;
+    'CHANGE_FIELD_TO_SINGLE_VALUE': ChangeFieldToSingleValuePayload;
 };
 
 /**

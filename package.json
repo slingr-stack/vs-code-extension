@@ -53,6 +53,14 @@
         "title": "Change type"
       },
       {
+        "command": "slingr-vscode-extension.changeFieldToArray",
+        "title": "Change to array"
+      },
+      {
+        "command": "slingr-vscode-extension.changeFieldToSingleValue",
+        "title": "Change to single value"
+      },
+      {
         "command": "slingr.runInfraUpdate",
         "title": "Run infrastructure update"
       },
@@ -196,9 +204,19 @@
           "group": "0_modification@2"
         },
         {
-          "command": "slingr-vscode-extension.deleteField",
+          "command": "slingr-vscode-extension.changeFieldToArray",
           "when": "view == slingrExplorer && viewItem == 'field'",
           "group": "0_modification@3"
+        },
+        {
+          "command": "slingr-vscode-extension.changeFieldToSingleValue",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "0_modification@4"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteField",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "0_modification@5"
         },
         {
           "command": "slingr-vscode-extension.newFolder",
@@ -310,6 +328,16 @@
           "group": "1_modification@5"
         },
         {
+          "command": "slingr-vscode-extension.changeFieldToArray",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "1_modification@6"
+        },
+        {
+          "command": "slingr-vscode-extension.changeFieldToSingleValue",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "1_modification@7"
+        },
+        {
           "command": "slingr-vscode-extension.deleteField",
           "when": "view == slingrExplorer && viewItem == 'field'",
           "group": "2_modification@3"
@@ -330,7 +358,7 @@
         {
           "id": "slingrExplorer",
           "name": "Slingr Explorer",
-          "icon": "resources/slingr-icon.jpg" 
+          "icon": "resources/slingr-icon.jpg"
         },
         {
           "id": "slingrQuickInfo",

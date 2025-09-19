@@ -15,6 +15,8 @@ import { PropertyMetadata } from '../cache/cache';
 import { fieldTypeConfig } from '../utils/fieldTypes';
 import { RenameDataSourceTool } from './tools/renameDataSource';
 import { DeleteDataSourceTool } from './tools/deleteDataSource';
+import { ChangeFieldToArrayTool } from './tools/changeFieldToArray';
+import { ChangeFieldToSingleValueTool } from './tools/changeFieldToSingleValue';
 
 /**
  * Returns an array of all available refactor tools for the application.
@@ -38,6 +40,8 @@ export function getAllRefactorTools(): IRefactorTool[] {
         new RenameFieldTool(),
         new DeleteFieldTool(),
         new ChangeFieldTypeTool(),
+        new ChangeFieldToArrayTool(),
+        new ChangeFieldToSingleValueTool(),
         new AddDecoratorTool(),
         new RenameDataSourceTool(),
         new DeleteDataSourceTool(),
