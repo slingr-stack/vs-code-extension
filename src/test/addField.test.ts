@@ -14,6 +14,7 @@ if (typeof suite !== 'undefined') {
         let testModelFile: string;
         let mockCache: MetadataCache;
         let addFieldTool: AddFieldTool;
+        const modelName = 'TestModel';
 
         setup(async () => {
             // Create a temporary workspace directory for testing
@@ -68,7 +69,16 @@ export class TestModel extends BaseModel {
                     {
                         name: 'TestModel',
                         decorators: [{ name: 'Model', arguments: [] }],
-                        properties: {},
+                        properties: {
+                            existingField: {
+                                name: 'existingField',
+                                type: 'string',
+                                decorators: [
+                                    { name: 'Field', arguments: [] },
+                                    { name: 'Text', arguments: [] }
+                                ]
+                            }
+                        },
                         declaration: { uri: vscode.Uri.file(testModelFile) }
                     },
                     {
@@ -77,7 +87,35 @@ export class TestModel extends BaseModel {
                         properties: {},
                         declaration: { uri: vscode.Uri.file(path.join(testDataDir, 'relatedModel.ts')) }
                     }
-                ]
+                ],
+                getModelByName: (name: string) => {
+                    if (name === 'TestModel') {
+                        return {
+                            name: 'TestModel',
+                            decorators: [{ name: 'Model', arguments: [] }],
+                            properties: {
+                                existingField: {
+                                    name: 'existingField',
+                                    type: 'string',
+                                    decorators: [
+                                        { name: 'Field', arguments: [] },
+                                        { name: 'Text', arguments: [] }
+                                    ]
+                                }
+                            },
+                            declaration: { uri: vscode.Uri.file(testModelFile) }
+                        };
+                    }
+                    if (name === 'RelatedModel') {
+                        return {
+                            name: 'RelatedModel',
+                            decorators: [{ name: 'Model', arguments: [] }],
+                            properties: {},
+                            declaration: { uri: vscode.Uri.file(path.join(testDataDir, 'relatedModel.ts')) }
+                        };
+                    }
+                    return null;
+                }
             } as any;
             
             addFieldTool = new AddFieldTool();
@@ -163,7 +201,7 @@ export class TestModel extends BaseModel {
 
                 // Test field creation
                 const modelUri = vscode.Uri.file(testModelFile);
-                await addFieldTool.addField(modelUri, mockCache);
+                await addFieldTool.addField(modelUri,modelName, mockCache);
                 
                 // Verify the mock functions were called
                 assert.ok(inputCallCount >= 1, 'Input box should be called for field name');
@@ -229,7 +267,7 @@ export class TestModel extends BaseModel {
                 };
 
                 const modelUri = vscode.Uri.file(testModelFile);
-                await addFieldTool.addField(modelUri, mockCache);
+                await addFieldTool.addField(modelUri,modelName, mockCache);
                 
                 // Verify relationship-specific interactions
                 const relationshipTypeCall = quickPickCalls.find(call => 
@@ -297,7 +335,7 @@ export class TestModel extends BaseModel {
                 };
 
                 const modelUri = vscode.Uri.file(testModelFile);
-                await addFieldTool.addField(modelUri, mockCache);
+                await addFieldTool.addField(modelUri,modelName, mockCache);
                 
                 // Verify enum values were requested
                 const enumValuesCall = inputBoxCalls.find(call => 
@@ -364,7 +402,7 @@ export class TestModel extends BaseModel {
                 (addFieldTool as any).defineFieldsTool = mockDefineFieldsTool;
 
                 const modelUri = vscode.Uri.file(testModelFile);
-                await addFieldTool.addField(modelUri, mockCache);
+                await addFieldTool.addField(modelUri,modelName, mockCache);
                 
                 // Verify AI prompt was created correctly
                 assert.ok(capturedPrompt, 'AI enhancement prompt should be created');
@@ -393,7 +431,7 @@ export class TestModel extends BaseModel {
                 const invalidUri = vscode.Uri.file(path.join(testWorkspaceDir, 'invalid.txt'));
                 fs.writeFileSync(invalidUri.fsPath, 'not a typescript file');
                 
-                await addFieldTool.addField(invalidUri, mockCache);
+                await addFieldTool.addField(invalidUri,modelName, mockCache);
                 
                 assert.ok(errorMessages.length > 0, 'Should show error message for invalid file');
                 assert.ok(errorMessages.some(msg => msg.includes('Failed to add field')), 'Should show appropriate error message');
@@ -428,7 +466,7 @@ export class TestModel extends BaseModel {
                 
                 // Should handle cancellation gracefully without throwing errors
                 await assert.doesNotReject(async () => {
-                    await addFieldTool.addField(modelUri, mockCache);
+                    await addFieldTool.addField(modelUri,modelName, mockCache);
                 }, 'Should handle user cancellation gracefully');
                 
             } finally {
@@ -438,6 +476,122 @@ export class TestModel extends BaseModel {
                 });
                 vscode.window.showInputBox = originalShowInputBox;
                 vscode.window.showQuickPick = originalShowQuickPick;
+            }
+        });
+
+        test('should create WorkspaceEdit for Text field addition without applying', async () => {
+            const fieldInfo = {
+                name: 'newTextField',
+                type: FIELD_TYPE_OPTIONS.find(t => t.decorator === 'Text')!,
+                required: true
+            };
+
+            const targetUri = vscode.Uri.file(testModelFile);
+            const edit = await addFieldTool.createAddFieldWorkspaceEdit(targetUri, fieldInfo, modelName, mockCache);
+
+            // Verify the edit contains the expected changes
+            assert.ok(edit, 'WorkspaceEdit should be created');
+            
+            const fileEdits = edit.get(targetUri);
+            assert.ok(fileEdits && fileEdits.length > 0, 'WorkspaceEdit should contain file edits');
+
+            // Convert edits to string to verify content
+            const originalContent = fs.readFileSync(testModelFile, 'utf8');
+            let modifiedContent = originalContent;
+            
+            // Apply edits manually to verify content
+            const sortedEdits = fileEdits.sort((a, b) => a.range.start.line - b.range.start.line || a.range.start.character - b.range.start.character);
+            for (let i = sortedEdits.length - 1; i >= 0; i--) {
+                const edit = sortedEdits[i];
+                const lines = modifiedContent.split('\n');
+                
+                if (edit.range.isEmpty) {
+                    // Insert operation
+                    lines.splice(edit.range.start.line, 0, edit.newText);
+                } else {
+                    // Replace operation
+                    lines.splice(edit.range.start.line, edit.range.end.line - edit.range.start.line + 1, edit.newText);
+                }
+                
+                modifiedContent = lines.join('\n');
+            }
+
+            // Verify the field was added
+            assert.ok(modifiedContent.includes('newTextField'), 'Field name should be in the modified content');
+            assert.ok(modifiedContent.includes('@Field({'), 'Field decorator should be present');
+            assert.ok(modifiedContent.includes('required: true'), 'Required property should be set');
+            assert.ok(modifiedContent.includes('@Text()'), 'Text decorator should be present');
+
+            // Verify original file is unchanged (since we didn't apply the edit)
+            const currentContent = fs.readFileSync(testModelFile, 'utf8');
+            assert.strictEqual(currentContent, originalContent, 'Original file should remain unchanged');
+        });
+
+        test('should create WorkspaceEdit for Choice field with enum', async () => {
+            const fieldInfo = {
+                name: 'statusField',
+                type: FIELD_TYPE_OPTIONS.find(t => t.decorator === 'Choice')!,
+                required: false
+            };
+
+            const enumValues = ['Active', 'Inactive', 'Pending'];
+            const targetUri = vscode.Uri.file(testModelFile);
+            const edit = await addFieldTool.createAddFieldWorkspaceEdit(targetUri, fieldInfo, modelName, mockCache, enumValues);
+
+            // Verify the edit contains the expected changes
+            assert.ok(edit, 'WorkspaceEdit should be created');
+            
+            const fileEdits = edit.get(targetUri);
+            assert.ok(fileEdits && fileEdits.length > 0, 'WorkspaceEdit should contain file edits');
+
+            // Apply edits manually to verify content
+            const originalContent = fs.readFileSync(testModelFile, 'utf8');
+            let modifiedContent = originalContent;
+            
+            const sortedEdits = fileEdits.sort((a, b) => a.range.start.line - b.range.start.line || a.range.start.character - b.range.start.character);
+            for (let i = sortedEdits.length - 1; i >= 0; i--) {
+                const edit = sortedEdits[i];
+                const lines = modifiedContent.split('\n');
+                
+                if (edit.range.isEmpty) {
+                    lines.splice(edit.range.start.line, 0, edit.newText);
+                } else {
+                    lines.splice(edit.range.start.line, edit.range.end.line - edit.range.start.line + 1, edit.newText);
+                }
+                
+                modifiedContent = lines.join('\n');
+            }
+
+            // Verify the field was added
+            assert.ok(modifiedContent.includes('statusField'), 'Field name should be in the modified content');
+            assert.ok(modifiedContent.includes('@Choice()'), 'Choice decorator should be present');
+            
+            // Verify enum was created - statusField should generate StatusField enum name
+            assert.ok(modifiedContent.includes('export enum StatusField {'), 'Enum should be created');
+            assert.ok(modifiedContent.includes("Active = 'active'"), 'Enum values should be present');
+            assert.ok(modifiedContent.includes("Inactive = 'inactive'"), 'Enum values should be present');
+            assert.ok(modifiedContent.includes("Pending = 'pending'"), 'Enum values should be present');
+
+            // Verify original file is unchanged
+            const currentContent = fs.readFileSync(testModelFile, 'utf8');
+            assert.strictEqual(currentContent, originalContent, 'Original file should remain unchanged');
+        });
+
+        test('should throw error when field already exists', async () => {
+            const fieldInfo = {
+                name: 'existingField', // This field already exists in the test model
+                type: FIELD_TYPE_OPTIONS.find(t => t.decorator === 'Text')!,
+                required: false
+            };
+
+            const targetUri = vscode.Uri.file(testModelFile);
+            
+            try {
+                await addFieldTool.createAddFieldWorkspaceEdit(targetUri, fieldInfo, modelName, mockCache);
+                assert.fail('Should have thrown an error for existing field');
+            } catch (error) {
+                assert.ok(error instanceof Error, 'Should throw an Error');
+                assert.ok(error.message.includes('already exists'), 'Error message should mention field already exists');
             }
         });
     });

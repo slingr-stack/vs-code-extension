@@ -20,6 +20,7 @@ import { ExtractFieldsToCompositionTool } from './fields/extractFieldsToComposit
 import { ExtractFieldsToReferenceTool } from './fields/extractFieldsToReference';
 import { ExtractFieldsToEmbeddedTool } from './fields/extractFieldsToEmbedded';
 import { ExtractFieldsToParentTool } from './fields/extractFieldsToParent';
+import { NewDataSourceTool } from './newDataSource';
 
 export function registerGeneralCommands(
     context: vscode.ExtensionContext, 
@@ -193,6 +194,13 @@ export function registerGeneralCommands(
         return modifyModelTool.modifyModel(cache);
     });
     disposables.push(modifyModelCommand);
+    
+    // New Data Source Tool
+    const newDataSourceTool = new NewDataSourceTool();
+    const newDataSourceCommand = vscode.commands.registerCommand('slingr-vscode-extension.newDataSource', () => {
+        return newDataSourceTool.createNewDataSource();
+    });
+    disposables.push(newDataSourceCommand);
 
     return disposables;
 }

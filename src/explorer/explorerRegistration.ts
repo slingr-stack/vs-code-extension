@@ -43,7 +43,7 @@ export function registerExplorer(
                 lastClickedItemKey = undefined;
             } else {
                 // Single-click: just update info panel
-                quickInfoProvider.update(item.itemType, item.metadata);
+                quickInfoProvider.update(item.itemType, item.metadata as any);
                 
                 // Update tracking for potential double-click
                 lastClickTime = currentTime;

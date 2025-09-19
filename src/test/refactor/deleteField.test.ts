@@ -178,8 +178,8 @@ if (typeof suite !== 'undefined') {
                 
                 assert.ok(nameChange);
                 assert.ok(ageChange);
-                const namePayload = nameChange?.payload as DeleteFieldPayload;
-                const agePayload = ageChange?.payload as DeleteFieldPayload;
+                const namePayload: DeleteFieldPayload = nameChange?.payload as DeleteFieldPayload;
+                const agePayload: DeleteFieldPayload = ageChange?.payload as DeleteFieldPayload;
                 assert.strictEqual(namePayload.modelName, 'User');
                 assert.strictEqual(agePayload.modelName, 'User');
             });
@@ -342,7 +342,7 @@ if (typeof suite !== 'undefined') {
                         oldFieldMetadata: field,
                         modelName: 'User',
                         isManual: true
-                    } as DeleteFieldPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -361,8 +361,9 @@ if (typeof suite !== 'undefined') {
                     description: 'Delete relationship field order from User model',
                     payload: {
                         oldFieldMetadata: relationshipField,
-                        modelName: 'User'
-                    } as DeleteFieldPayload
+                        modelName: 'User',
+                        isManual: true
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -384,8 +385,9 @@ if (typeof suite !== 'undefined') {
                     description: 'Delete field name from User model',
                     payload: {
                         oldFieldMetadata: field,
-                        modelName: 'User'
-                    } as DeleteFieldPayload
+                        modelName: 'User',
+                        isManual: true
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -421,8 +423,9 @@ if (typeof suite !== 'undefined') {
                     description: 'Delete field name from User model',
                     payload: {
                         oldFieldMetadata: field,
-                        modelName: 'User'
-                    } as DeleteFieldPayload
+                        modelName: 'User',
+                        isManual: true
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -463,8 +466,9 @@ if (typeof suite !== 'undefined') {
                     description: 'Delete relationship field orders from User model',
                     payload: {
                         oldFieldMetadata: relationshipField,
-                        modelName: 'User'
-                    } as DeleteFieldPayload
+                        modelName: 'User',
+                        isManual: true
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);

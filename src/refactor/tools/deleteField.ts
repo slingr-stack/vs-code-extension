@@ -79,13 +79,13 @@ export class DeleteFieldTool implements IRefactorTool {
 
         for (const change of accumulatedChanges) {
             if (change.type === 'RENAME_MODEL') {
-                const payload = change.payload as RenameModelPayload;
+                const payload = change.payload;
                 if (payload.oldName && payload.newName) {
                     classRenames.set(payload.oldName, payload.newName);
                 }
             }
             if (change.type === 'RENAME_FIELD') {
-                const payload = change.payload as RenameFieldPayload;
+                const payload = change.payload;
                 if (payload.oldName && payload.modelName) {
                     const oldClassName = payload.modelName;
                     if (!renamedFieldsByClass.has(oldClassName)) {
@@ -168,7 +168,15 @@ export class DeleteFieldTool implements IRefactorTool {
             return undefined;
         }
 
-        const field = context.metadata as PropertyMetadata;
+        const field: PropertyMetadata = context.metadata;
+        const confirmation = await vscode.window.showWarningMessage(
+              `Are you sure you want to delete the Field '${field.name}' and all its references? This action cannot be undone.`,
+              "Yes, Delete All"
+            );
+        
+            if (confirmation !== "Yes, Delete All") {
+              return undefined;
+            }
             
         // Find the model name by getting the file metadata and looking for the class containing this field
         const fileMetadata = context.cache.getMetadataForFile(context.uri.fsPath);
@@ -209,16 +217,16 @@ export class DeleteFieldTool implements IRefactorTool {
      * @param cache The metadata cache (not used in this method).
      * @returns A promise that resolves to a `WorkspaceEdit` with all necessary changes.
      */
-    public async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
+    public async prepareEdit(change: ChangeObject, cache: MetadataCache, edit?:vscode.WorkspaceEdit): Promise<vscode.WorkspaceEdit> {
         // Type guard to ensure we're working with the correct payload type
         if (change.type !== 'DELETE_FIELD') {
             throw new Error(`DeleteFieldTool can only handle DELETE_FIELD changes, received: ${change.type}`);
         }
         
-        const payload = change.payload as DeleteFieldPayload;
+        const payload = change.payload;
         const { oldFieldMetadata, isManual } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
-        const field = oldFieldMetadata as PropertyMetadata;
+        const field: PropertyMetadata = oldFieldMetadata;
 
         if (!field?.declaration?.range) {
             throw new Error(`Cannot delete field '${field.name}'; metadata is incomplete.`);
@@ -237,6 +245,7 @@ export class DeleteFieldTool implements IRefactorTool {
                 }
                 
                 workspaceEdit.replace(ref.uri, ref.range, '/* DELETED_FIELD_REFERENCE */');
+                edit?.replace(ref.uri, ref.range, '/* DELETED_FIELD_REFERENCE */');
             }
         }
 
@@ -255,6 +264,7 @@ export class DeleteFieldTool implements IRefactorTool {
             const fullRangeToDelete = new vscode.Range(startPosition, endLine.rangeIncludingLineBreak.end);
 
             workspaceEdit.delete(field.declaration.uri, fullRangeToDelete);
+            edit?.delete(field.declaration.uri, fullRangeToDelete);
         }
 
         return workspaceEdit;
@@ -299,7 +309,8 @@ export class DeleteFieldTool implements IRefactorTool {
     public async deleteFieldProgrammatically(
         fieldMetadata: PropertyMetadata,
         modelName: string,
-        cache: MetadataCache
+        cache: MetadataCache,
+        edit?: vscode.WorkspaceEdit
     ): Promise<vscode.WorkspaceEdit> {
         const payload: DeleteFieldPayload = {
             oldFieldMetadata: fieldMetadata,
@@ -314,7 +325,7 @@ export class DeleteFieldTool implements IRefactorTool {
             payload
         };
 
-        return await this.prepareEdit(change, cache);
+        return await this.prepareEdit(change, cache, edit);
     }
 
     /**
@@ -337,8 +348,8 @@ export class DeleteFieldTool implements IRefactorTool {
             console.error(`DeleteFieldTool can only execute prompts for DELETE_FIELD changes, received: ${change.type}`);
             return;
         }
-        
-        const payload = change.payload as DeleteFieldPayload;
+
+        const payload = change.payload;
         const { modelName, oldFieldMetadata } = payload;
         const fieldName = oldFieldMetadata?.name || 'unknown';
         const fieldType = oldFieldMetadata?.type || 'unknown';

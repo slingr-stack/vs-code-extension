@@ -155,7 +155,7 @@ export class DeleteModelTool implements IRefactorTool {
       vscode.window.showErrorMessage("Could not find a valid model to delete.");
       return undefined;
     }
-    const model = context.metadata as DecoratedClass;
+    const model: DecoratedClass = context.metadata;
     
     // Check if there are multiple models in the same file
     const fileMeta = context.cache.getMetadataForFile(context.uri.fsPath);
@@ -213,7 +213,7 @@ export class DeleteModelTool implements IRefactorTool {
       throw new Error(`DeleteModelTool can only handle DELETE_MODEL changes, received: ${change.type}`);
     }
     
-    const payload = change.payload as DeleteModelPayload;
+    const payload = change.payload;
     const { oldModelMetadata } = payload;
     const workspaceEdit = new vscode.WorkspaceEdit();
     const urisToDelete: vscode.Uri[] = payload.urisToDelete || [];
@@ -590,7 +590,7 @@ I have deleted the model **\`${modelName}\`**.${decoratorInfo}${referenceInfo}${
 Please analyze each broken reference systematically and provide clear, implementable solutions.`;
     
     try {
-      await vscode.commands.executeCommand('workbench.action.chat.open', prompt );
+      await vscode.commands.executeCommand('workbench.action.chat.open', prompt);
     } catch (error) {
       console.error('Failed to open chat with custom prompt:', error);
     }

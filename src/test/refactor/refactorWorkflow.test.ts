@@ -705,10 +705,11 @@ if (typeof suite !== 'undefined') {
                         uri: modelUri,
                         description: `Rename Model${i} to NewModel${i}`,
                         payload: {
-                            oldModelMetadata: model,
+                            oldName: `Model${i}`,
                             newName: `NewModel${i}`,
+                            oldModelMetadata: model,
                             isManual: false
-                        } as RenameModelPayload
+                        }
                     });
                 }
                 

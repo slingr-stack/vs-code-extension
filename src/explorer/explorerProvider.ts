@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { Project } from "ts-morph";
-import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata } from "../cache/cache";
+import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata, DataSourceMetadata, CacheUpdateEvent } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
 import * as fs from "fs";
 import * as path from "path";
@@ -29,7 +29,7 @@ export class ExplorerProvider
 
   constructor(private cache: MetadataCache, private extensionUri: vscode.Uri) {
     // --- Listen for the cache's update event ---
-    this.cache.onDidUpdate(() => {
+    this.cache.onDidUpdate((event: CacheUpdateEvent) => {
       this.refresh();
     });
   }
@@ -610,9 +610,11 @@ export class ExplorerProvider
    */
   async getChildren(element?: AppTreeItem): Promise<AppTreeItem[]> {
     if (!element) {
-      // Root level: Data
-      return [new AppTreeItem("Data", vscode.TreeItemCollapsibleState.Expanded, "dataRoot", this.extensionUri)];
-      new AppTreeItem("Data Sources", vscode.TreeItemCollapsibleState.Collapsed, "dataSourcesRoot", this.extensionUri);
+      // Root level: Data and Data Sources
+      return [
+          new AppTreeItem("Data", vscode.TreeItemCollapsibleState.Expanded, "dataRoot", this.extensionUri),
+          new AppTreeItem("Data Sources", vscode.TreeItemCollapsibleState.Collapsed, "dataSourcesRoot", this.extensionUri)
+      ];
     }
 
     // --- DATA ROOT ---
@@ -840,9 +842,9 @@ export class ExplorerProvider
           hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
           "folder",
           this.extensionUri,
-          undefined, // No metadata for folders
-          undefined, // No parent for now
-          folderPath // Store folder path in folderPath property
+          undefined, 
+          undefined, 
+          folderPath 
         )
       );
     }

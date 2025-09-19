@@ -73,13 +73,13 @@ export class RenameFieldTool implements IRefactorTool {
         const deletedFieldsByClass = new Map<string, Set<string>>();
         for (const change of accumulatedChanges) {
             if (change.type === 'RENAME_MODEL') {
-                const payload = change.payload as RenameModelPayload;
+                const payload = change.payload;
                 if (payload.oldName && payload.newName) {
                     classRenames.set(payload.oldName, payload.newName);
                 }
             }
             if (change.type === 'DELETE_FIELD') {
-                const payload = change.payload as DeleteFieldPayload;
+                const payload = change.payload;
                 if (payload.modelName && payload.oldFieldMetadata) {
                     const modelName = payload.modelName;
                     const fieldName = payload.oldFieldMetadata.name;
@@ -149,7 +149,7 @@ export class RenameFieldTool implements IRefactorTool {
             return undefined;
         }
 
-        const field = context.metadata as PropertyMetadata;
+        const field: PropertyMetadata = context.metadata;
 
         const newName = await vscode.window.showInputBox({
             prompt: `Rename field '${field.name}'`,
@@ -213,7 +213,7 @@ export class RenameFieldTool implements IRefactorTool {
             throw new Error(`RenameFieldTool can only handle RENAME_FIELD changes, received: ${change.type}`);
         }
         
-        const payload = change.payload as RenameFieldPayload;
+        const payload = change.payload;
         const { newName, oldFieldMetadata } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
         const references = (oldFieldMetadata.references as vscode.Location[]) || [];

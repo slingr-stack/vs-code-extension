@@ -14,6 +14,7 @@ import { DeleteFieldTool } from "../../refactor/tools/deleteField";
 import { FieldInfo, FIELD_TYPE_OPTIONS } from "../interfaces";
 import { TreeViewContext } from "../commandHelpers";
 import { isModelFile } from "../../utils/metadata";
+import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 
 /**
  * Refactor tool for extracting multiple fields from a model to a new composition model.
@@ -592,8 +593,8 @@ export class ExtractFieldsToCompositionTool implements IRefactorTool {
     // Find class boundaries and add field
     const lines = document.getText().split("\n");
     const { classEndLine } = this.sourceCodeService.findClassBoundaries(lines, outerModelName);
-    const indentation = this.detectIndentation(lines, 0, lines.length);
-    const indentedFieldCode = this.applyIndentation(fieldCode, indentation);
+    const indentation = detectIndentation(lines, 0, lines.length);
+    const indentedFieldCode = applyIndentation(fieldCode, indentation);
 
     edit.insert(document.uri, new vscode.Position(classEndLine, 0), `\n${indentedFieldCode}\n`);
   }
@@ -621,30 +622,6 @@ export class ExtractFieldsToCompositionTool implements IRefactorTool {
     lines.push(`${fieldInfo.name}!: ${typeAnnotation};`);
 
     return lines.join("\n");
-  }
-
-  /**
-   * Simple indentation detection (copied from utils).
-   */
-  private detectIndentation(lines: string[], startLine: number, endLine: number): string {
-    for (let i = startLine; i < Math.min(lines.length, endLine); i++) {
-      const line = lines[i];
-      const match = line.match(/^(\s+)/);
-      if (match) {
-        return match[1];
-      }
-    }
-    return "\t"; // Default to tab
-  }
-
-  /**
-   * Apply indentation to code (copied from utils).
-   */
-  private applyIndentation(code: string, indentation: string): string {
-    return code
-      .split("\n")
-      .map((line) => (line.trim() ? `${indentation}${line}` : line))
-      .join("\n");
   }
 
   /**

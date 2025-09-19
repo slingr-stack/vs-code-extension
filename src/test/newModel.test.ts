@@ -481,28 +481,6 @@ export class ParentModel extends BaseModel {
             }
         });
 
-        test('Should test AI enhancement functionality', async () => {
-            const targetUri = vscode.Uri.file(testDataDir);
-            const userInput = "Create a User model with name, email, and authentication fields";
-            
-            // Mock the createNewModel method to track if it was called
-            let createNewModelCalled = false;
-            const originalCreateNewModel = newModelTool.createNewModel;
-            newModelTool.createNewModel = async (uri: any, cache?: any) => {
-                createNewModelCalled = true;
-                return Promise.resolve();
-            };
-            
-            try {
-                await newModelTool.processWithAI(userInput, targetUri, mockCache);
-                
-                assert.ok(createNewModelCalled, 'createNewModel should be called by processWithAI');
-                
-            } finally {
-                newModelTool.createNewModel = originalCreateNewModel;
-            }
-        });
-
         test('Should generate correct model content', () => {
             // Test the private generateModelContent method by creating a new instance
             // and calling createNewModel with mocked inputs

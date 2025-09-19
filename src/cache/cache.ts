@@ -8,6 +8,21 @@ import * as crypto from 'crypto';
 // Represents the type of changes that can occur to a file
 type FileChangeType = 'create' | 'change' | 'delete';
 
+export type InfrastructureEventStatus  = 'change-detected' | 'update-success' | 'update-failure';
+
+export type CacheFileUpdateType = 'dataSource' | 'dataModel' | 'fullRefresh' | 'unknown';
+
+export interface CacheUpdateEvent {
+    type: CacheFileUpdateType;
+    uri?: vscode.Uri; // The URI of the changed file. Undefined for a full refresh.
+}
+
+export interface InfrastructureStatusChangeEvent {
+    status: InfrastructureEventStatus ;
+    uri: vscode.Uri;
+    error?: string; // Optional: only used for 'update-failure'
+}
+
 /**
  * The main cache structure to hold all the metadata of the project.
  * It's a map where the key is the file path.
@@ -43,8 +58,10 @@ export interface DecoratedClass {
  */
 export interface DataSourceMetadata {
     name: string;
-    type: string; // e.g., 'TypeOrmSqlDataSource'
+    type: string; // e.g., 'TypeORMSqlDataSource'
     declaration: vscode.Location;
+    references: vscode.Location[];
+    options: { [key: string]: any };
 }
 
 /**
@@ -91,8 +108,8 @@ export interface MethodMetadata {
  * It is designed to be generic, efficient, and resilient to file system changes.
  */
 export class MetadataCache {
-    private _onDidUpdate: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-    public readonly onDidUpdate: vscode.Event<void> = this._onDidUpdate.event;
+    private _onDidUpdate: vscode.EventEmitter<CacheUpdateEvent> = new vscode.EventEmitter<CacheUpdateEvent>();
+    public readonly onDidUpdate: vscode.Event<CacheUpdateEvent> = this._onDidUpdate.event;
     private tsMorphProject: Project;
     private cache: ProjectMetadataCache = {};
     private fileWatcher: vscode.FileSystemWatcher | null = null;
@@ -102,8 +119,8 @@ export class MetadataCache {
     private refactorController: RefactorController | null = null;
     private automaticRefactorsEnabled: boolean = true;
     private dataSourceHashes: Map<string, string> = new Map();
-    private _onInfrastructureChange: vscode.EventEmitter<vscode.Uri> = new vscode.EventEmitter<vscode.Uri>();
-    public readonly onInfrastructureChange: vscode.Event<vscode.Uri> = this._onInfrastructureChange.event;
+    private _onInfrastructureStatusChange: vscode.EventEmitter<InfrastructureStatusChangeEvent> = new vscode.EventEmitter<InfrastructureStatusChangeEvent>();
+    public readonly onInfrastructureStatusChange: vscode.Event<InfrastructureStatusChangeEvent> = this._onInfrastructureStatusChange.event;
     public isInfrastructureUpdateNeeded: boolean = false;
     private outOfSyncDataSources: Set<string> = new Set();
 
@@ -153,6 +170,20 @@ export class MetadataCache {
     }
 
     /**
+     * Gets all SQL data sources from the cache.
+     * @returns An array of SQL data source metadata.
+     */
+    public getSqlDataSources(): DataSourceMetadata[] {
+        return this.getDataSources().filter(
+            ds => ds.type === 'TypeORMSqlDataSource'
+        );
+    }
+
+    public notifyInfrastructureStatus(event: InfrastructureStatusChangeEvent): void {
+        this._onInfrastructureStatusChange.fire(event);
+    }
+
+    /**
      * Sets up file system watchers to detect changes, creations, and deletions
      * of TypeScript files and folder structure changes in src/data.
      */
@@ -182,6 +213,7 @@ export class MetadataCache {
         if (uri.path.includes('/node_modules/')) {
             return;
         }
+
         this.fileChangeQueue.push({ uri, type });
         await this.processQueue(); 
     }
@@ -229,7 +261,7 @@ export class MetadataCache {
             // Rebuild all references
             this.buildAllReferences();
             // Notify listeners that the cache has been updated
-            this._onDidUpdate.fire();
+            this._onDidUpdate.fire({type: 'fullRefresh'});
         } catch (error) {
             console.error('[Cache] Error during force refresh:', error);
         }
@@ -240,7 +272,7 @@ export class MetadataCache {
      * This can be used by external tools to force explorer refresh.
      */
     public triggerUpdate(): void {
-        this._onDidUpdate.fire();
+        this._onDidUpdate.fire({type: 'fullRefresh'});
     }
 
     /**
@@ -257,7 +289,15 @@ export class MetadataCache {
 
         // Check if the changed file is a data source
         if (filePath.includes('/src/dataSources/')) {
-            await this.handleDataSourceChange(uri, type);
+            try {
+                await this.handleDataSourceChange(uri, type);
+            } catch (error) {
+                console.error(`Error processing data source change for ${uri.fsPath}:`, error);
+            } finally {
+                this.isProcessingQueue = false;
+                this.processQueue();
+            }
+            return;
         }
 
         try {
@@ -307,7 +347,13 @@ export class MetadataCache {
             }
             
             this.buildAllReferences();
-            this._onDidUpdate.fire();
+            let fileType: CacheFileUpdateType = 'unknown';
+            if (filePath.includes('/src/dataSources/')) {
+                fileType = 'dataSource';
+            } else if (filePath.includes('/src/data/')) {
+                fileType = 'dataModel';
+            }
+            this._onDidUpdate.fire({ type: fileType, uri: uri });
 
         } catch (error) {
             console.error(`Error processing file change for ${uri.fsPath}:`, error);
@@ -324,41 +370,104 @@ export class MetadataCache {
      * @param type The type of change (create, change, delete).
      */
     private async handleDataSourceChange(uri: vscode.Uri, type: FileChangeType): Promise<void> {
-        const filePath = uri.fsPath.replace(/\\/g, '/');
+       const filePath = uri.fsPath.replace(/\\/g, '/');
+        
+        // --- Infrastructure Hash Check Logic ---
         const oldHash = this.dataSourceHashes.get(filePath);
         let newHash: string | undefined;
 
         if (type === 'create' || type === 'change') {
             let sourceFile = this.tsMorphProject.getSourceFile(filePath);
-            if (sourceFile) { await sourceFile.refreshFromFileSystem(); } 
-            else { sourceFile = this.tsMorphProject.addSourceFileAtPath(filePath); }
+            if (!sourceFile) {
+                sourceFile = this.tsMorphProject.addSourceFileAtPath(filePath);
+            } else {
+                await sourceFile.refreshFromFileSystem();
+            }
             newHash = this.parseDataSourceFile(sourceFile);
         }
 
-        if (oldHash !== newHash) {
-            this.isInfrastructureUpdateNeeded = true;
-            this.outOfSyncDataSources.add(filePath); // Track the specific file
-            this._onInfrastructureChange.fire(uri);
+        // Determine if infrastructure changes occurred, but don't fire events yet
+        let hasInfrastructureChanges = false;
+        
+        if (type === 'delete') {
+            // File deleted - trigger update if there was a data source to delete
+            if (oldHash) {
+                hasInfrastructureChanges = true;
+            }
+            this.dataSourceHashes.delete(filePath);
+        } else {
+            // File created or changed
+            if (newHash) {
+                // Data source found in file
+                if (oldHash !== newHash) {
+                    hasInfrastructureChanges = true;
+                }
+                this.dataSourceHashes.set(filePath, newHash);
+            } else {
+                // No data source found in file
+                if (oldHash) {
+                    // Had a data source before, now it's gone
+                    hasInfrastructureChanges = true;
+                }
+                this.dataSourceHashes.delete(filePath);
+            }
+        }
+        
+        // --- Refactoring and Cache Logic (mirrors processQueue) ---
+        const oldFileMeta = this.cache[filePath];
+        let newFileMeta: FileMetadata | undefined;
+
+        if (type === 'create' || type === 'change') {
+            const sourceFile = this.tsMorphProject.getSourceFile(filePath)!;
+            newFileMeta = this.parseFileForMetadata(sourceFile, false);
         }
 
+        if (this.automaticRefactorsEnabled && this.refactorController) {
+            const allChanges: ChangeObject[] = [];
+            const tools = this.refactorController.getTools();
+            for (const tool of tools) {
+                const detectedChanges = tool.analyze(oldFileMeta, newFileMeta, allChanges);
+                allChanges.push(...detectedChanges);
+            }
+
+            if (allChanges.length > 0) {
+                await this.refactorController.proposeAutomaticRefactors(allChanges);
+                
+                if (type !== 'delete') {
+                    const sourceFile = this.tsMorphProject.getSourceFile(filePath);
+                    if (sourceFile) {
+                        await sourceFile.refreshFromFileSystem();
+                        newFileMeta = this.parseFileForMetadata(sourceFile, false);
+                    }
+                }
+            }
+        }
+        
         if (type === 'delete') {
-            this.dataSourceHashes.delete(filePath);
-        } else if (newHash) {
-            this.dataSourceHashes.set(filePath, newHash);
+            this.removeSourceFile(filePath);
+        } else if (newFileMeta) {
+            this.cache[filePath] = newFileMeta;
+        }
+
+        // Build references and fire update event (same as processQueue)
+        this.buildAllReferences();
+        this._onDidUpdate.fire({ type: 'dataSource', uri: uri });
+
+        // Fire infrastructure status change event AFTER cache has been updated
+        if (hasInfrastructureChanges) {
+            this.isInfrastructureUpdateNeeded = true;
+            this.outOfSyncDataSources.add(filePath);
+            this._onInfrastructureStatusChange.fire({ status: 'change-detected', uri: uri });
         }
     }
 
     /**
-     * Acknowledges that the infrastructure has been updated for a specific file.
-     * @param uri The URI of the file that has been updated.
+     * Acknowledges that a global infrastructure update has completed successfully,
+     * resetting the state for all out-of-sync data sources.
      */
-    public acknowledgeInfrastructureUpdate(uri: vscode.Uri): void {
-        const filePath = uri.fsPath.replace(/\\/g, '/');
-        this.outOfSyncDataSources.delete(filePath);
-
-        if (this.outOfSyncDataSources.size === 0) {
-            this.isInfrastructureUpdateNeeded = false;
-        }
+    public acknowledgeAllInfrastructureUpdates(): void {
+        this.outOfSyncDataSources.clear();
+        this.isInfrastructureUpdateNeeded = false;
     }
 
     /**
@@ -381,14 +490,7 @@ export class MetadataCache {
         const path = filePath instanceof vscode.Uri ? filePath.fsPath : filePath;
         const normalizedPath = path.replace(/\\/g, '/');
         const sourceFile = this.tsMorphProject.addSourceFileAtPath(normalizedPath);
-        if (normalizedPath.includes('/src/dataSources/')) {
-            const configHash = this.parseDataSourceFile(sourceFile);
-            if (configHash) {
-                this.dataSourceHashes.set(normalizedPath, configHash);
-            }
-        } else {
-            this.parseFileForMetadata(sourceFile);
-        }
+        this.parseFileForMetadata(sourceFile);
     }
 
     /**
@@ -412,12 +514,11 @@ export class MetadataCache {
         const varDeclarations = sourceFile.getVariableDeclarations();
 
         for (const varDecl of varDeclarations) {
-            const initializer = varDecl.getInitializer();
-            
-            if (initializer && Node.isNewExpression(initializer)) {
-                const className = initializer.getExpression().getText();
-
-                if (className.endsWith('DataSource')) {
+            if (varDecl.isExported()) {
+                const initializer = varDecl.getInitializer();
+                
+                if (initializer && Node.isNewExpression(initializer)) {
+                    const className = initializer.getExpression().getText();
                     const varName = varDecl.getName();
                     const constructorArgs = initializer.getArguments();
                     
@@ -496,6 +597,11 @@ export class MetadataCache {
                     if (initializer && Node.isNewExpression(initializer)) {
                         const dataSourceName = varDecl.getName();
                         const dataSourceType = initializer.getExpression().getText();
+                        let options = {};
+                        const constructorArg = initializer.getArguments()[0];
+                        if (constructorArg && Node.isObjectLiteralExpression(constructorArg)) {
+                            options = this.parseNodeValue(constructorArg);
+                        }
 
                         fileMetadata.dataSources[dataSourceName] = {
                             name: dataSourceName,
@@ -504,6 +610,8 @@ export class MetadataCache {
                                 vscode.Uri.file(normalizedFilePath),
                                 this.tsNodeToVscodeRange(varDecl.getNameNode())
                             ),
+                            references: [],
+                            options: options
                         };
                     }
                 }
@@ -695,6 +803,9 @@ export class MetadataCache {
                     prop.references = [];
                 }
             }
+            for (const ds of Object.values(file.dataSources)) {
+                ds.references = [];
+            }
         }
 
         for (const file of Object.values(this.cache)) {
@@ -718,118 +829,12 @@ export class MetadataCache {
                     }
                 }
             }
-        }
-
-        this.buildImplicitViewFieldReferences();
-    }
-
-     /**
-     * After a file is changed, this function efficiently updates all affected references.
-     * It avoids a full project-wide reference rebuild by focusing only on the items
-     * within the changed file.
-     * @param changedFilePath The path of the file that was modified.
-     */
-    private updateAffectedReferences(changedFilePath: string): void {
-        const sourceFile = this.tsMorphProject.getSourceFile(changedFilePath);
-        if (!sourceFile) {
-            return;
-        }
-
-        const affectedItems: (DecoratedClass | PropertyMetadata)[] = [];
-        const fileMeta = this.cache[changedFilePath];
-        if (fileMeta) {
-            for (const classData of Object.values(fileMeta.classes)) {
-                affectedItems.push(classData);
-                affectedItems.push(...Object.values(classData.properties));
-            }
-        }
-
-        for (const item of affectedItems) {
-            item.references = [];
-        }
-
-        for (const classData of Object.values(fileMeta.classes)) {
-            const classNode = sourceFile.getClass(classData.name);
-            if (classNode) {
-                this.findAndStoreReferences(classNode, classData);
-
-                for (const propData of Object.values(classData.properties)) {
-                    const propNode = classNode.getProperty(propData.name);
-                    if (propNode) {
-                        this.findAndStoreReferences(propNode, propData);
-                    }
+            for (const ds of Object.values(file.dataSources)) {
+                const varDecl = sourceFile.getVariableDeclaration(ds.name);
+                if (varDecl) {
+                    this.findAndStoreReferences(varDecl, ds);
                 }
             }
-        }
-
-        this.buildImplicitViewFieldReferences();
-    }
-
-    /**
-     * Finds implicit field references within `getFields` methods of `ModelView` classes.
-     * This is necessary because `ts-morph`'s `findReferences` does not detect references
-     * made via string literals (e.g., `{ field: 'fieldName' }`).
-     */
-    private buildImplicitViewFieldReferences(): void {
-        const modelMap = new Map<string, DecoratedClass>();
-        this.findMetadata(item => 'properties' in item && item.decorators.some(d => d.name === 'Model'))
-            .forEach(model => modelMap.set((model as DecoratedClass).name, model as DecoratedClass));
-
-        const viewClasses = this.findMetadata(
-            item => 'properties' in item && item.decorators.some(d => d.name === 'ModelView')
-        ) as DecoratedClass[];
-
-        for (const viewClass of viewClasses) {
-            const modelViewDecorator = viewClass.decorators.find(d => d.name === 'ModelView');
-            const modelName = modelViewDecorator?.arguments[0]?.model;
-
-            if (!modelName || !modelMap.has(modelName)) {
-                continue;
-            }
-
-            const modelClass = modelMap.get(modelName)!;
-            const normalizedViewPath = viewClass.declaration.uri.fsPath.replace(/\\/g, '/');
-            const viewSourceFile = this.tsMorphProject.getSourceFile(normalizedViewPath);
-            const viewClassNode = viewSourceFile?.getClass(viewClass.name);
-            const getFieldsMethodNode = viewClassNode?.getMethod('getFields');
-            const returnStatement = getFieldsMethodNode?.getFirstDescendantByKind(SyntaxKind.ReturnStatement);
-            const returnExpression = returnStatement?.getExpression();
-
-            if (!returnExpression || !Node.isArrayLiteralExpression(returnExpression)) {
-                continue;
-            }
-
-            returnExpression.getElements().forEach((element: Node) => {
-                if (Node.isObjectLiteralExpression(element)) {
-                    const fieldProperty = element.getProperty('field');
-                    if (fieldProperty && Node.isPropertyAssignment(fieldProperty)) {
-                        const initializer = fieldProperty.getInitializer();
-                        if (initializer && Node.isStringLiteral(initializer)) {
-                            const fieldName = initializer.getLiteralValue();
-                            const targetProperty = modelClass.properties[fieldName];
-                            if (targetProperty) {
-
-                                const contentStartPos = initializer.getStart() + 1;
-                                
-                                const contentEndPos = initializer.getEnd() - 1;
-
-                                const start = viewSourceFile!.getLineAndColumnAtPos(contentStartPos);
-                                const end = viewSourceFile!.getLineAndColumnAtPos(contentEndPos);
-
-                                const range = new vscode.Range(
-                                    start.line - 1, start.column - 1,
-                                    end.line - 1, end.column - 1
-                                );
-                                const refLocation = new vscode.Location(
-                                    vscode.Uri.file(viewSourceFile!.getFilePath().replace(/\\/g, '/')),
-                                    range
-                                );
-                                targetProperty.references.push(refLocation);
-                            }
-                        }
-                    }
-                }
-            });
         }
     }
 
@@ -839,7 +844,7 @@ export class MetadataCache {
      * @param node The ts-morph node to find references for.
      * @param metadataObject The corresponding metadata object in the cache to store the references in.
      */
-    private findAndStoreReferences(node: ClassDeclaration | PropertyDeclaration, metadataObject: DecoratedClass | PropertyMetadata): void {
+    private findAndStoreReferences(node: ClassDeclaration | PropertyDeclaration | VariableDeclaration, metadataObject: DecoratedClass | PropertyMetadata | DataSourceMetadata): void {
         const referencedSymbols = node.findReferences();
 
         for (const referencedSymbol of referencedSymbols) {

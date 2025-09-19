@@ -85,8 +85,39 @@ export class TestModel extends BaseModel {
                 isLoaded: () => true,
                 refresh: () => Promise.resolve(),
                 watchFile: () => {},
-                unwatchFile: () => {}
+                unwatchFile: () => {},
+                getModelByName: (name: string) => {
+                    if (name === 'TestModel') {
+                        return {
+                            name: 'TestModel',
+                            decorators: [{ name: 'Model', arguments: [] }],
+                            properties: {
+                                existingField: {
+                                    name: 'existingField',
+                                    decorators: [
+                                        { name: 'Field', arguments: [] },
+                                        { name: 'Text', arguments: [] }
+                                    ],
+                                    type: 'string'
+                                }
+                            },
+                            declaration: { uri: vscode.Uri.file(testModelFile) }
+                        };
+                    }
+                    return null;
+                },
+                getModelDecoratorByName: (decoratorName: string, modelClass: any) => {
+                    if (decoratorName === 'Model' && modelClass?.name === 'TestModel') {
+                        return {
+                            name: 'Model',
+                            arguments: []
+                        };
+                    }
+                    return null;
+                }
             } as unknown as MetadataCache;
+
+            const testUri = vscode.Uri.file(testModelFile);
             
             addCompositionTool = new AddCompositionTool();
         });
@@ -243,6 +274,155 @@ addresses!: Address[];`;
 profile!: Profile;`;
             
             assert.strictEqual(result, expected);
+        });
+
+        test('should create WorkspaceEdit for composition addition without applying', async () => {
+            const fieldName = 'addresses';
+            
+            const { edit, innerModelName } = await addCompositionTool.createAddCompositionWorkspaceEdit(
+                mockCache,
+                'TestModel',
+                fieldName
+            );
+
+            // Verify the edit contains the expected changes
+            assert.ok(edit, 'WorkspaceEdit should be created');
+            assert.strictEqual(innerModelName, 'Address', 'Inner model name should be Address');
+            
+            const testUri = vscode.Uri.file(testModelFile);
+            const fileEdits = edit.get(testUri);
+            assert.ok(fileEdits && fileEdits.length > 0, 'WorkspaceEdit should contain file edits');
+
+            // Apply edits manually to verify content
+            const originalContent = fs.readFileSync(testModelFile, 'utf8');
+            let modifiedContent = originalContent;
+            
+            const sortedEdits = fileEdits.sort((a, b) => a.range.start.line - b.range.start.line || a.range.start.character - b.range.start.character);
+            for (let i = sortedEdits.length - 1; i >= 0; i--) {
+                const edit = sortedEdits[i];
+                const lines = modifiedContent.split('\n');
+                
+                if (edit.range.isEmpty) {
+                    lines.splice(edit.range.start.line, 0, edit.newText);
+                } else {
+                    lines.splice(edit.range.start.line, edit.range.end.line - edit.range.start.line + 1, edit.newText);
+                }
+                
+                modifiedContent = lines.join('\n');
+            }
+
+            // Verify the composition field was added
+            assert.ok(modifiedContent.includes('addresses'), 'Composition field name should be in the modified content');
+            assert.ok(modifiedContent.includes('@Field({})'), 'Field decorator should be present');
+            assert.ok(modifiedContent.includes('@Composition()'), 'Composition decorator should be present');
+            assert.ok(modifiedContent.includes('addresses!: Address[]'), 'Field declaration should be present');
+
+            // Verify the inner model was created
+            assert.ok(modifiedContent.includes('class Address extends PersistentComponentModel<TestModel>'), 'Inner model should be created');
+            assert.ok(modifiedContent.includes('@Model()'), 'Model decorator should be present on inner model');
+
+            // Verify original file is unchanged (since we didn't apply the edit)
+            const currentContent = fs.readFileSync(testModelFile, 'utf8');
+            assert.strictEqual(currentContent, originalContent, 'Original file should remain unchanged');
+        });
+
+        test('should create WorkspaceEdit for singular composition field', async () => {
+            const fieldName = 'profile'; // Singular field name
+            
+            const { edit, innerModelName } = await addCompositionTool.createAddCompositionWorkspaceEdit(
+                mockCache,
+                'TestModel',
+                fieldName
+            );
+
+            assert.ok(edit, 'WorkspaceEdit should be created');
+            assert.strictEqual(innerModelName, 'Profile', 'Inner model name should be Profile');
+            
+            const testUri = vscode.Uri.file(testModelFile);
+            const fileEdits = edit.get(testUri);
+            assert.ok(fileEdits && fileEdits.length > 0, 'WorkspaceEdit should contain file edits');
+
+            // Apply edits manually to verify content
+            const originalContent = fs.readFileSync(testModelFile, 'utf8');
+            let modifiedContent = originalContent;
+            
+            const sortedEdits = fileEdits.sort((a, b) => a.range.start.line - b.range.start.line || a.range.start.character - b.range.start.character);
+            for (let i = sortedEdits.length - 1; i >= 0; i--) {
+                const edit = sortedEdits[i];
+                const lines = modifiedContent.split('\n');
+                
+                if (edit.range.isEmpty) {
+                    lines.splice(edit.range.start.line, 0, edit.newText);
+                } else {
+                    lines.splice(edit.range.start.line, edit.range.end.line - edit.range.start.line + 1, edit.newText);
+                }
+                
+                modifiedContent = lines.join('\n');
+            }
+
+            // Verify the composition field was added (should be singular, not array)
+            assert.ok(modifiedContent.includes('profile!: Profile;'), 'Singular field declaration should be present');
+            assert.ok(!modifiedContent.includes('profile!: Profile[]'), 'Should not be array for singular field');
+
+            // Verify the inner model was created
+            assert.ok(modifiedContent.includes('class Profile extends PersistentComponentModel<TestModel>'), 'Inner model should be created');
+        });
+
+        test('should throw error when composition field already exists', async () => {
+            const fieldName = 'existingField'; // This field already exists in the test model
+            
+            try {
+                await addCompositionTool.createAddCompositionWorkspaceEdit(
+                    mockCache,
+                    'TestModel',
+                    fieldName
+                );
+                assert.fail('Should have thrown an error for existing field');
+            } catch (error) {
+                assert.ok(error instanceof Error, 'Should throw an Error');
+                assert.ok(error.message.includes('already exists'), 'Error message should mention field already exists');
+            }
+        });
+
+        test('should throw error when inner model already exists', async () => {
+            // First add a mock model with the name that would be generated
+            const originalGetModelByName = mockCache.getModelByName;
+            mockCache.getModelByName = (name: string) => {
+                if (name === 'TestModel') {
+                    return originalGetModelByName('TestModel');
+                }
+                if (name === 'Address') {
+                    return {
+                        name: 'Address',
+                        decorators: [{
+                            name: 'Model',
+                            arguments: [],
+                            position: new vscode.Range(0, 0, 0, 0)
+                        }],
+                        properties: {},
+                        methods: {},
+                        references: [],
+                        declaration: { uri: vscode.Uri.file(testModelFile), range: new vscode.Range(0, 0, 0, 0) },
+                        isDataModel: true
+                    } as any; // Use type assertion to avoid complex mock setup
+                }
+                return null;
+            };
+            
+            try {
+                await addCompositionTool.createAddCompositionWorkspaceEdit(
+                    mockCache,
+                    'TestModel',
+                    'addresses' // This would generate 'Address' model which we mocked as existing
+                );
+                assert.fail('Should have thrown an error for existing inner model');
+            } catch (error) {
+                assert.ok(error instanceof Error, 'Should throw an Error');
+                assert.ok(error.message.includes('already exists'), 'Error message should mention model already exists');
+            } finally {
+                // Restore original method
+                mockCache.getModelByName = originalGetModelByName;
+            }
         });
     });
 }

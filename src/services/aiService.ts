@@ -40,7 +40,7 @@ export class AIService {
     }
 
     const prompt = this.generateCreateModelPrompt(userInput, appDescription, parentModelInfo);
-    await vscode.commands.executeCommand("workbench.action.chat.openAgent", { query: prompt });
+    await vscode.commands.executeCommand("workbench.action.chat.open", { query: prompt });
   }
 
   public async modifyModelWithAI(cache: MetadataCache): Promise<void> {
@@ -68,7 +68,7 @@ export class AIService {
     }
 
     const prompt = this.generateModifyModelPrompt(userInput, document.uri.fsPath, content);
-    await vscode.commands.executeCommand("workbench.action.chat.openAgent", { query: prompt });
+    await vscode.commands.executeCommand("workbench.action.chat.open", { query: prompt });
   }
 
   public async defineFieldsWithAI(
@@ -94,7 +94,7 @@ export class AIService {
       );
 
       if (action === "Execute Prompt") {
-        await vscode.commands.executeCommand("workbench.action.chat.openAgent", { query: prompt });
+        await vscode.commands.executeCommand("workbench.action.chat.open", { query: prompt });
       }
 
       vscode.window.showInformationMessage(`Fields successfully generated for ${modelName}!`);
@@ -108,7 +108,7 @@ export class AIService {
     try {
       const prompt = this.generateCreateTestPrompt(modelClass);
 
-      await vscode.commands.executeCommand("workbench.action.chat.openAgent", { query: prompt });
+      await vscode.commands.executeCommand("workbench.action.chat.open", { query: prompt });
 
       vscode.window.showInformationMessage(`Test file for ${modelClass.name} created successfully!`);
     } catch (error) {
