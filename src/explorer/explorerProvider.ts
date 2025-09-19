@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { Project } from "ts-morph";
-import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata, DataSourceMetadata } from "../cache/cache";
+import { MetadataCache, DecoratedClass, DecoratorMetadata, PropertyMetadata, DataSourceMetadata, CacheUpdateEvent } from "../cache/cache";
 import { AppTreeItem } from "./appTreeItem";
 import { promises as fsPromises } from "fs";
 import * as path from "path";
