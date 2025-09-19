@@ -342,7 +342,7 @@ if (typeof suite !== 'undefined') {
                         oldModelMetadata: model,
                         urisToDelete: [modelUri],
                         isManual: true
-                    } as DeleteModelPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -366,7 +366,7 @@ if (typeof suite !== 'undefined') {
                         oldModelMetadata: model,
                         urisToDelete: [modelUri],
                         isManual: true
-                    } as DeleteModelPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -421,7 +421,7 @@ if (typeof suite !== 'undefined') {
                         oldModelMetadata: model,
                         urisToDelete: [modelUri],
                         isManual: true
-                    } as DeleteModelPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);

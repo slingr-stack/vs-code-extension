@@ -34,8 +34,14 @@ export function registerInfraStatus(context: vscode.ExtensionContext, cache: Met
 
         infraStatus.showSyncing();
 
-        const command = `slingr infra update -a`;
-        exec(command, { cwd: workspaceFolder.uri.fsPath }, (error, stdout, stderr) => {
+        // Sanitize the workspace path to prevent command injection
+        const workspacePath = workspaceFolder.uri.fsPath.replace(/[;&|`$(){}[\]]/g, '');
+        
+        const command = 'slingr infra update -a';
+        exec(command, { 
+            cwd: workspacePath,
+            timeout: 60000, 
+        }, (error, stdout, stderr) => {
             if (error) {
                 lastError = stderr || stdout || error.message;
                 lastFailedUri = uriToUpdate;

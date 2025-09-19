@@ -213,7 +213,7 @@ export class DeleteModelTool implements IRefactorTool {
       throw new Error(`DeleteModelTool can only handle DELETE_MODEL changes, received: ${change.type}`);
     }
     
-    const payload = change.payload as DeleteModelPayload;
+    const payload = change.payload;
     const { oldModelMetadata } = payload;
     const workspaceEdit = new vscode.WorkspaceEdit();
     const urisToDelete: vscode.Uri[] = payload.urisToDelete || [];

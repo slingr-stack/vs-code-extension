@@ -43,7 +43,7 @@ export class RenameModelTool implements IRefactorTool {
      * @returns True if the context metadata represents a valid model class.
      */
     public async canHandleManualTrigger(context: ManualRefactorContext): Promise<boolean> {
-        return !!context.metadata && context.metadata instanceof Object && 'decorators' in context.metadata && isModel(context.metadata);
+        return !!context.metadata && 'decorators' in context.metadata && isModel(context.metadata);
     }
 
     /**
@@ -67,7 +67,7 @@ export class RenameModelTool implements IRefactorTool {
         const deletedClassNames = new Set<string>();
         for (const change of accumulatedChanges) {
             if (change.type === 'DELETE_MODEL') {
-                const payload = change.payload as DeleteModelPayload;
+                const payload = change.payload;
                 if (payload.oldModelMetadata) {
                     deletedClassNames.add(payload.oldModelMetadata.name);
                 }
@@ -122,7 +122,7 @@ export class RenameModelTool implements IRefactorTool {
             return undefined;
         }
 
-        const model = context.metadata as DecoratedClass;
+        const model: DecoratedClass = context.metadata;
         const newName = await vscode.window.showInputBox({
             prompt: `Rename model '${model.name}'`,
             value: model.name,
@@ -174,7 +174,7 @@ export class RenameModelTool implements IRefactorTool {
             throw new Error(`RenameModelTool can only handle RENAME_MODEL changes, received: ${change.type}`);
         }
         
-        const payload = change.payload as RenameModelPayload;
+        const payload = change.payload;
         const { newName, oldModelMetadata } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
 

@@ -95,19 +95,29 @@ export class RefactorController {
         metadata: context.metadata,
       };
     } else if (context instanceof vscode.Uri) {
-      const fileMeta = this.cache.getMetadataForFile(context.fsPath);
-      if (!fileMeta || Object.keys(fileMeta.classes).length === 0) {
-        vscode.window.showInformationMessage("No class found in the selected file to refactor.");
-        return;
-      }
-      // When triggered from file explorer, we assume the target is the first class in the file.
-      const targetClass = Object.values(fileMeta.classes)[0];
-      refactorContext = {
-        cache: this.cache,
-        uri: context,
-        range: targetClass.declaration.range,
-        metadata: targetClass,
-      };
+        const fileMeta = this.cache.getMetadataForFile(context.fsPath);
+        if (!fileMeta || (Object.keys(fileMeta.classes).length === 0 && Object.keys(fileMeta.dataSources).length === 0)) {
+            vscode.window.showInformationMessage("No class or data source found in the selected file to refactor.");
+            return;
+        }
+
+        if (Object.keys(fileMeta.classes).length > 0) {
+            const targetClass = Object.values(fileMeta.classes)[0];
+            refactorContext = {
+                cache: this.cache,
+                uri: context,
+                range: targetClass.declaration.range,
+                metadata: targetClass, 
+            };
+        } else {
+            const targetDataSource = Object.values(fileMeta.dataSources)[0];
+            refactorContext = {
+                cache: this.cache,
+                uri: context,
+                range: targetDataSource.declaration.range,
+                metadata: targetDataSource, 
+            };
+        }
     } else if (context && 'cache' in context && 'uri' in context) {
       refactorContext = context as ManualRefactorContext;
     } else {
@@ -136,13 +146,10 @@ export class RefactorController {
         return;
       }
 
-      const hasTextEdits = workspaceEdit.size > 0;
-      let hasFileDeletions = false;
-      if (changeObject.type === 'DELETE_MODEL') {
-        const deletePayload = changeObject.payload as DeleteModelPayload;
-        hasFileDeletions = Array.isArray(deletePayload.urisToDelete) && deletePayload.urisToDelete.length > 0;
-      }
-      if (!hasTextEdits && !hasFileDeletions) {
+      const hasFileOps = ('urisToDelete' in changeObject.payload && (changeObject.payload as any).urisToDelete?.length > 0) ||
+                         ('newUri' in changeObject.payload && !!(changeObject.payload as any).newUri);
+
+      if (workspaceEdit.size === 0 && !hasFileOps) {
         vscode.window.showInformationMessage("No changes were needed for this refactoring.");
         return;
       }
@@ -343,20 +350,14 @@ export class RefactorController {
 
           }
 
-          if (change.type === 'DELETE_MODEL') {
-            const deletePayload = change.payload as DeleteModelPayload;
-            if (Array.isArray(deletePayload.urisToDelete)) {
-              for (const uri of deletePayload.urisToDelete) {
-                mergedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
-              }
+          if ('urisToDelete' in change.payload && Array.isArray((change.payload as any).urisToDelete)) {
+            for (const uri of (change.payload as any).urisToDelete) {
+              mergedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
             }
           }
 
-          if (change.type === 'RENAME_MODEL') {
-            const renamePayload = change.payload as RenameModelPayload;
-            if (renamePayload.newUri) {
-              mergedEdit.renameFile(change.uri, renamePayload.newUri);
-            }
+          if ('newUri' in change.payload && (change.payload as any).newUri) {
+            mergedEdit.renameFile(change.uri, (change.payload as any).newUri);
           }
 
         } catch (error) {

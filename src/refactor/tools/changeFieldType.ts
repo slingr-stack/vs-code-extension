@@ -79,13 +79,13 @@ export class ChangeFieldTypeTool implements IRefactorTool {
         // Check for accumulated changes that may affect the analysis
         for (const change of accumulatedChanges) {
             if (change.type === 'RENAME_MODEL') {
-                const payload = change.payload as RenameModelPayload;
+                const payload = change.payload;
                 if (payload.oldName && payload.newName) {
                     classRenames.set(payload.oldName, payload.newName);
                 }
             }
             if (change.type === 'RENAME_FIELD') {
-                const payload = change.payload as RenameFieldPayload;
+                const payload = change.payload;
                 if (payload.oldName && payload.newName) {
                     const className = payload.modelName;
                     if (!className) { continue; }
@@ -181,7 +181,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
             return undefined;
         }
 
-        const field = context.metadata as PropertyMetadata;
+        const field: PropertyMetadata = context.metadata;
         const typeDecorator = field.decorators.find(d => this.availableTypes.includes(d.name));
         const fieldDecorator = field.decorators.find(d => d.name === 'Field');
         const targetDecorator = typeDecorator || fieldDecorator;
@@ -207,7 +207,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                 field: field,
                 decoratorPosition: targetDecorator.position,
                 oldDecorator: typeDecorator // Will be undefined if only @Field exists
-            } as ChangeFieldTypePayload
+            }
         };
     }
 
@@ -227,7 +227,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
             throw new Error(`ChangeFieldTypeTool can only handle CHANGE_FIELD_TYPE changes, received: ${change.type}`);
         }
         
-        const payload = change.payload as ChangeFieldTypePayload;
+        const payload = change.payload;
         const { isManual, newType, field, decoratorPosition, oldDecorator } = payload;
         const workspaceEdit = new vscode.WorkspaceEdit();
 

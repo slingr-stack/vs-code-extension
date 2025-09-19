@@ -162,7 +162,7 @@ if (typeof suite !== 'undefined') {
                 
                 assert.strictEqual(changes.length, 1);
                 assert.strictEqual(changes[0].type, 'CHANGE_FIELD_TYPE');
-                const payload = changes[0].payload as ChangeFieldTypePayload;
+                const payload = changes[0].payload;
                 assert.strictEqual(payload.newType, 'Integer');
                 assert.strictEqual(payload.field.name, 'age');
             });
@@ -211,13 +211,13 @@ if (typeof suite !== 'undefined') {
                 
                 const ageChange = changes.find(c => {
                     if (c.type === 'CHANGE_FIELD_TYPE') {
-                        return (c.payload as ChangeFieldTypePayload).field.name === 'age';
+                        return (c.payload).field.name === 'age';
                     }
                     return false;
                 });
                 const statusChange = changes.find(c => {
                     if (c.type === 'CHANGE_FIELD_TYPE') {
-                        return (c.payload as ChangeFieldTypePayload).field.name === 'status';
+                        return (c.payload).field.name === 'status';
                     }
                     return false;
                 });
@@ -313,7 +313,7 @@ if (typeof suite !== 'undefined') {
 
                 assert.ok(change, 'Expected a change object to be returned');
                 assert.strictEqual(change.type, 'CHANGE_FIELD_TYPE');
-                const payload = change.payload as ChangeFieldTypePayload;
+                const payload = change.payload;
                 assert.strictEqual(payload.isManual, true);
                 assert.strictEqual(payload.newType, 'Integer');
                 assert.ok(payload.field, 'Payload should include the field metadata');
@@ -426,7 +426,7 @@ if (typeof suite !== 'undefined') {
                         field: oldField,
                         newType: 'boolean',
                         isManual: false,
-                    } as ChangeFieldTypePayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -447,7 +447,7 @@ if (typeof suite !== 'undefined') {
                         field: oldField,
                         newType: 'UserData',
                         isManual: false,
-                    } as ChangeFieldTypePayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -478,7 +478,7 @@ if (typeof suite !== 'undefined') {
                         field: oldField,
                         newType: 'number',
                         isManual: false,
-                    } as ChangeFieldTypePayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -500,7 +500,7 @@ if (typeof suite !== 'undefined') {
                         field: oldField,
                         newType: 'Date',
                         isManual: false,
-                    } as ChangeFieldTypePayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);
@@ -521,7 +521,7 @@ if (typeof suite !== 'undefined') {
                         field: oldField,
                         newType: 'Purchase',
                         isManual: false,
-                    } as ChangeFieldTypePayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change, mockCache);

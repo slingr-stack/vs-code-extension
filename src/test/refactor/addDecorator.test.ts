@@ -160,7 +160,7 @@ if (typeof suite !== 'undefined') {
                 assert.strictEqual(change.uri.toString(), modelUri.toString());
                 assert.strictEqual(change.description, "Add @Field decorator to 'name'.");
                 
-                const payload = change.payload as AddDecoratorPayload;
+                const payload = change.payload;
                 assert.strictEqual(payload.isManual, true);
                 assert.strictEqual(payload.decoratorName, 'Field');
                 assert.strictEqual(payload.fieldMetadata.name, 'name');
@@ -187,7 +187,7 @@ if (typeof suite !== 'undefined') {
                 
                 assert.ok(change);
                 assert.strictEqual(change.type, 'ADD_DECORATOR');
-                const payload = change.payload as AddDecoratorPayload;
+                const payload = change.payload;
                 assert.strictEqual(payload.decoratorName, 'Text');
                 assert.strictEqual(payload.fieldMetadata.name, 'description');
             });
@@ -208,7 +208,7 @@ if (typeof suite !== 'undefined') {
                 
                 assert.ok(change);
                 assert.strictEqual(change.type, 'ADD_DECORATOR');
-                const payload = change.payload as AddDecoratorPayload;
+                const payload = change.payload;
                 assert.strictEqual(payload.decoratorName, 'Date');
                 assert.strictEqual(payload.fieldMetadata.name, 'createdAt');
                 assert.strictEqual(payload.fieldMetadata.type, 'Date');
@@ -244,7 +244,7 @@ if (typeof suite !== 'undefined') {
                         fieldMetadata: fieldMeta,
                         decoratorName: 'Field',
                         isManual: true
-                    } as AddDecoratorPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change);
@@ -277,7 +277,7 @@ if (typeof suite !== 'undefined') {
                         fieldMetadata: fieldMeta,
                         decoratorName: 'Integer',
                         isManual: true
-                    } as AddDecoratorPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change);
@@ -307,7 +307,7 @@ if (typeof suite !== 'undefined') {
                         fieldMetadata: fieldMeta,
                         decoratorName: 'Field',
                         isManual: true
-                    } as AddDecoratorPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change);
@@ -346,7 +346,7 @@ if (typeof suite !== 'undefined') {
                         fieldMetadata: fieldMeta,
                         decoratorName: 'Text',
                         isManual: true
-                    } as AddDecoratorPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change);
@@ -376,7 +376,7 @@ if (typeof suite !== 'undefined') {
                         fieldMetadata: fieldMeta,
                         decoratorName: 'Choice',
                         isManual: true
-                    } as AddDecoratorPayload
+                    }
                 };
 
                 const workspaceEdit = await tool.prepareEdit(change);

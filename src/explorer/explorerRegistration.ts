@@ -42,7 +42,7 @@ export function registerExplorer(
                 lastClickedItemKey = undefined;
             } else {
                 // Single-click: just update info panel
-                quickInfoProvider.update(item.itemType, item.metadata);
+                quickInfoProvider.update(item.itemType, item.metadata as any);
                 
                 // Update tracking for potential double-click
                 lastClickTime = currentTime;
@@ -56,7 +56,7 @@ export function registerExplorer(
         const selectedItem = e.selection?.[0] as AppTreeItem;
         if (selectedItem) {
             // Update info panel for keyboard navigation
-            quickInfoProvider.update(selectedItem.itemType, selectedItem.metadata);
+            quickInfoProvider.update(selectedItem.itemType, selectedItem.metadata as any);
         }
     });
 

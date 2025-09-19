@@ -1,6 +1,7 @@
 import { IMetadataRenderer } from './iMetadataRenderer';
 import { ModelRenderer } from './modelRenderer';
 import { FieldRenderer } from './fieldRenderer';
+import { DataSourceRenderer } from './dataSourceRenderer';
 
 /**
  * Central registry for metadata renderers in the Quick Info Panel system.
@@ -13,4 +14,5 @@ import { FieldRenderer } from './fieldRenderer';
 export const rendererRegistry = new Map<string, IMetadataRenderer>([
     ['model', new ModelRenderer()],
     ['field', new FieldRenderer()],
+    ['dataSource', new DataSourceRenderer()],
 ]);

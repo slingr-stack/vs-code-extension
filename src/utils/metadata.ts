@@ -1,6 +1,6 @@
 
 import * as vscode from 'vscode';
-import { DecoratedClass, MethodMetadata, PropertyMetadata } from "../cache/cache";
+import { DataSourceMetadata, DecoratedClass, MethodMetadata, PropertyMetadata } from "../cache/cache";
 import { fieldTypeConfig } from '../utils/fieldTypes';
 
 /**
@@ -18,18 +18,31 @@ export function isModelFile(uri: vscode.Uri): boolean {
  * @param metadata - The class or property metadata to check.
  * @returns True if the metadata is for an Model class, false otherwise.
  */
-export function isModel(metadata: DecoratedClass | PropertyMetadata): metadata is DecoratedClass {
-    return 'decorators' in metadata && metadata.decorators.some(d => d.name === 'Model');
+export function isModel(metadata: DecoratedClass | PropertyMetadata | DataSourceMetadata): metadata is DecoratedClass {
+    if (!hasDecorators(metadata) || 'dataSources' in metadata) {
+        return false;
+    }
+    return metadata.decorators.some(d => d.name === 'Model');
 }
 
 const fieldDecoratorNames = Object.keys(fieldTypeConfig);
+
+function hasDecorators(obj: any): obj is { decorators: Array<{ name: string }> } {
+    if ('dataSources' in obj) {
+        return false;
+    }
+    return Array.isArray(obj?.decorators);
+}
 
 /**
  * Checks if a property metadata object is a Field.
  * @param metadata - The class or property metadata to check.
  * @returns True if the metadata is for a Field property, false otherwise.
  */
-export function isField(metadata: DecoratedClass | PropertyMetadata): metadata is PropertyMetadata {
+export function isField(metadata: DecoratedClass | PropertyMetadata | DataSourceMetadata): metadata is PropertyMetadata {
+    if (!hasDecorators(metadata) || 'dataSources' in metadata) {
+        return false;
+    }
     return 'type' in metadata && metadata.decorators.some(d => fieldDecoratorNames.includes(d.name) || d.name === 'Field');
 }
 

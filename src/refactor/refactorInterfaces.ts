@@ -1,152 +1,110 @@
 import * as vscode from 'vscode';
-import { DecoratedClass, DecoratorMetadata, FileMetadata, MetadataCache, PropertyMetadata } from '../cache/cache';
+import { DataSourceMetadata, DecoratedClass, DecoratorMetadata, FileMetadata, MetadataCache, PropertyMetadata } from '../cache/cache';
 
 /**
- * Context object containing all necessary information for performing refactoring operations.
- * 
- * @interface RefactorContext
+ * Common properties shared across all refactoring payloads.
  */
-export interface RefactorContext {
+export interface BasePayload {
+    isManual: boolean;
+}
+
+/**
+ * Context for a manual refactoring operation.
+ */
+export interface ManualRefactorContext {
     cache: MetadataCache;
     uri: vscode.Uri;
     range: vscode.Range;
-    metadata?: DecoratedClass | PropertyMetadata; 
-    newName?: string; 
-    isAutoTriggered?: boolean; 
+    metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata;
 }
 
-/**
- * Defines the payload for a rename model operation.
- * It encapsulates all the necessary information to process the renaming of an model.
- *
- * @property `oldName`: The original name of the model being renamed.
- * @property `newName`: The new name to be assigned to the model.
- * @property `oldModelMetadata`: The metadata of the class representing the model before the rename.
- * @property `newUri`: The new URI for the file if it is being renamed.
- * @property `isManual`: An optional flag indicating whether the rename operation was initiated manually by a user.
- */
-export interface RenameModelPayload {
+// --- Payloads for Specific Change Types ---
+
+export interface RenameModelPayload extends BasePayload {
     oldName: string;
     newName: string;
     oldModelMetadata: DecoratedClass;
-    newUri: vscode.Uri | undefined;
-    isManual: boolean;
+    newUri?: vscode.Uri;
 }
 
-/**
- * Represents the payload for an model deletion operation.
- * It contains all the necessary information to process the removal of an model
- * and its associated files from the workspace.
- *
- * @property `oldModelMetadata`:- The metadata of the model being deleted.
- * @property `isManual`: An optional flag indicating if the deletion was initiated manually by the user.
- * @property `urisToDelete`: An array of file URIs that should be removed from the workspace.
- */
-export interface DeleteModelPayload {
+export interface DeleteModelPayload extends BasePayload {
     oldModelMetadata: DecoratedClass;
     urisToDelete: vscode.Uri[];
-    isManual: boolean;
 }
 
-/**
- * Defines the payload for a field renaming operation. This interface encapsulates
- * all the necessary information to perform the refactoring.
- *
- * @property `oldName`: The original name of the field being renamed.
- * @property `newName`: The desired new name for the field.
- * @property `modelName`: The name of the model that contains the field.
- * @property `oldFieldMetadata`: The metadata of the field before the renaming operation, used to preserve its properties (e.g., type, constraints).
- * @property `isManual`: An optional flag to indicate if the rename was initiated manually by a user, as opposed to an automated process.
- */
-export interface RenameFieldPayload {
+export interface RenameFieldPayload extends BasePayload {
     oldName: string;
     newName: string;
     modelName: string;
     oldFieldMetadata: PropertyMetadata;
-    isManual: boolean;
 }
 
-/**
- * Represents the payload for a delete field operation.
- * This interface encapsulates the necessary information to identify and process
- * the deletion of a field from a specific model.
- *
- * @property `oldFieldMetadata`: The metadata of the field that is being deleted.
- * @property `modelName`: The name of the model from which the field will be deleted.
- * @property `isManual`: Optional flag to indicate if the deletion was triggered manually by a user.
- */
-export interface DeleteFieldPayload {
+export interface DeleteFieldPayload extends BasePayload {
     oldFieldMetadata: PropertyMetadata;
     modelName: string;
-    isManual: boolean;
 }
-/**
- * Defines the payload for an action that changes the type of a class property.
- * This interface encapsulates all the necessary information to perform the refactoring,
- * such as the target field, the new type, and context about the existing decorator.
- *
- * @property `newType`: The new data type to be assigned to the field.
- * @property `field`: Metadata of the property whose type is being changed.
- * @property `isManual`: A boolean flag indicating whether the change was initiated manually by the user.
- * @property `decoratorPosition`: Optional. The range in the document where the old decorator is located.
- * @property `oldDecorator`: Optional. Metadata of the decorator that is being replaced or modified.
- */
-export interface ChangeFieldTypePayload {
+
+export interface ChangeFieldTypePayload extends BasePayload {
     newType: string;
     field: PropertyMetadata;
     decoratorPosition?: vscode.Range;
     oldDecorator?: DecoratorMetadata;
-    isManual: boolean;
 }
 
-
-/**
- * Payload interface for adding a decorator to a field.
- * @property {PropertyMetadata} fieldMetadata - Metadata information about the property/field
- * @property {string} decoratorName - The name of the decorator to be added
- */
-export interface AddDecoratorPayload {
+export interface AddDecoratorPayload extends BasePayload {
     fieldMetadata: PropertyMetadata;
     decoratorName: string;
-    isManual: boolean;
 }
 
-
-/**
- * Represents the specific type of refactoring change being applied.
- * This is used to identify the nature of a modification to an model or its fields.
- *
- * - `RENAME_MODEL`: A change that renames an entire model.
- * - `DELETE_MODEL`: A change that deletes an entire model.
- * - `RENAME_FIELD`: A change that renames a field within an model.
- * - `DELETE_FIELD`: A change that deletes a field from an model.
- * - `CHANGE_FIELD_TYPE`: A change that modifies the data type of a field.
- * - `ADD_DECORATOR`: A change that adds a decorator to a field.
- */
-export type ChangeType = 'RENAME_MODEL' | 'DELETE_MODEL' | 'RENAME_FIELD' | 'DELETE_FIELD' | 'CHANGE_FIELD_TYPE'| 'ADD_DECORATOR';
-
-/**
- * Represents a single, atomic change to be applied as part of a refactoring operation.
- * Each change object encapsulates the type of modification, the file it affects,
- * a human-readable description, and the specific data required to perform the change.
- *
- * @property type The type of change to be performed, as defined by the `ChangeType` enum.
- * @property uri The URI of the file that will be modified.
- * @property description A human-readable string describing the change, often shown to the user for confirmation.
- * @property payload The data payload containing the specific details for the change. The structure of the payload depends on the `type` property.
- */
-export interface ChangeObject {
-    type: ChangeType;
-    uri: vscode.Uri;
-    description: string;
-    payload:
-        | RenameModelPayload
-        | DeleteModelPayload
-        | RenameFieldPayload
-        | DeleteFieldPayload
-        | ChangeFieldTypePayload
-        | AddDecoratorPayload;
+export interface RenameDataSourcePayload extends BasePayload {
+    oldName: string;
+    newName: string;
+    newUri?: vscode.Uri;
 }
+
+export interface DeleteDataSourcePayload extends BasePayload {
+    dataSourceName: string;
+    urisToDelete: vscode.Uri[];
+}
+
+// --- Discriminated Union for ChangeObject ---
+
+/**
+ * Defines a mapping from each ChangeType to its corresponding payload interface.
+ * This is the core of the discriminated union.
+ */
+export type ChangePayloadMap = {
+    'RENAME_MODEL': RenameModelPayload;
+    'DELETE_MODEL': DeleteModelPayload;
+    'RENAME_FIELD': RenameFieldPayload;
+    'DELETE_FIELD': DeleteFieldPayload;
+    'CHANGE_FIELD_TYPE': ChangeFieldTypePayload;
+    'ADD_DECORATOR': AddDecoratorPayload;
+    'RENAME_DATA_SOURCE': RenameDataSourcePayload;
+    'DELETE_DATA_SOURCE': DeleteDataSourcePayload;
+};
+
+/**
+ * Represents all possible types of refactoring changes.
+ */
+export type ChangeType = keyof ChangePayloadMap;
+
+/**
+ * A generic ChangeObject that uses the ChangeType to determine the structure of its payload.
+ * This creates a robust, type-safe discriminated union.
+ * * For each possible `ChangeType`, it creates a specific object type. For example:
+ * { type: 'RENAME_MODEL', payload: RenameModelPayload, ... }
+ * { type: 'DELETE_FIELD', payload: DeleteFieldPayload, ... }
+ * * `ChangeObject` is then a union of all these specific types.
+ */
+export type ChangeObject = {
+    [K in ChangeType]: {
+        type: K;
+        uri: vscode.Uri;
+        description: string;
+        payload: ChangePayloadMap[K];
+    }
+}[ChangeType];
 
 
 /**
@@ -162,7 +120,7 @@ export interface ManualRefactorContext {
     cache: MetadataCache;
     uri: vscode.Uri;
     range: vscode.Range;
-    metadata?: DecoratedClass | PropertyMetadata;
+    metadata?: DecoratedClass | PropertyMetadata | DataSourceMetadata;
 }
 
 /**
