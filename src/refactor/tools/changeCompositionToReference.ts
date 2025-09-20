@@ -124,19 +124,12 @@ export class ChangeCompositionToReferenceRefactorTool implements IRefactorTool {
     
     // We don't actually prepare the edit here since the command tool handles everything
     // This is more of a trigger for the actual implementation
-    const workspaceEdit = new vscode.WorkspaceEdit();
+    let workspaceEdit = new vscode.WorkspaceEdit();
     
     // Execute the actual command
-    setTimeout(async () => {
       try {
-        // Get the explorer provider from the extension context
-        // For now, we'll create a mock explorer provider 
-        const explorerProvider = {
-          refresh: () => {}
-        } as any;
-        
-        const tool = new ChangeCompositionToReferenceTool(explorerProvider);
-          await tool.changeCompositionToReference(
+        const tool = new ChangeCompositionToReferenceTool();
+          workspaceEdit = await tool.changeCompositionToReference(
           cache,
           payload.sourceModelName,
           payload.fieldName
@@ -144,7 +137,6 @@ export class ChangeCompositionToReferenceRefactorTool implements IRefactorTool {
       } catch (error) {
         vscode.window.showErrorMessage(`Failed to change composition to reference: ${error}`);
       }
-    }, 100);
 
     return workspaceEdit;
   }

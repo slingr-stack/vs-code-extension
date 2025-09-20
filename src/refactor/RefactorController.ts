@@ -401,6 +401,7 @@ export class RefactorController {
     for (const [uriString, edits] of allUniqueEdits) {
       mergedEdit.set(vscode.Uri.parse(uriString), edits);
     }
+    // Now it's just returning the edit from the tool.
     return editFromTool;
   }
 

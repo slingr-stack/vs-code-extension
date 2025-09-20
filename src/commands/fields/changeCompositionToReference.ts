@@ -7,6 +7,7 @@ import { SourceCodeService } from "../../services/sourceCodeService";
 import { FileSystemService } from "../../services/fileSystemService";
 import { ExplorerProvider } from "../../explorer/explorerProvider";
 import { DeleteFieldTool } from "../../refactor/tools/deleteField";
+import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 import * as path from "path";
 
 /**
@@ -24,15 +25,13 @@ export class ChangeCompositionToReferenceTool {
   private projectAnalysisService: ProjectAnalysisService;
   private sourceCodeService: SourceCodeService;
   private fileSystemService: FileSystemService;
-  private explorerProvider: ExplorerProvider;
   private deleteFieldTool: DeleteFieldTool;
 
-  constructor(explorerProvider: ExplorerProvider) {
+  constructor() {
     this.userInputService = new UserInputService();
     this.projectAnalysisService = new ProjectAnalysisService();
     this.sourceCodeService = new SourceCodeService();
     this.fileSystemService = new FileSystemService();
-    this.explorerProvider = explorerProvider;
     this.deleteFieldTool = new DeleteFieldTool();
   }
 
@@ -42,13 +41,16 @@ export class ChangeCompositionToReferenceTool {
    * @param cache - The metadata cache for context about existing models
    * @param sourceModelName - The name of the model containing the composition field
    * @param fieldName - The name of the composition field to convert
-   * @returns Promise that resolves when the conversion is complete
+   * @returns Promise that resolves to a WorkspaceEdit containing all changes needed for the conversion
    */
   public async changeCompositionToReference(
     cache: MetadataCache,
     sourceModelName: string,
     fieldName: string
-  ): Promise<void> {
+  ): Promise<vscode.WorkspaceEdit> {
+
+    const edit = new vscode.WorkspaceEdit();
+    
     try {
       // Step 1: Validate the source model and composition field
       const { sourceModel, document, compositionField, componentModel } = await this.validateCompositionField(
@@ -57,43 +59,39 @@ export class ChangeCompositionToReferenceTool {
         fieldName
       );
 
-      // Step 2: Get confirmation from user
-      const shouldProceed = await this.confirmConversion(componentModel.name, sourceModelName);
-      if (!shouldProceed) {
-        return; // User cancelled
-      }
-
       // Step 3: Determine the target file path for the new independent model
       const targetFilePath = await this.determineTargetFilePath(sourceModel, componentModel.name);
 
       // Step 4: Generate and create the independent model using existing tools
-      const modelFileUri = await this.generateAndCreateIndependentModel(componentModel, sourceModel, targetFilePath, cache);
-
+      await this.generateAndCreateIndependentModel(componentModel, sourceModel, targetFilePath, cache, edit);
+      
       // Step 5: Extract related enums before removing the component model
       const relatedEnums = await this.sourceCodeService.extractRelatedEnums(document, componentModel, 
         this.sourceCodeService.extractClassBody(document, componentModel.name));
 
       // Step 6-8: Remove field, model, and enums in a single workspace edit to avoid coordinate issues
-      await this.removeFieldModelAndEnums(document, compositionField, componentModel, relatedEnums, cache);
+      await this.removeFieldModelAndEnums(document, compositionField, componentModel, relatedEnums, cache, edit);
 
       // Step 9: Add the reference field to the source model
-      await this.addReferenceField(document, sourceModel.name, fieldName, componentModel.name, compositionField.type.endsWith('[]'), cache);
+      await this.addReferenceField(document, sourceModel.name, fieldName, componentModel.name, compositionField.type.endsWith('[]'), cache, edit);
 
       // Step 10: Add import for the new model in the source file
-      const importEdit = new vscode.WorkspaceEdit();
-      await this.sourceCodeService.addModelImport(document, componentModel.name, importEdit, cache);
-      await vscode.workspace.applyEdit(importEdit);
+      await this.sourceCodeService.addModelImport(document, componentModel.name, edit, cache);
 
       // Step 11: Focus on the newly modified field
       await this.sourceCodeService.focusOnElement(document, fieldName);
 
-      // Step 11: Show success message
+      // Step 12: Show success message
       vscode.window.showInformationMessage(
         `Composition converted to reference! The component model '${componentModel.name}' is now an independent model in its own file.`
       );
+
+      // Return the consolidated workspace edit containing all changes
+      return edit;
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to change composition to reference: ${error}`);
       console.error("Error changing composition to reference:", error);
+      return edit; // Return the edit even if there was an error
     }
   }
 
@@ -149,21 +147,6 @@ export class ChangeCompositionToReferenceTool {
     return { sourceModel, document, compositionField, componentModel };
   }
 
-  /**
-   * Asks user for confirmation before proceeding with the conversion.
-   */
-  private async confirmConversion(componentModelName: string, sourceModelName: string): Promise<boolean> {
-    const message = `Convert composition to reference? The component model '${componentModelName}' will be moved to its own file and become an independent model.`;
-
-    const choice = await vscode.window.showWarningMessage(
-      message,
-      { modal: true },
-      "Convert",
-      "Cancel"
-    );
-
-    return choice === "Convert";
-  }
 
   /**
    * Determines the target file path for the new independent model.
@@ -181,8 +164,10 @@ export class ChangeCompositionToReferenceTool {
     componentModel: DecoratedClass,
     sourceModel: DecoratedClass,
     targetFilePath: string,
-    cache: MetadataCache
-  ): Promise<vscode.Uri> {
+    cache: MetadataCache,
+    workspaceEdit: vscode.WorkspaceEdit
+  ): Promise<void> {
+    
     // Step 1: Get the source document to extract the class body
     const sourceDocument = await vscode.workspace.openTextDocument(sourceModel.declaration.uri);
     
@@ -198,6 +183,7 @@ export class ChangeCompositionToReferenceTool {
     
     // Step 5: Extract existing model imports from the source file
     const existingImports = this.sourceCodeService.extractModelImports(sourceDocument);
+    const existingImportsSet = new Set(existingImports);
     
     // Step 6: Convert the class body for independent model use
     const convertedClassBody = this.convertComponentClassBody(classBody);
@@ -206,27 +192,21 @@ export class ChangeCompositionToReferenceTool {
     const modelFileContent = this.sourceCodeService.generateModelFileContent(
       componentModel.name,
       convertedClassBody,
-      "PersistentModel", // Change from PersistentComponentModel to PersistentModel
+      "PersistentModel", // Convert from PersistentComponentModel to PersistentModel
       dataSource,
-      new Set(["Field"]), // Ensure Field is included
-      false // This is a standalone model (with export)
+      existingImportsSet,
+      false // isComponent = false since this is now an independent model
     );
     
     // Step 8: Add related enums to the file content
     const finalFileContent = this.sourceCodeService.addEnumsToFileContent(modelFileContent, relatedEnums);
     
-    // Step 9: Create the new model file
+    // Step 9: Create the workspace edit to create the new model file
     const modelFileUri = vscode.Uri.file(targetFilePath);
-    const encoder = new TextEncoder();
-    await vscode.workspace.fs.writeFile(modelFileUri, encoder.encode(finalFileContent));
+    workspaceEdit.createFile(modelFileUri, { ignoreIfExists: true }, {label: 'Create independent model file', needsConfirmation: true});
+    workspaceEdit.insert(modelFileUri, new vscode.Position(0, 0), finalFileContent, {label: 'Insert model content', needsConfirmation: true});
     
-    // Step 10: Add model imports to the new file if needed
-    if (existingImports.length > 0) {
-      await this.addModelImportsToNewFile(modelFileUri, existingImports);
-    }
-    
-    console.log(`Created independent model file: ${targetFilePath}`);
-    return modelFileUri;
+    console.log(`Prepared workspace edit to create independent model file: ${targetFilePath}`);
   }
 
   /**
@@ -289,9 +269,9 @@ export class ChangeCompositionToReferenceTool {
     compositionField: PropertyMetadata,
     componentModel: DecoratedClass,
     relatedEnums: string[],
-    cache: MetadataCache
+    cache: MetadataCache,
+    workspaceEdit: vscode.WorkspaceEdit
   ): Promise<void> {
-    const workspaceEdit = new vscode.WorkspaceEdit();
 
     // Step 1: Get field deletion range (using DeleteFieldTool logic)
     const fileMetadata = cache.getMetadataForFile(document.uri.fsPath);
@@ -323,8 +303,7 @@ export class ChangeCompositionToReferenceTool {
     // Step 4: Merge field deletion edits into the main workspace edit
     this.mergeWorkspaceEdits(fieldDeletionEdit, workspaceEdit);
 
-    // Step 5: Apply all deletions in a single operation
-    await vscode.workspace.applyEdit(workspaceEdit);
+    console.log("Prepared workspace edit to remove field, model, and unused enums");
   }
 
   /**
@@ -472,7 +451,7 @@ export class ChangeCompositionToReferenceTool {
         new vscode.Position(enumEndLine + 1, 0)
       );
       
-      workspaceEdit.delete(document.uri, rangeToDelete);
+      workspaceEdit.delete(document.uri, rangeToDelete, {label: `Delete unused enum ${enumName}`, needsConfirmation: true});
       console.log(`Scheduled deletion of enum "${enumName}" from lines ${enumStartLine} to ${enumEndLine}`);
     } else {
       console.warn(`Could not find enum "${enumName}" for deletion`);
@@ -486,7 +465,7 @@ export class ChangeCompositionToReferenceTool {
     sourceEdit.entries().forEach(([uri, edits]) => {
       edits.forEach(edit => {
         if (edit instanceof vscode.TextEdit) {
-          targetEdit.replace(uri, edit.range, edit.newText);
+          targetEdit.replace(uri, edit.range, edit.newText, {label: 'Merge field deletion edits', needsConfirmation: true});
         }
       });
     });
@@ -501,7 +480,8 @@ export class ChangeCompositionToReferenceTool {
     fieldName: string,
     targetModelName: string,
     isArray: boolean,
-    cache: MetadataCache
+    cache: MetadataCache,
+    workspaceEdit: vscode.WorkspaceEdit
   ): Promise<void> {
     // Create field info for the reference field
     const fieldType: FieldTypeOption = {
@@ -524,8 +504,20 @@ export class ChangeCompositionToReferenceTool {
     // Generate the field code
     const fieldCode = this.generateReferenceFieldCode(fieldInfo, targetModelName, isArray);
 
+    // Create the field insertion edits manually and merge into main workspace edit
+    const lines = document.getText().split("\n");
+    const { classStartLine, classEndLine } = this.sourceCodeService.findClassBoundaries(lines, sourceModelName);
+    
+    // Apply proper indentation
+    const indentation = detectIndentation(lines, classStartLine, classEndLine);
+    const indentedFieldCode = applyIndentation(fieldCode, indentation);
+
     // Insert the field
-    await this.sourceCodeService.insertField(document, sourceModelName, fieldInfo, fieldCode, cache, false);
+    workspaceEdit.insert(document.uri, new vscode.Position(classEndLine, 0), `\n${indentedFieldCode}\n`, {label: `Add reference field ${fieldName}`, needsConfirmation: true});
+
+    // Add necessary imports to the workspace edit
+    const newImports = new Set<string>(["Field", "Reference"]);
+    await this.sourceCodeService.ensureSlingrFrameworkImports(document, workspaceEdit, newImports);
   }
 
   /**
