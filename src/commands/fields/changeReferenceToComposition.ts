@@ -7,6 +7,7 @@ import { SourceCodeService } from "../../services/sourceCodeService";
 import { FileSystemService } from "../../services/fileSystemService";
 import { ExplorerProvider } from "../../explorer/explorerProvider";
 import { DeleteFieldTool } from "../../refactor/tools/deleteField";
+import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 import * as path from "path";
 
 /**
@@ -23,15 +24,13 @@ export class ChangeReferenceToCompositionTool {
   private projectAnalysisService: ProjectAnalysisService;
   private sourceCodeService: SourceCodeService;
   private fileSystemService: FileSystemService;
-  private explorerProvider: ExplorerProvider;
   private deleteFieldTool: DeleteFieldTool;
 
-  constructor(explorerProvider: ExplorerProvider) {
+  constructor() {
     this.userInputService = new UserInputService();
     this.projectAnalysisService = new ProjectAnalysisService();
     this.sourceCodeService = new SourceCodeService();
     this.fileSystemService = new FileSystemService();
-    this.explorerProvider = explorerProvider;
     this.deleteFieldTool = new DeleteFieldTool();
   }
 
@@ -41,13 +40,15 @@ export class ChangeReferenceToCompositionTool {
    * @param cache - The metadata cache for context about existing models
    * @param sourceModelName - The name of the model containing the reference field
    * @param fieldName - The name of the reference field to convert
-   * @returns Promise that resolves when the conversion is complete
+   * @returns Promise that resolves to a WorkspaceEdit containing all changes needed for the conversion
    */
   public async changeReferenceToComposition(
     cache: MetadataCache,
     sourceModelName: string,
     fieldName: string
-  ): Promise<void> {
+  ): Promise<vscode.WorkspaceEdit> {
+
+    const edit = new vscode.WorkspaceEdit();
     try {
       // Step 1: Validate the source model and reference field
       const { sourceModel, document, referenceField, targetModel } = await this.validateReferenceField(
@@ -59,47 +60,47 @@ export class ChangeReferenceToCompositionTool {
       // Step 2: Check if target model is referenced by other fields
       const isReferencedElsewhere = this.isModelReferencedElsewhere(cache, targetModel.name, sourceModelName, fieldName);
 
-      // Step 3: Inform user about the action and get confirmation
-      const shouldProceed = await this.confirmConversion(targetModel.name, isReferencedElsewhere);
-      if (!shouldProceed) {
-        return; // User cancelled
-      }
 
       // Step 4: Create the component model content based on the target model
       const componentModelCode = await this.generateComponentModelCode(targetModel, sourceModel, cache);
 
       // Step 5: Remove the reference field decorators
-      await this.removeReferenceField(document, referenceField, cache);
+      await this.removeReferenceField(document, referenceField, cache, edit);
 
       // Step 6: Add the component model to the source file
-      await this.addComponentModel(document, componentModelCode, sourceModel.name, cache);
+      await this.addComponentModel(document, componentModelCode, sourceModel.name, cache, edit);
 
       // Step 6.1: Remove the import for the target model since it's now defined in the same file
-      await this.fileSystemService.removeModelImport(document, targetModel.name);
+      await this.removeModelImport(document, targetModel.name, edit);
 
       // Step 7: Add the composition field
-      await this.addCompositionField(document, sourceModel.name, fieldName, targetModel.name, false, cache);
+      await this.addCompositionField(document, sourceModel.name, fieldName, targetModel.name, false, cache, edit);
 
       // Step 8: Delete the target model file if not referenced elsewhere
       if (!isReferencedElsewhere) {
-        await this.deleteTargetModelFile(targetModel);
+        await this.deleteTargetModelFile(targetModel, edit);
       }
 
-      // Refresh the explorer to reflect changes
-      //this.explorerProvider.refresh();
+     // Add necessary imports to the workspace edit
+      await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, new Set(["Model", "PersistentComponentModel", "Field", "Composition"]));
 
       // Step 9: Focus on the newly modified field
       await this.sourceCodeService.focusOnElement(document, fieldName);
 
       // Step 10: Show success message
       const message = isReferencedElsewhere 
-        ? `Reference converted to composition! The original ${targetModel.name} model was kept as it's referenced elsewhere.`
+        ? `Reference converted to composition! The origin
+  private async addEnumDeletionToWorkspacal ${targetModel.name} model was kept as it's referenced elsewhere.`
         : `Reference converted to composition! The original ${targetModel.name} model was deleted and recreated as a component.`;
       
       vscode.window.showInformationMessage(message);
+
+      // Return the consolidated workspace edit containing all changes
+      return edit;
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to change reference to composition: ${error}`);
       console.error("Error changing reference to composition:", error);
+      return edit; // Return the edit even if there was an error
     }
   }
 
@@ -382,7 +383,12 @@ export class ChangeReferenceToCompositionTool {
   /**
    * Removes the @Reference and @Field decorators from the field.
    */
-  private async removeReferenceField(document: vscode.TextDocument, field: PropertyMetadata, cache: MetadataCache): Promise<void> {
+  private async removeReferenceField(
+    document: vscode.TextDocument, 
+    field: PropertyMetadata, 
+    cache: MetadataCache,
+    workspaceEdit: vscode.WorkspaceEdit
+  ): Promise<void> {
     // Find the model name that contains this field
     const fileMetadata = cache.getMetadataForFile(document.uri.fsPath);
     let modelName = 'Unknown';
@@ -399,14 +405,12 @@ export class ChangeReferenceToCompositionTool {
     }
 
     // Use the DeleteFieldTool to programmatically remove the field
-    const workspaceEdit = await this.deleteFieldTool.deleteFieldProgrammatically(
+    await this.deleteFieldTool.deleteFieldProgrammatically(
       field,
       modelName,
-      cache
+      cache,
+      workspaceEdit
     );
-
-    // Apply the workspace edit
-    await vscode.workspace.applyEdit(workspaceEdit);
   }
 
   /**
@@ -416,16 +420,27 @@ export class ChangeReferenceToCompositionTool {
     document: vscode.TextDocument,
     componentModelCode: string,
     sourceModelName: string,
-    cache: MetadataCache
+    cache: MetadataCache,
+    workspaceEdit: vscode.WorkspaceEdit
   ): Promise<void> {
-    const newImports = new Set(["Model", "PersistentComponentModel"]);
     
-    await this.sourceCodeService.insertModel(
-      document,
-      componentModelCode,
-      sourceModelName, // Insert after the source model
-      newImports
-    );
+    // Manually implement model insertion to use our workspace edit
+    const lines = document.getText().split("\n");
+    
+    // Find the position to insert the model (after the source model)
+    let insertPosition = lines.length; // Default to end of file
+    if (sourceModelName) {
+      try {
+        const { classEndLine } = this.sourceCodeService.findClassBoundaries(lines, sourceModelName);
+        insertPosition = classEndLine + 1;
+      } catch (error) {
+        console.warn(`Could not find source model "${sourceModelName}", inserting at end of file`);
+      }
+    }
+    
+    // Insert the component model with proper spacing
+    const modelWithSpacing = `\n${componentModelCode}\n`;
+    workspaceEdit.insert(document.uri, new vscode.Position(insertPosition, 0), modelWithSpacing, {label: 'Add component model', needsConfirmation: true});
   }
 
   /**
@@ -437,7 +452,8 @@ export class ChangeReferenceToCompositionTool {
     fieldName: string,
     targetModelName: string,
     isArray: boolean,
-    cache: MetadataCache
+    cache: MetadataCache,
+    workspaceEdit: vscode.WorkspaceEdit
   ): Promise<void> {
     // Create field info for the composition field
     const fieldType: FieldTypeOption = {
@@ -461,8 +477,20 @@ export class ChangeReferenceToCompositionTool {
     // Generate the field code
     const fieldCode = this.generateCompositionFieldCode(fieldInfo, targetModelName, isArray);
 
+    // Create the field insertion edits manually and merge into main workspace edit
+    const lines = document.getText().split("\n");
+    const { classStartLine, classEndLine } = this.sourceCodeService.findClassBoundaries(lines, sourceModelName);
+    
+    // Apply proper indentation
+    const indentation = detectIndentation(lines, classStartLine, classEndLine);
+    const indentedFieldCode = applyIndentation(fieldCode, indentation);
+
     // Insert the field
-    await this.sourceCodeService.insertField(document, sourceModelName, fieldInfo, fieldCode, cache, false);
+    workspaceEdit.insert(document.uri, new vscode.Position(classEndLine, 0), `\n${indentedFieldCode}\n`, {label: `Add composition field ${fieldName}`, needsConfirmation: true});
+
+    // Add necessary imports to the workspace edit
+    const newImports = new Set<string>(["Composition"]);
+    //await this.sourceCodeService.ensureSlingrFrameworkImports(document, workspaceEdit, newImports);
   }
 
   /**
@@ -484,15 +512,63 @@ export class ChangeReferenceToCompositionTool {
     return lines.join("\n");
   }
 
+
+  /**
+   * Removes model import from the document.
+   */
+  private async removeModelImport(
+    document: vscode.TextDocument, 
+    modelName: string, 
+    workspaceEdit: vscode.WorkspaceEdit
+  ): Promise<void> {
+    const content = document.getText();
+    const lines = content.split("\n");
+
+    // Find and remove import lines that contain the model name
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Check for import statements that import the specific model
+      if (line.trim().startsWith('import ') && line.includes(modelName)) {
+        // Check if this import only imports the target model
+        const importMatch = line.match(/import\s+{([^}]+)}\s+from/);
+        if (importMatch) {
+          const imports = importMatch[1].split(',').map(imp => imp.trim());
+          
+          if (imports.length === 1 && imports[0] === modelName) {
+            // Remove the entire import line
+            const range = new vscode.Range(
+              new vscode.Position(i, 0),
+              new vscode.Position(i + 1, 0)
+            );
+            workspaceEdit.delete(document.uri, range, {label: `Remove import for ${modelName}`, needsConfirmation: true});
+          } else if (imports.includes(modelName)) {
+            // Remove just the model name from the import
+            const newImports = imports.filter(imp => imp !== modelName);
+            const newImportLine = line.replace(
+              /import\s+{[^}]+}/,
+              `import { ${newImports.join(', ')} }`
+            );
+            const range = new vscode.Range(
+              new vscode.Position(i, 0),
+              new vscode.Position(i, line.length)
+            );
+            workspaceEdit.replace(document.uri, range, newImportLine, {label: `Update import removing ${modelName}`, needsConfirmation: true});
+          }
+        }
+      }
+    }
+  }
+
   /**
    * Deletes the target model file if it's safe to do so.
    */
-  private async deleteTargetModelFile(targetModel: DecoratedClass): Promise<void> {
+  private async deleteTargetModelFile(targetModel: DecoratedClass, workspaceEdit: vscode.WorkspaceEdit): Promise<void> {
     try {
-      await vscode.workspace.fs.delete(targetModel.declaration.uri);
-      console.log(`Deleted target model file: ${targetModel.declaration.uri.fsPath}`);
+      workspaceEdit.deleteFile(targetModel.declaration.uri, { ignoreIfNotExists: true }, {label: `Delete original model file ${targetModel.name}`, needsConfirmation: true});
+      console.log(`Scheduled deletion of target model file: ${targetModel.declaration.uri.fsPath}`);
     } catch (error) {
-      console.warn(`Could not delete target model file: ${error}`);
+      console.warn(`Could not schedule deletion of target model file: ${error}`);
       // Don't throw error here as the conversion was successful
     }
   }
