@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { ChangeObject, IRefactorTool, ManualRefactorContext, ChangeFieldToSingleValuePayload } from '../refactorInterfaces';
-import { MetadataCache, PropertyMetadata } from '../../cache/cache';
-import { isModelFile, isField, areRangesEqual, isFieldMultiple } from '../../utils/metadata';
+import { ChangeObject, IRefactorTool, ManualRefactorContext, ChangeFieldToSingleValuePayload, RenameFieldPayload, RenameModelPayload } from '../refactorInterfaces';
+import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
+import { isModelFile, isField, areRangesEqual, isFieldMultiple, isModel } from '../../utils/metadata';
 
 /**
  * Tool to change a field from an array type to a single value type.
@@ -32,9 +32,67 @@ export class ChangeFieldToSingleValueTool implements IRefactorTool {
         return false;
     }
 
-    analyze(): ChangeObject[] {
-        // This refactor is manual-only for now
-        return [];
+    analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata, accumulatedChanges: ChangeObject[] = []): ChangeObject[] {
+        const changes: ChangeObject[] = [];
+        if (!oldFileMeta || !newFileMeta || !isModelFile(newFileMeta.uri)) {
+            return [];
+        }
+
+        const classRenames = new Map<string, string>();
+        const fieldRenamesByClass = new Map<string, Map<string, string>>();
+        for (const change of accumulatedChanges) {
+            if (change.type === 'RENAME_MODEL') {
+                const payload = change.payload as RenameModelPayload;
+                classRenames.set(payload.oldName, payload.newName);
+            }
+            if (change.type === 'RENAME_FIELD') {
+                const payload = change.payload as RenameFieldPayload;
+                if (!fieldRenamesByClass.has(payload.modelName)) {
+                    fieldRenamesByClass.set(payload.modelName, new Map());
+                }
+                fieldRenamesByClass.get(payload.modelName)!.set(payload.oldName, payload.newName);
+            }
+        }
+
+        for (const oldClassName in oldFileMeta.classes) {
+            const oldClass = oldFileMeta.classes[oldClassName];
+            const newClassName = classRenames.get(oldClassName) || oldClassName;
+            const newClass = newFileMeta.classes[newClassName];
+
+            if (!newClass || !isModel(oldClass) || !isModel(newClass)) {
+                continue;
+            }
+
+            const fieldRenames = fieldRenamesByClass.get(oldClassName) || new Map();
+            for (const oldPropName in oldClass.properties) {
+                const oldProp = oldClass.properties[oldPropName];
+                const newPropName = fieldRenames.get(oldPropName) || oldPropName;
+                const newProp = newClass.properties[newPropName];
+
+                if (!newProp || !isField(oldProp) || !isField(newProp)) {
+                    continue;
+                }
+
+                const oldType = oldProp.type;
+                const newType = newProp.type;
+
+                if (oldType.endsWith('[]') && oldType === newType + '[]') {
+                    const payload: ChangeFieldToSingleValuePayload = {
+                        field: oldProp,
+                        modelName: newClassName,
+                        isManual: false,
+                    };
+                    changes.push({
+                        type: 'CHANGE_FIELD_TO_SINGLE_VALUE',
+                        uri: newFileMeta.uri,
+                        description: `Field '${newProp.name}' in Model '${newClassName}' changed to a single value.`,
+                        payload,
+                    });
+                }
+            }
+        }
+
+        return changes;
     }
 
     async initiateManualRefactor(context: ManualRefactorContext): Promise<ChangeObject | undefined> {
@@ -78,27 +136,29 @@ export class ChangeFieldToSingleValueTool implements IRefactorTool {
     const workspaceEdit = new vscode.WorkspaceEdit();
     const { declaration, references = [] } = field;
 
-    // Change type from an array to a single value
-    const newType = field.type.replace('[]', '');
-    const document = await vscode.workspace.openTextDocument(declaration.uri);
-    const lineText = document.lineAt(declaration.range.start.line).text;
+    if (change.payload.isManual) {
+        // Change type from an array to a single value
+        const newType = field.type.replace('[]', '');
+        const document = await vscode.workspace.openTextDocument(declaration.uri);
+        const lineText = document.lineAt(declaration.range.start.line).text;
 
-    // Helper to escape special characters for use in a regular expression.
-    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Helper to escape special characters for use in a regular expression.
+        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // Build a robust regex that captures the base type and the array brackets separately.
-    const typeRegex = new RegExp(`(:\\s*${escapeRegExp(newType)})(\\[\\])`);
-    const match = lineText.match(typeRegex);
+        // Build a robust regex that captures the base type and the array brackets separately.
+        const typeRegex = new RegExp(`(:\\s*${escapeRegExp(newType)})(\\[\\])`);
+        const match = lineText.match(typeRegex);
 
-    if (match && typeof match.index === 'number') {
-        // The full text that was matched, e.g., ": string[]"
-        const fullMatchedText = match[0];
-        const replacementText = match[1]; // e.g., ": string"
-        const startPos = new vscode.Position(declaration.range.start.line, match.index);
-        const endPos = startPos.translate(0, fullMatchedText.length);
-        const typeRange = new vscode.Range(startPos, endPos);
+        if (match && typeof match.index === 'number') {
+            // The full text that was matched, e.g., ": string[]"
+            const fullMatchedText = match[0];
+            const replacementText = match[1]; // e.g., ": string"
+            const startPos = new vscode.Position(declaration.range.start.line, match.index);
+            const endPos = startPos.translate(0, fullMatchedText.length);
+            const typeRange = new vscode.Range(startPos, endPos);
 
-        workspaceEdit.replace(declaration.uri, typeRange, replacementText);
+            workspaceEdit.replace(declaration.uri, typeRange, replacementText);
+        }
     }
 
     // Singularize name if it's plural and update all references
@@ -137,7 +197,7 @@ The field **\`${oldName}\`** in the model **\`${modelName}\`** has been refactor
 
 **Changes Applied:**
 - **Name Change:** \`${oldName}\` -> \`${newName}\`
-- **Type Change:** \`${oldType}\`[] -> \`${newType}\`
+- **Type Change:** \`${oldType}[]\` -> \`${newType}\`
 - All direct references to the field name have been updated.
 
 **Problem:** The logic using this field might now be incorrect. Code that treated it as an array (e.g., \`record.${newName}.push('value')\`) will now need to handle a single value (e.g., \`record.${newName} = 'value'\`). This could also affect how you handle null or undefined values.

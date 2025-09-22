@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { ChangeObject, IRefactorTool, ManualRefactorContext, ChangeFieldToArrayPayload } from '../refactorInterfaces';
-import { MetadataCache, PropertyMetadata } from '../../cache/cache';
-import { isModelFile, isField, areRangesEqual, isFieldMultiple } from '../../utils/metadata';
+import { ChangeObject, IRefactorTool, ManualRefactorContext, ChangeFieldToArrayPayload, RenameModelPayload, RenameFieldPayload } from '../refactorInterfaces';
+import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
+import { isModelFile, isField, areRangesEqual, isFieldMultiple, isModel } from '../../utils/metadata';
 
 /**
  * Tool to change a field from a single value type to an array type.
@@ -31,8 +31,67 @@ export class ChangeFieldToArrayTool implements IRefactorTool {
         return false;
     }
 
-    analyze(): ChangeObject[] {
-        return [];
+    analyze(oldFileMeta?: FileMetadata, newFileMeta?: FileMetadata, accumulatedChanges: ChangeObject[] = []): ChangeObject[] {
+        const changes: ChangeObject[] = [];
+        if (!oldFileMeta || !newFileMeta || !isModelFile(newFileMeta.uri)) {
+            return [];
+        }
+
+        const classRenames = new Map<string, string>();
+        const fieldRenamesByClass = new Map<string, Map<string, string>>();
+        for (const change of accumulatedChanges) {
+            if (change.type === 'RENAME_MODEL') {
+                const payload = change.payload as RenameModelPayload;
+                classRenames.set(payload.oldName, payload.newName);
+            }
+            if (change.type === 'RENAME_FIELD') {
+                const payload = change.payload as RenameFieldPayload;
+                if (!fieldRenamesByClass.has(payload.modelName)) {
+                    fieldRenamesByClass.set(payload.modelName, new Map());
+                }
+                fieldRenamesByClass.get(payload.modelName)!.set(payload.oldName, payload.newName);
+            }
+        }
+
+        for (const oldClassName in oldFileMeta.classes) {
+            const oldClass = oldFileMeta.classes[oldClassName];
+            const newClassName = classRenames.get(oldClassName) || oldClassName;
+            const newClass = newFileMeta.classes[newClassName];
+
+            if (!newClass || !isModel(oldClass) || !isModel(newClass)) {
+                continue;
+            }
+
+            const fieldRenames = fieldRenamesByClass.get(oldClassName) || new Map();
+            for (const oldPropName in oldClass.properties) {
+                const oldProp = oldClass.properties[oldPropName];
+                const newPropName = fieldRenames.get(oldPropName) || oldPropName;
+                const newProp = newClass.properties[newPropName];
+
+                if (!newProp || !isField(oldProp) || !isField(newProp)) {
+                    continue;
+                }
+
+                const oldType = oldProp.type;
+                const newType = newProp.type;
+
+                if (!oldType.endsWith('[]') && newType === oldType + '[]') {
+                    const payload: ChangeFieldToArrayPayload = {
+                        field: oldProp,
+                        modelName: newClassName,
+                        isManual: false,
+                    };
+                    changes.push({
+                        type: 'CHANGE_FIELD_TO_ARRAY',
+                        uri: newFileMeta.uri,
+                        description: `Field '${newProp.name}' in Model '${newClassName}' changed to an array.`,
+                        payload,
+                    });
+                }
+            }
+        }
+
+        return changes;
     }
 
     async initiateManualRefactor(context: ManualRefactorContext): Promise<ChangeObject | undefined> {
@@ -76,21 +135,23 @@ export class ChangeFieldToArrayTool implements IRefactorTool {
         const workspaceEdit = new vscode.WorkspaceEdit();
         const { declaration, references = [] } = field;
 
-        // 1. Change the field's type to an array type
-        const document = await vscode.workspace.openTextDocument(declaration.uri);
-        const lineText = document.lineAt(declaration.range.start.line).text;
-        const typeRegex = new RegExp(`:\\s*${field.type}`);
-        const match = lineText.match(typeRegex);
+        if (change.payload.isManual) {
+            // Change the field's type to an array type
+            const document = await vscode.workspace.openTextDocument(declaration.uri);
+            const lineText = document.lineAt(declaration.range.start.line).text;
+            const typeRegex = new RegExp(`:\\s*${field.type}`);
+            const match = lineText.match(typeRegex);
 
-        if (match && typeof match.index === 'number') {
-            const startPos = new vscode.Position(declaration.range.start.line, match.index);
-            const typeNodeText = match[0];
-            const endPos = startPos.translate(0, typeNodeText.length);
-            const typeRange = new vscode.Range(startPos, endPos);
-            workspaceEdit.replace(declaration.uri, typeRange, `: ${field.type}[]`);
+            if (match && typeof match.index === 'number') {
+                const startPos = new vscode.Position(declaration.range.start.line, match.index);
+                const typeNodeText = match[0];
+                const endPos = startPos.translate(0, typeNodeText.length);
+                const typeRange = new vscode.Range(startPos, endPos);
+                workspaceEdit.replace(declaration.uri, typeRange, `: ${field.type}[]`);
+            }
         }
 
-        // 2. Pluralize name if it's not already plural and update all references
+        // Pluralize name if it's not already plural and update all references
         if (!field.name.endsWith('s')) {
             const newName = `${field.name}s`;
             // Update the declaration
