@@ -195,27 +195,27 @@
         },
         {
           "command": "slingr-vscode-extension.renameField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && viewItem =~ /field(Single|Array)/",
           "group": "0_modification@1"
         },
         {
           "command": "slingr-vscode-extension.changeFieldType",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && viewItem =~ /field(Single|Array)/",
           "group": "0_modification@2"
         },
         {
           "command": "slingr-vscode-extension.changeFieldToArray",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && viewItem == 'fieldSingle'",
           "group": "0_modification@3"
         },
         {
           "command": "slingr-vscode-extension.changeFieldToSingleValue",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && viewItem == 'fieldArray'",
           "group": "0_modification@4"
         },
         {
           "command": "slingr-vscode-extension.deleteField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && viewItem =~ /field(Single|Array)/",
           "group": "0_modification@5"
         },
         {
@@ -319,27 +319,27 @@
         },
         {
           "command": "slingr-vscode-extension.renameField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && viewItem =~ /field(Single|Array)/",
           "group": "1_modification@4"
         },
         {
           "command": "slingr-vscode-extension.changeFieldType",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && viewItem =~ /field(Single|Array)/",
           "group": "1_modification@5"
         },
         {
           "command": "slingr-vscode-extension.changeFieldToArray",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && viewItem == 'fieldSingle'",
           "group": "1_modification@6"
         },
         {
           "command": "slingr-vscode-extension.changeFieldToSingleValue",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && viewItem == 'fieldArray'",
           "group": "1_modification@7"
         },
         {
           "command": "slingr-vscode-extension.deleteField",
-          "when": "view == slingrExplorer && viewItem == 'field'",
+          "when": "view == slingrExplorer && viewItem =~ /field(Single|Array)/",
           "group": "2_modification@3"
         }
       ]

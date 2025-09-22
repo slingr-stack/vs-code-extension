@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext, ChangeFieldToArrayPayload } from '../refactorInterfaces';
 import { MetadataCache, PropertyMetadata } from '../../cache/cache';
-import { isModelFile, isField, areRangesEqual } from '../../utils/metadata';
+import { isModelFile, isField, areRangesEqual, isFieldMultiple } from '../../utils/metadata';
 
 /**
  * Tool to change a field from a single value type to an array type.
@@ -26,7 +26,7 @@ export class ChangeFieldToArrayTool implements IRefactorTool {
         }
         if (isModelFile(context.uri) && isField(context.metadata)) {
             const field = context.metadata as PropertyMetadata;
-            return !field.type.endsWith('[]');
+            return !isFieldMultiple(field);
         }
         return false;
     }

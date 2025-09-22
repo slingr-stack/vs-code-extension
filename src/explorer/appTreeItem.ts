@@ -14,8 +14,18 @@ export class AppTreeItem extends vscode.TreeItem {
     folderPath?: string
   ) {
     super(label, collapsibleState);
-    this.contextValue = itemType;
     this.folderPath = folderPath;
+
+    let finalContextValue = itemType;
+    if (itemType === 'field' && metadata && 'type' in metadata) {
+        const propMetadata = metadata as PropertyMetadata;
+        if (propMetadata.type.endsWith('[]')) {
+            finalContextValue = 'fieldArray';
+        } else {
+            finalContextValue = 'fieldSingle';
+        }
+    }
+    this.contextValue = finalContextValue;
 
     // Icon logic
     if (!this.extensionUri) {
@@ -47,6 +57,8 @@ export class AppTreeItem extends vscode.TreeItem {
           iconFileName = "database.svg";
           break;
         case "field":
+        case "fieldSingle":
+        case "fieldArray":
           iconFileName = "field.svg";
           break;
         case "modelActionsFolder":

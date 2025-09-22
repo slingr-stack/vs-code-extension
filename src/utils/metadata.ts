@@ -46,6 +46,15 @@ export function isField(metadata: DecoratedClass | PropertyMetadata | DataSource
     return 'type' in metadata && metadata.decorators.some(d => fieldDecoratorNames.includes(d.name) || d.name === 'Field');
 }
 
+/**
+ * Checks if a field property has a multiple (array) type.
+ * @param metadata - The property metadata to check.
+ * @returns True if the field type is an array (e.g., 'string[]'), false otherwise.
+ */
+export function isFieldMultiple(metadata: PropertyMetadata): boolean {
+    return metadata.type.endsWith('[]');
+}
+
 export function isMethodMetadata(value: any): value is MethodMetadata {
     // Check for properties that uniquely identify a MethodMetadata object
     return typeof value === 'object' && value !== null && 'parameters' in value && 'declaration' in value;

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext, ChangeFieldToSingleValuePayload } from '../refactorInterfaces';
 import { MetadataCache, PropertyMetadata } from '../../cache/cache';
-import { isModelFile, isField, areRangesEqual } from '../../utils/metadata';
+import { isModelFile, isField, areRangesEqual, isFieldMultiple } from '../../utils/metadata';
 
 /**
  * Tool to change a field from an array type to a single value type.
@@ -27,7 +27,7 @@ export class ChangeFieldToSingleValueTool implements IRefactorTool {
         if (isModelFile(context.uri) && isField(context.metadata)) {
             const field = context.metadata as PropertyMetadata;
             // A field can be changed to a single value if its type ends with '[]'
-            return field.type.endsWith('[]');
+            return isFieldMultiple(field);
         }
         return false;
     }
