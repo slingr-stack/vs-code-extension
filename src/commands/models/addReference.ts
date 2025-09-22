@@ -354,7 +354,6 @@ export class AddReferenceTool {
     lines.push(`export class ${modelName} extends BaseModel {`);
     lines.push(``);
     lines.push(`\t@Field({})`);
-    lines.push(`\t@Field({})`);
     lines.push(`\t@UUID()`);
 	  lines.push(`\t@PrimaryKey()`);
 	  lines.push(`\tid!: string`);
