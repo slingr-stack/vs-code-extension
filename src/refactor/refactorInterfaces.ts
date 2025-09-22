@@ -217,6 +217,29 @@ export interface ExtractFieldsToReferencePayload extends BaseExtractFieldsPayloa
     referenceFieldName: string;
 }
 
+/**
+ * Payload for extracting fields to a new embedded model.
+ * @property {string} sourceModelName - The name of the source model containing the fields to extract
+ * @property {string} newModelName - The name of the new embedded model to be created
+ * @property {string} embeddedFieldName - The name of the new embedded field to be created
+ * @property {fileCreationInfo?: FileCreationInfo} - Optional info for creating the new model file
+ */
+export interface ExtractFieldsToEmbeddedPayload extends BaseExtractFieldsPayload {
+    sourceModelName: string;
+    newModelName: string;
+    embeddedFieldName: string;
+}
+
+/**
+ * Payload for extracting fields to a new parent model.
+ * @property {string} sourceModelName - The name of the source model containing the fields to extract
+ * @property {string} newParentModelName - The name of the new abstract parent model to be created
+ */
+export interface ExtractFieldsToParentPayload extends BaseExtractFieldsPayload {
+    sourceModelName: string;
+    newParentModelName: string;
+}
+
 export interface DeleteDataSourcePayload extends BasePayload {
     dataSourceName: string;
     urisToDelete: vscode.Uri[];
@@ -241,6 +264,8 @@ export type ChangePayloadMap = {
     'CHANGE_COMPOSITION_TO_REFERENCE': ChangeCompositionToReferencePayload;
     'EXTRACT_FIELDS_TO_COMPOSITION': ExtractFieldsToCompositionPayload;
     'EXTRACT_FIELDS_TO_REFERENCE': ExtractFieldsToReferencePayload;
+    'EXTRACT_FIELDS_TO_EMBEDDED': ExtractFieldsToEmbeddedPayload;
+    'EXTRACT_FIELDS_TO_PARENT': ExtractFieldsToParentPayload;
     // Add more change types and their payloads as needed
 };
 

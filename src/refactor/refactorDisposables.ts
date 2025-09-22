@@ -19,6 +19,8 @@ import { PropertyMetadata } from '../cache/cache';
 import { fieldTypeConfig } from '../utils/fieldTypes';
 import { RenameDataSourceTool } from './tools/renameDataSource';
 import { DeleteDataSourceTool } from './tools/deleteDataSource';
+import { ExtractFieldsToEmbeddedTool } from '../commands/fields/extractFieldsToEmbedded';
+import { ExtractFieldsToParentTool } from '../commands/fields/extractFieldsToParent';
 
 /**
  * Returns an array of all available refactor tools for the application.
@@ -50,6 +52,8 @@ export function getAllRefactorTools(): IRefactorTool[] {
         new RenameDataSourceTool(),
         new DeleteDataSourceTool(),
         new ExtractFieldsToReferenceTool(),
+        new ExtractFieldsToEmbeddedTool(),
+        new ExtractFieldsToParentTool()
     ];
 }
 
