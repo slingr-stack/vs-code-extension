@@ -331,7 +331,7 @@ export class AddReferenceTool {
     const lines: string[] = [];
 
     // Add basic framework imports
-    lines.push(`import { Model, BaseModel, Field } from 'slingr-framework';`);
+    lines.push(`import { Model, BaseModel, Field, UUID, PrimaryKey } from 'slingr-framework';`);
 
     // Add datasource import if needed
     if (dataSource) {
@@ -354,8 +354,10 @@ export class AddReferenceTool {
     lines.push(`export class ${modelName} extends BaseModel {`);
     lines.push(``);
     lines.push(`\t@Field({})`);
-    lines.push(`\tname!: string;`);
-    lines.push(``);
+    lines.push(`\t@Field({})`);
+    lines.push(`\t@UUID()`);
+	  lines.push(`\t@PrimaryKey()`);
+	  lines.push(`\tid!: string`);
     lines.push(`}`);
     lines.push(``);
 

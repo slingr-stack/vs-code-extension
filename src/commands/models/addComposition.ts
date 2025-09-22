@@ -82,7 +82,7 @@ export class AddCompositionTool {
       await this.addCompositionField(document, modelClass.name, fieldName, innerModelName, isArray, cache);
 
       // Add required imports
-      const requiredImports = new Set(["Model", "Field", "Relationship", "BaseModel"]);
+      const requiredImports = new Set(["Model", "Field", "Relationship", "BaseModel", "UUID", "PrimaryKey"]);
       await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, requiredImports);
 
       // Apply the edit
@@ -404,6 +404,10 @@ export class AddCompositionTool {
     lines.push(`})`);
     lines.push(`class ${innerModelName} extends BaseModel {`);
     lines.push(``);
+    lines.push(`\t@Field({})`);
+    lines.push(`\t@UUID()`);
+	  lines.push(`\t@PrimaryKey()`);
+	  lines.push(`\tid!: string`);
     lines.push(`}`);
 
     return lines.join("\n");
