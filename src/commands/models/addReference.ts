@@ -331,7 +331,7 @@ export class AddReferenceTool {
     const lines: string[] = [];
 
     // Add basic framework imports
-    lines.push(`import { Model, PersistentModel, Field } from 'slingr-framework';`);
+    lines.push(`import { Model, BaseModel, Field } from 'slingr-framework';`);
 
     // Add datasource import if needed
     if (dataSource) {
@@ -351,7 +351,7 @@ export class AddReferenceTool {
     } else {
       lines.push(`@Model()`);
     }
-    lines.push(`export class ${modelName} extends PersistentModel {`);
+    lines.push(`export class ${modelName} extends BaseModel {`);
     lines.push(``);
     lines.push(`\t@Field({})`);
     lines.push(`\tname!: string;`);

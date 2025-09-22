@@ -255,10 +255,6 @@ export class AddFieldTool implements AIEnhancedTool {
   ): Promise<void> {
     const lines = document.getText().split("\n");
     const newImports = new Set<string>(["Field", fieldInfo.type.decorator]);
-    
-    if (fieldInfo.type.decorator === "Composition") {
-      newImports.add("PersistentComponentModel");
-    }
 
     // Add imports using source code service logic (we need to call a helper method)
     await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, newImports);

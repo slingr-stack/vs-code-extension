@@ -173,7 +173,6 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
    */
   private generateInnerModelCodeWithFields(
     innerModelName: string,
-    outerModelName: string,
     dataSource: string | undefined,
     fields: PropertyMetadata[]
   ): string {
@@ -189,7 +188,7 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
     }
 
     // Add class declaration
-    lines.push(`class ${innerModelName} extends PersistentComponentModel<${outerModelName}> {`);
+    lines.push(`class ${innerModelName} extends BaseModel {`);
     lines.push(``);
 
     // Add each field using the enhanced method that preserves all decorator information
@@ -300,13 +299,12 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
     // Generate the inner model code with fields
     const innerModelCode = this.generateInnerModelCodeWithFields(
       innerModelName,
-      outerModelName,
       dataSource,
       fieldsToAdd
     );
 
     // Add required imports - collect from the PropertyMetadata decorators
-    const requiredImports = new Set(["Model", "Field", "PersistentComponentModel", "Composition"]);
+    const requiredImports = new Set(["Model", "Field", "Composition"]);
     // Add field-specific imports based on the decorators in PropertyMetadata
     for (const property of fieldsToAdd) {
       for (const decorator of property.decorators) {

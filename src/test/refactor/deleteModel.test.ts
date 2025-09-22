@@ -582,7 +582,7 @@ if (typeof suite !== 'undefined') {
                     const mockFileContent = `import { Model, Field } from '@slingr/platform';
 
 @Model()
-export class User extends PersistentModel {
+export class User extends BaseModel {
     @Field()
     name: string;
     
@@ -591,7 +591,7 @@ export class User extends PersistentModel {
 }
 
 @Model()
-export class Order extends PersistentModel {
+export class Order extends BaseModel {
     @Field()
     orderNumber: string;
 }`;

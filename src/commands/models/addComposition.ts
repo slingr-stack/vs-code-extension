@@ -59,7 +59,12 @@ export class AddCompositionTool {
    * @param fieldName - The predefined field name for the composition
    * @returns Promise that resolves with the created inner model name when the composition is added
    */
-  public async addCompositionProgrammatically(cache: MetadataCache, modelName: string, fieldName: string): Promise<string> {
+  public async addCompositionProgrammatically(
+    cache: MetadataCache,
+    modelName: string,
+    fieldName: string
+  ): Promise<string> {
+    const edit = new vscode.WorkspaceEdit();
     try {
       // Step 1: Validate target file
       const { modelClass, document } = await this.validateAndPrepareTarget(modelName, cache);
@@ -75,6 +80,13 @@ export class AddCompositionTool {
 
       // Step 5: Add composition field to outer model
       await this.addCompositionField(document, modelClass.name, fieldName, innerModelName, isArray, cache);
+
+      // Add required imports
+      const requiredImports = new Set(["Model", "Field", "Relationship", "BaseModel"]);
+      await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, requiredImports);
+
+      // Apply the edit
+      await vscode.workspace.applyEdit(edit);
 
       // Step 6: Focus on the newly created field
       await this.sourceCodeService.focusOnElement(document, fieldName);
@@ -101,7 +113,7 @@ export class AddCompositionTool {
    * @param fieldName - The predefined field name for the composition
    * @returns Promise that resolves to a WorkspaceEdit containing all necessary changes and the inner model name
    * @throws Error if validation fails or models already exist
-   * 
+   *
    */
   public async createAddCompositionWorkspaceEdit(
     cache: MetadataCache,
@@ -130,7 +142,15 @@ export class AddCompositionTool {
     await this.addInnerModelEditToWorkspace(edit, document, innerModelName, modelClass.name, cache);
 
     // Step 7: Add composition field edit
-    await this.addCompositionFieldEditToWorkspace(edit, document, modelClass.name, fieldName, innerModelName, isArray, cache);
+    await this.addCompositionFieldEditToWorkspace(
+      edit,
+      document,
+      modelClass.name,
+      fieldName,
+      innerModelName,
+      isArray,
+      cache
+    );
 
     return { edit, innerModelName };
   }
@@ -158,7 +178,7 @@ export class AddCompositionTool {
     const innerModelCode = this.generateInnerModelCode(innerModelName, outerModelName, dataSource);
 
     // Add required imports
-    const requiredImports = new Set(["Model", "Field", "Relationship", "PersistentComponentModel"]);
+    const requiredImports = new Set(["Model", "Field", "Relationship", "BaseModel"]);
     await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, requiredImports);
 
     // Find insertion point after the outer model
@@ -214,10 +234,10 @@ export class AddCompositionTool {
 
     // Add field insertion edits using the source code service approach
     const lines = document.getText().split("\n");
-    const requiredImports = new Set(["Field", "Composition"]);
+    //const requiredImports = new Set(["Field", "Composition", "BaseModel"]);
 
     // Add imports
-    await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, requiredImports);
+    //await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, requiredImports);
 
     // Find class boundaries and add field
     const { classEndLine } = this.sourceCodeService.findClassBoundaries(lines, outerModelName);
@@ -382,7 +402,7 @@ export class AddCompositionTool {
       lines.push(`@Model()`);
     }
     lines.push(`})`);
-    lines.push(`class ${innerModelName} extends PersistentComponentModel<${outerModelName}> {`);
+    lines.push(`class ${innerModelName} extends BaseModel {`);
     lines.push(``);
     lines.push(`}`);
 
@@ -444,6 +464,4 @@ export class AddCompositionTool {
 
     return lines.join("\n");
   }
-
-
 }

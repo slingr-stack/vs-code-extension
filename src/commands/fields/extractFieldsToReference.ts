@@ -227,7 +227,7 @@ export class ExtractFieldsToReferenceTool extends ExtractFieldsController {
     const dataSource = this.extractDataSourceFromModel(sourceModel, cache);
 
     // Generate imports
-    const requiredImports = new Set(["Model", "Field", "PersistentModel"]);
+    const requiredImports = new Set(["Model", "Field", "BaseModel"]);
     for (const field of fieldsToExtract) {
       for (const decorator of field.decorators) {
         requiredImports.add(decorator.name);
@@ -251,7 +251,7 @@ export class ExtractFieldsToReferenceTool extends ExtractFieldsController {
       lines.push(`@Model()`);
     }
 
-    lines.push(`export class ${modelName} extends PersistentModel {`);
+    lines.push(`export class ${modelName} extends BaseModel {`);
     lines.push("");
 
     // Add each field using PropertyMetadata to preserve all decorator information

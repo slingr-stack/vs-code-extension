@@ -318,7 +318,7 @@ profile!: Profile;`;
             assert.ok(modifiedContent.includes('addresses!: Address[]'), 'Field declaration should be present');
 
             // Verify the inner model was created
-            assert.ok(modifiedContent.includes('class Address extends PersistentComponentModel<TestModel>'), 'Inner model should be created');
+            assert.ok(modifiedContent.includes('class Address extends BaseModel'), 'Inner model should be created');
             assert.ok(modifiedContent.includes('@Model()'), 'Model decorator should be present on inner model');
 
             // Verify original file is unchanged (since we didn't apply the edit)
@@ -365,7 +365,7 @@ profile!: Profile;`;
             assert.ok(!modifiedContent.includes('profile!: Profile[]'), 'Should not be array for singular field');
 
             // Verify the inner model was created
-            assert.ok(modifiedContent.includes('class Profile extends PersistentComponentModel<TestModel>'), 'Inner model should be created');
+            assert.ok(modifiedContent.includes('class Profile extends BaseModel'), 'Inner model should be created');
         });
 
         test('should throw error when composition field already exists', async () => {

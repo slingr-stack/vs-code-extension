@@ -14,7 +14,7 @@ if (typeof suite !== 'undefined') {
             mockExplorerProvider = {
                 refresh: () => {}
             };
-            changeCompositionToReferenceTool = new ChangeCompositionToReferenceTool(mockExplorerProvider);
+            changeCompositionToReferenceTool = new ChangeCompositionToReferenceTool();
         });
 
         const createMockPropertyMetadata = (name: string, type: string, decoratorNames: string[]): PropertyMetadata => {

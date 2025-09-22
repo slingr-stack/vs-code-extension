@@ -82,7 +82,7 @@ export class ChangeReferenceToCompositionTool {
       }
 
      // Add necessary imports to the workspace edit
-      await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, new Set(["Model", "PersistentComponentModel", "Field", "Composition"]));
+      await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, new Set(["Model", "BaseModel", "Field", "Composition"]));
 
       // Step 9: Focus on the newly modified field
       await this.sourceCodeService.focusOnElement(document, fieldName);
@@ -253,13 +253,15 @@ export class ChangeReferenceToCompositionTool {
     const resolvedEnums = await this.resolveEnumConflicts(enumDefinitions, sourceDocument, classBody, sourceModel.name);
     
     // Step 6: Generate the complete component model content
-    let componentModelCode = this.sourceCodeService.generateModelFileContent(
+    let componentModelCode = await this.sourceCodeService.generateModelFileContent(
       targetModel.name,
       resolvedEnums.updatedClassBody,
-      `PersistentComponentModel<${sourceModel.name}>`, // Use component model base class
+      `BaseModel`, // Use component model base class
       dataSource,
-      new Set(["Field", "PersistentComponentModel"]), // Ensure required imports
-      true // This is a component model (no export keyword)
+      new Set(["Field", "BaseModel"]), // Ensure required imports
+      true,  // This is a component model (no export keyword)
+      targetModel.declaration.uri.fsPath,
+      cache
     );
     
     // Step 7: Extract only the component model part (remove imports and add enums)

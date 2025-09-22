@@ -26,9 +26,6 @@ export class SourceCodeService {
     const edit = new vscode.WorkspaceEdit();
     const lines = document.getText().split("\n");
     const newImports = new Set<string>(["Field", fieldInfo.type.decorator]);
-    if (fieldInfo.type.decorator === "Composition") {
-      newImports.add("PersistentComponentModel");
-    }
 
     await this.ensureSlingrFrameworkImports(document, edit, newImports);
 
@@ -157,25 +154,73 @@ export class SourceCodeService {
     // Determine the import path
     let importPath = `./${targetModel}`;
 
-    if (cache) {
-      // Find the file path for the target model
-      const targetModelFilePath = this.findModelFilePath(cache, targetModel);
-
-      if (targetModelFilePath) {
-        // Calculate relative path from current file to target model file
-        const currentFilePath = document.uri.fsPath;
-        const relativePath = path.relative(path.dirname(currentFilePath), targetModelFilePath);
-        importPath = relativePath.replace(/\.ts$/, "").replace(/\\/g, "/");
-        if (!importPath.startsWith(".")) {
-          importPath = "./" + importPath;
-        }
-      }
-    }
-
     // Create the import statement
     const importStatement = `import { ${targetModel} } from '${importPath}';`;
 
     edit.insert(document.uri, new vscode.Position(insertLine, 0), importStatement + "\n");
+  }
+
+  /**
+   * Adds a datasource import to a document.
+   *
+   * @param document - The document to add the import to
+   * @param dataSourceName - The name of the datasource to import
+   * @param edit - The workspace edit to add changes to
+   * @param cache - Optional metadata cache to lookup datasource information
+   * @returns Promise<void>
+   */
+  public async addDataSourceImport(
+    document: vscode.TextDocument,
+    dataSourceName: string,
+    edit: vscode.WorkspaceEdit,
+    cache?: MetadataCache
+  ): Promise<void> {
+    const content = document.getText();
+    const lines = content.split("\n");
+
+    // Clean up the datasource name (remove quotes if it's a string literal)
+    const cleanDataSourceName = dataSourceName.replace(/['"]/g, "");
+
+    // Check if the datasource is already imported
+    const existingImport = lines.find(
+      (line) => line.includes("import") && line.includes(cleanDataSourceName) && !line.includes("slingr-framework")
+    );
+
+    if (existingImport) {
+      return; // Already imported
+    }
+
+    // Find the best place to insert the import (after slingr-framework imports, before model imports)
+    let insertLine = 0;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes("import") && lines[i].includes("slingr-framework")) {
+        insertLine = i + 1;
+        // Look for empty line after slingr-framework import
+        if (i + 1 < lines.length && lines[i + 1].trim() === "") {
+          insertLine = i + 1;
+          break;
+        }
+      } else if (lines[i].startsWith("import ") && !lines[i].includes("slingr-framework")) {
+        // Found other imports, insert before them
+        break;
+      } else if (lines[i].includes("@Model") || lines[i].includes("export class")) {
+        // Found the start of the model definition
+        break;
+      }
+    }
+
+    // Get the datasource import using our findDataSourcePath method
+    try {
+      const dataSourceImport = await this.findDataSourcePath(cleanDataSourceName, document.uri.fsPath, cache);
+      if (dataSourceImport) {
+        edit.insert(document.uri, new vscode.Position(insertLine, 0), dataSourceImport + "\n");
+      }
+    } catch (error) {
+      console.warn("Could not resolve datasource import, using fallback:", error);
+      // Fallback to generic import
+      const importStatement = `import { ${cleanDataSourceName} } from '../dataSources/${cleanDataSourceName}';`;
+      edit.insert(document.uri, new vscode.Position(insertLine, 0), importStatement + "\n");
+    }
   }
 
   /**
@@ -336,11 +381,122 @@ export class SourceCodeService {
   }
 
   /**
+   * Finds the datasource path by name in the workspace.
+   * 
+   * @param dataSourceName - The name of the datasource to find
+   * @param fromFilePath - The file path from which to calculate relative import path
+   * @param cache - Optional metadata cache to lookup datasource information
+   * @returns The import statement for the datasource or null if not found
+   */
+  public async findDataSourcePath(dataSourceName: string, fromFilePath: string, cache?: MetadataCache): Promise<string | null> {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        return null;
+      }
+
+      // Clean up the datasource name (remove quotes if it's a string literal)
+      const cleanDataSourceName = dataSourceName.replace(/['"]/g, "");
+
+      // First, try to find the datasource in the cache
+      if (cache) {
+        const dataSources = cache.getDataSources();
+        const targetDataSource = dataSources.find(ds => ds.name === cleanDataSourceName);
+        
+        if (targetDataSource) {
+          // Use the actual file path from the cache
+          const dataSourceFilePath = targetDataSource.declaration.uri.fsPath;
+          const fromFileDir = path.dirname(fromFilePath);
+          const relativePath = path.relative(fromFileDir, dataSourceFilePath);
+          
+          // Remove file extension for import
+          const importPath = relativePath.replace(/\.(ts|js)$/, "").replace(/\\/g, "/");
+          
+          // Ensure the path starts with './' if it's a relative path
+          const finalImportPath = importPath.startsWith(".") ? importPath : "./" + importPath;
+          
+          return `import { ${cleanDataSourceName} } from '${finalImportPath}';`;
+        }
+      }
+
+      // Fallback: Look for datasource file in src/dataSources directory
+      const dataSourcesDir = path.join(workspaceFolder.uri.fsPath, "src", "dataSources");
+      
+      // Try common file extensions for datasource files
+      const possibleExtensions = [".ts", ".js"];
+      
+      for (const ext of possibleExtensions) {
+        const dataSourceFile = path.join(dataSourcesDir, cleanDataSourceName + ext);
+        
+        try {
+          // Check if the file exists
+          await vscode.workspace.fs.stat(vscode.Uri.file(dataSourceFile));
+          
+          // Calculate relative path from the target file to the datasource
+          const fromFileDir = path.dirname(fromFilePath);
+          const relativePath = path.relative(fromFileDir, dataSourceFile);
+          
+          // Remove file extension for import
+          const importPath = relativePath.replace(/\.(ts|js)$/, "").replace(/\\/g, "/");
+          
+          // Ensure the path starts with './' if it's a relative path
+          const finalImportPath = importPath.startsWith(".") ? importPath : "./" + importPath;
+          
+          return `import { ${cleanDataSourceName} } from '${finalImportPath}';`;
+        } catch (error) {
+          // File doesn't exist, continue to next extension
+          continue;
+        }
+      }
+
+      // If no file found, create a generic import based on standard structure
+      const fromFileDir = path.dirname(fromFilePath);
+      const relativePath = path.relative(fromFileDir, dataSourcesDir);
+      const importPath = relativePath.replace(/\\/g, "/");
+      const finalImportPath = importPath.startsWith(".") ? importPath : "./" + importPath;
+      
+      return `import { ${cleanDataSourceName} } from '${finalImportPath}/${cleanDataSourceName}';`;
+    } catch (error) {
+      console.warn("Could not find datasource path:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Gets the actual file path where a datasource is defined using the cache.
+   * This is useful when you need to know the physical location of a datasource.
+   * 
+   * @param dataSourceName - The name of the datasource to find
+   * @param cache - The metadata cache to lookup datasource information
+   * @returns The file path where the datasource is defined, or null if not found
+   */
+  public getDataSourceFilePath(dataSourceName: string, cache: MetadataCache): string | null {
+    try {
+      const cleanDataSourceName = dataSourceName.replace(/['"]/g, "");
+      const dataSources = cache.getDataSources();
+      const targetDataSource = dataSources.find(ds => ds.name === cleanDataSourceName);
+      
+      return targetDataSource ? targetDataSource.declaration.uri.fsPath : null;
+    } catch (error) {
+      console.warn("Could not find datasource in cache:", error);
+      return null;
+    }
+  }
+
+  /**
    * Extracts the datasource import from the source model file.
    */
-  public async extractImport(sourceModel: DecoratedClass, importName: string): Promise<string | null> {
+  public async extractImport(sourceModel: DecoratedClass, importName: string, cache?: MetadataCache): Promise<string | null> {
     try {
-      // Read the source model file to extract datasource imports
+      // First, try to use the cache to find the datasource and generate the import
+      if (cache) {
+        const dataSourceImport = await this.findDataSourcePath(importName, sourceModel.declaration.uri.fsPath, cache);
+        if (dataSourceImport) {
+          return dataSourceImport;
+        }
+      }
+
+      // Fallback: Read the source model file to extract datasource imports
       const document = await vscode.workspace.openTextDocument(sourceModel.declaration.uri);
       const content = document.getText();
       const lines = content.split("\n");
@@ -431,26 +587,30 @@ export class SourceCodeService {
    *
    * @param modelName - The name of the new model class
    * @param classBody - The complete class body content
-   * @param baseClass - The base class to extend (default: "PersistentModel")
+   * @param baseClass - The base class to extend (default: "BaseModel")
    * @param dataSource - Optional datasource for the model
    * @param existingImports - Set of imports that should be included
    * @param isComponent - Whether this is a component model (affects export and class declaration)
+   * @param targetFilePath - Optional path where the model file will be created (for accurate relative import calculation)
+   * @param cache - Optional metadata cache to lookup datasource information
    * @returns The complete model file content
    */
-  public generateModelFileContent(
+  public async generateModelFileContent(
     modelName: string,
     classBody: string,
-    baseClass: string = "PersistentModel",
+    baseClass: string = "BaseModel",
     dataSource?: string,
     existingImports?: Set<string>,
-    isComponent: boolean = false
-  ): string {
+    isComponent: boolean = false,
+    targetFilePath?: string,
+    cache?: MetadataCache
+  ): Promise<string> {
     const lines: string[] = [];
 
     // Determine required imports
     const imports = new Set(["Model", "Field"]);
 
-    // Add base class to imports (handle complex base classes like PersistentComponentModel<ParentModel>)
+    // Add base class to imports
     const baseClassCore = baseClass.split("<")[0]; // Extract base class name before generic
     imports.add(baseClassCore);
 
@@ -467,6 +627,31 @@ export class SourceCodeService {
     const sortedImports = Array.from(imports).sort();
     lines.push(`import { ${sortedImports.join(", ")} } from "slingr-framework";`);
     lines.push("");
+
+    // Add datasource import if applicable
+    if (dataSource) {
+      if (targetFilePath) {
+        // Use the new findDataSourcePath function for accurate import resolution
+        try {
+          const dataSourceImport = await this.findDataSourcePath(dataSource, targetFilePath, cache);
+          if (dataSourceImport) {
+            lines.push(dataSourceImport);
+            lines.push("");
+          }
+        } catch (error) {
+          console.warn("Could not resolve datasource import, using fallback:", error);
+          // Fallback to generic import
+          const cleanDataSource = dataSource.replace(/['"]/g, "");
+          lines.push(`import { ${cleanDataSource} } from '../dataSources/${cleanDataSource}';`);
+          lines.push("");
+        }
+      } else {
+        // Fallback to generic import pattern when no target file path is provided
+        const cleanDataSource = dataSource.replace(/['"]/g, "");
+        lines.push(`import { ${cleanDataSource} } from '../dataSources/${cleanDataSource}';`);
+        lines.push("");
+      }
+    }
 
     // Add model decorator
     if (dataSource) {
@@ -492,6 +677,8 @@ export class SourceCodeService {
 
     return lines.join("\n");
   }
+
+
 
   /**
    * Analyzes class body content to determine which imports are needed.

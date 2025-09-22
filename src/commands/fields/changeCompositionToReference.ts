@@ -13,12 +13,7 @@ import * as path from "path";
 /**
  * Tool for converting composition relationships to reference relationships.
  * 
- * This tool converts a @Composition field to a @Reference field by:
- * 1. Finding the component model that is currently embedded
- * 2. Extracting the component model to its own file
- * 3. Converting the component model from PersistentComponentModel to PersistentModel
- * 4. Converting the field from @Composition to @Reference
- * 5. Adding the necessary imports for the new referenced model
+ * This tool converts a @Composition field to a @Reference
  */
 export class ChangeCompositionToReferenceTool {
   private userInputService: UserInputService;
@@ -181,21 +176,19 @@ export class ChangeCompositionToReferenceTool {
     const sourceModelDecorator = cache.getModelDecoratorByName("Model", sourceModel);
     const dataSource = sourceModelDecorator?.arguments?.[0]?.dataSource;
     
-    // Step 5: Extract existing model imports from the source file
-    const existingImports = this.sourceCodeService.extractModelImports(sourceDocument);
-    const existingImportsSet = new Set(existingImports);
-    
-    // Step 6: Convert the class body for independent model use
+    // Step 5: Convert the class body for independent model use
     const convertedClassBody = this.convertComponentClassBody(classBody);
     
-    // Step 7: Generate the complete model file content
-    const modelFileContent = this.sourceCodeService.generateModelFileContent(
+    // Step 6: Generate the complete model file content
+    const modelFileContent = await this.sourceCodeService.generateModelFileContent(
       componentModel.name,
       convertedClassBody,
-      "PersistentModel", // Convert from PersistentComponentModel to PersistentModel
+      "BaseModel",
       dataSource,
-      existingImportsSet,
-      false // isComponent = false since this is now an independent model
+      undefined,
+      false,
+      targetFilePath,
+      cache
     );
     
     // Step 8: Add related enums to the file content
@@ -214,10 +207,7 @@ export class ChangeCompositionToReferenceTool {
    * This mainly involves ensuring proper formatting and removing any component-specific elements.
    */
   private convertComponentClassBody(classBody: string): string {
-    // For now, we can use the class body as-is since the main difference is in the 
-    // class declaration (PersistentComponentModel vs PersistentModel) which is handled
-    // in generateModelFileContent. 
-    
+ 
     // Future enhancements could include:
     // - Removing component-specific decorators if any
     // - Adjusting field configurations if needed
