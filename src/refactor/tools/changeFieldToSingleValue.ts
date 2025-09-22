@@ -70,48 +70,54 @@ export class ChangeFieldToSingleValueTool implements IRefactorTool {
     }
 
     async prepareEdit(change: ChangeObject, cache: MetadataCache): Promise<vscode.WorkspaceEdit> {
-        if (change.type !== 'CHANGE_FIELD_TO_SINGLE_VALUE') {
-            throw new Error(`ChangeFieldToSingleValueTool can only handle CHANGE_FIELD_TO_SINGLE_VALUE changes, received: ${change.type}`);
-        }
-
-        const { field } = change.payload;
-        const workspaceEdit = new vscode.WorkspaceEdit();
-        const { declaration, references = [] } = field;
-
-        // 1. Change type from an array to a single value
-        const newType = field.type.replace('[]', '');
-        const document = await vscode.workspace.openTextDocument(declaration.uri);
-        const lineText = document.lineAt(declaration.range.start.line).text;
-        const typeRegex = new RegExp(`:\\s*${field.type.replace('[', '\\[').replace(']', '\\]')}`);
-        const match = lineText.match(typeRegex);
-
-        if (match && typeof match.index === 'number') {
-            //TODO: fix the position calculation. Now is counting bad the position and therefore not removing the []
-            const startPos = new vscode.Position(declaration.range.start.line, match.index);
-            const typeNodeText = match[0];
-            const endPos = startPos.translate(0, typeNodeText.length);
-            const typeRange = new vscode.Range(startPos, endPos);
-            workspaceEdit.replace(declaration.uri, typeRange, `: ${newType}`);
-        }
-
-        // 2. Singularize name if it's plural and update all references
-        if (field.name.endsWith('s')) {
-            const newName = field.name.slice(0, -1);
-            // Update the declaration
-            workspaceEdit.replace(declaration.uri, declaration.range, newName);
-
-            // Update all other references
-            for (const ref of references) {
-                // Skip the declaration itself
-                if (ref.uri.fsPath === declaration.uri.fsPath && areRangesEqual(ref.range, declaration.range)) {
-                    continue;
-                }
-                workspaceEdit.replace(ref.uri, ref.range, newName);
-            }
-        }
-
-        return workspaceEdit;
+    if (change.type !== 'CHANGE_FIELD_TO_SINGLE_VALUE') {
+        throw new Error(`ChangeFieldToSingleValueTool can only handle CHANGE_FIELD_TO_SINGLE_VALUE changes, received: ${change.type}`);
     }
+
+    const { field } = change.payload;
+    const workspaceEdit = new vscode.WorkspaceEdit();
+    const { declaration, references = [] } = field;
+
+    // Change type from an array to a single value
+    const newType = field.type.replace('[]', '');
+    const document = await vscode.workspace.openTextDocument(declaration.uri);
+    const lineText = document.lineAt(declaration.range.start.line).text;
+
+    // Helper to escape special characters for use in a regular expression.
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Build a robust regex that captures the base type and the array brackets separately.
+    const typeRegex = new RegExp(`(:\\s*${escapeRegExp(newType)})(\\[\\])`);
+    const match = lineText.match(typeRegex);
+
+    if (match && typeof match.index === 'number') {
+        // The full text that was matched, e.g., ": string[]"
+        const fullMatchedText = match[0];
+        const replacementText = match[1]; // e.g., ": string"
+        const startPos = new vscode.Position(declaration.range.start.line, match.index);
+        const endPos = startPos.translate(0, fullMatchedText.length);
+        const typeRange = new vscode.Range(startPos, endPos);
+
+        workspaceEdit.replace(declaration.uri, typeRange, replacementText);
+    }
+
+    // Singularize name if it's plural and update all references
+    if (field.name.endsWith('s')) {
+        const newName = field.name.slice(0, -1);
+        // Update the declaration
+        workspaceEdit.replace(declaration.uri, declaration.range, newName);
+
+        for (const ref of references) {
+            // Skip the declaration itself
+            if (ref.uri.fsPath === declaration.uri.fsPath && areRangesEqual(ref.range, declaration.range)) {
+                continue;
+            }
+            workspaceEdit.replace(ref.uri, ref.range, newName);
+        }
+    }
+
+    return workspaceEdit;
+}
 
     async executePrompt(change: ChangeObject): Promise<void> {
         if (change.type !== 'CHANGE_FIELD_TO_SINGLE_VALUE') return;
@@ -131,7 +137,7 @@ The field **\`${oldName}\`** in the model **\`${modelName}\`** has been refactor
 
 **Changes Applied:**
 - **Name Change:** \`${oldName}\` -> \`${newName}\`
-- **Type Change:** \`${oldType}\` -> \`${newType}\`
+- **Type Change:** \`${oldType}\`[] -> \`${newType}\`
 - All direct references to the field name have been updated.
 
 **Problem:** The logic using this field might now be incorrect. Code that treated it as an array (e.g., \`record.${newName}.push('value')\`) will now need to handle a single value (e.g., \`record.${newName} = 'value'\`). This could also affect how you handle null or undefined values.
