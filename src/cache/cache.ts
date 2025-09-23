@@ -5,6 +5,7 @@ import { accessSync } from 'fs';
 import { RefactorController } from '../refactor/RefactorController';
 import { ChangeObject } from '../refactor/refactorInterfaces';
 import * as crypto from 'crypto';
+import { PerformanceProfiler } from '../utils/performanceProfiler';
 
 // Represents the type of changes that can occur to a file
 type FileChangeType = 'create' | 'change' | 'delete';
@@ -380,7 +381,8 @@ export class MetadataCache {
                 this.cache[filePath] = newFileMeta;
             }
             
-            this.buildAllReferences();
+            await this.buildIncrementalReferences(oldFileMeta, newFileMeta);
+
             let fileType: CacheFileUpdateType = 'unknown';
             if (filePath.includes('/src/dataSources/')) {
                 fileType = 'dataSource';
@@ -825,40 +827,86 @@ export class MetadataCache {
     }
 
     /**
-     * Iterates through all cached items and finds their references throughout the project.
-     * This includes direct references found by ts-morph and implicit references
-     * from string literals in places like ModelView `getFields` methods.
-     * 
-     * Optimized version that builds references efficiently using proven ts-morph methods.
-     * @param targetFilePath Optional file path to rebuild references for. If not provided, rebuilds all.
+     * Builds references incrementally - only for changed files, not the entire project
      */
     private async buildAllReferences(targetFilePath?: string): Promise<void> {
-        
-        // If targetFilePath is provided, only rebuild references for that specific file
         if (targetFilePath) {
+            // Solo rebuild para el archivo específico
             this.buildReferencesForFile(targetFilePath);
             return;
         }
 
-        // Full rebuild - clear all references first
-        let totalItems = 0;
-        for (const file of Object.values(this.cache)) {
-            for (const cls of Object.values(file.classes)) {
-                cls.references = [];
-                totalItems++;
-                for (const prop of Object.values(cls.properties)) {
-                    prop.references = [];
-                    totalItems++;
-                }
-            }
-            for (const ds of Object.values(file.dataSources)) {
-                ds.references = [];
-                totalItems++;
-            }
+        await this.buildReferencesOptimized();
+    }
+
+    /**
+     * Builds references only for items that actually changed
+     */
+    private async buildIncrementalReferences(
+        oldFileMeta: FileMetadata | undefined, 
+        newFileMeta: FileMetadata | undefined
+    ): Promise<void> {
+        if (!newFileMeta) {
+            // File was deleted - references will be cleaned up naturally
+            return;
         }
 
-        // single pass through all source files
-        await this.buildReferencesOptimized();
+        const filePath = newFileMeta.uri.fsPath.replace(/\\/g, '/');
+        const sourceFile = this.tsMorphProject.getSourceFile(filePath);
+        if (!sourceFile) {return;}
+
+        // Only rebuild references for items that actually changed
+        for (const [className, classData] of Object.entries(newFileMeta.classes)) {
+            const oldClass = oldFileMeta?.classes[className];
+            
+            if (!oldClass || this.hasClassChanged(oldClass, classData)) {
+                const classNode = sourceFile.getClass(className);
+                if (classNode) {
+                    classData.references = []; // Clear old references
+                    this.findAndStoreReferences(classNode, classData);
+                }
+            }
+
+            // Check properties
+            for (const [propName, propData] of Object.entries(classData.properties)) {
+                const oldProp = oldClass?.properties[propName];
+                
+                if (!oldProp || this.hasPropertyChanged(oldProp, propData)) {
+                    const classNode = sourceFile.getClass(className);
+                    const propNode = classNode?.getProperty(propName);
+                    if (propNode) {
+                        propData.references = []; // Clear old references
+                        this.findAndStoreReferences(propNode, propData);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Quick comparison to see if a class has structurally changed
+     */
+    private hasClassChanged(oldClass: DecoratedClass, newClass: DecoratedClass): boolean {
+        if (oldClass.decorators.length !== newClass.decorators.length) {return true;}
+        if (Object.keys(oldClass.properties).length !== Object.keys(newClass.properties).length) 
+            {return true;}
+        
+        // Quick decorator name check
+        const oldDecoratorNames = oldClass.decorators.map(d => d.name).sort();
+        const newDecoratorNames = newClass.decorators.map(d => d.name).sort();
+        return JSON.stringify(oldDecoratorNames) !== JSON.stringify(newDecoratorNames);
+    }
+
+    /**
+     * Quick comparison to see if a property has changed
+     */
+    private hasPropertyChanged(oldProp: PropertyMetadata, newProp: PropertyMetadata): boolean {
+        if (oldProp.type !== newProp.type) {return true;}
+        if (oldProp.decorators.length !== newProp.decorators.length) {return true;}
+        
+        const oldDecoratorNames = oldProp.decorators.map(d => d.name).sort();
+        const newDecoratorNames = newProp.decorators.map(d => d.name).sort();
+        return JSON.stringify(oldDecoratorNames) !== JSON.stringify(newDecoratorNames);
     }
 
     /**

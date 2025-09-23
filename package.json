@@ -167,6 +167,11 @@
       {
         "command": "slingr-vscode-extension.deleteDataSource",
         "title": "Delete data source"
+      },
+      {
+        "command": "slingr-vscode-extension.showPerformanceReport",
+        "title": "Show Performance Report",
+        "category": "Slingr"
       }
     ],
     "submenus": [
