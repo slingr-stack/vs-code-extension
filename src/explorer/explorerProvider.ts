@@ -50,8 +50,8 @@ export class ExplorerProvider
 
   constructor(private cache: MetadataCache, private extensionUri: vscode.Uri) {
     // --- Listen for the cache's update event ---
-    this.cache.onDidUpdate(() => {
-      this.invalidateCache();
+    this.cache.onDidUpdate((event) => {
+      this.invalidateCache(event);
       this.debouncedRefresh();
     });
   }
@@ -60,21 +60,36 @@ export class ExplorerProvider
    * Invalidates cache selectively based on what actually changed
    */
   private invalidateCache(event?: CacheUpdateEvent): void {
-    if (!event || event.type === "fullRefresh") {
-      // Solo en full refresh borramos todo
+    console.log("[Explorer] invalidateCache called with event:", event);
+    
+    if (!event) {
+      console.log("[Explorer] Clearing entire cache due to no event");
       this.explorerCache = {};
+      return;
+    }
+
+    // For fullRefresh, we should only clear if it's truly needed
+    // Background reference building shouldn't affect folder structure
+    if (event.type === "fullRefresh") {
+      console.log("[Explorer] FullRefresh event - clearing references but keeping folder structure if valid");
+      // Only clear composition model references, but keep folder structure if it exists
+      delete this.explorerCache.compositionModelReferences;
+      delete this.explorerCache.folderChildren;
+      // Don't clear folderStructure and lastModelsHash unless models actually changed
       return;
     }
 
     // For other events, invalidate selectively
     if (event.type === "dataModel") {
       // A data model changed - could affect structure or composition models
+      console.log("[Explorer] Clearing folder structure cache due to dataModel change");
       delete this.explorerCache.folderStructure;
       delete this.explorerCache.compositionModelReferences;
       delete this.explorerCache.folderChildren; // Cache de children por folder
       delete this.explorerCache.lastModelsHash;
     } else if (event.type === "dataSource") {
       // Data source changes don't affect the folder structure or models
+      console.log("[Explorer] Ignoring dataSource change");
       return;
     }
   }
@@ -866,15 +881,31 @@ export class ExplorerProvider
     // Crear un hash de los modelos para detectar cambios reales
     const modelsHash = this.createModelsHash(models);
 
+    console.log("[Explorer] getCachedFolderStructure called with", models.length, "models");
+    console.log("[Explorer] Current cache state - folderStructure exists:", !!this.explorerCache.folderStructure);
+    console.log("[Explorer] Last models hash:", this.explorerCache.lastModelsHash);
+    console.log("[Explorer] Current models hash:", modelsHash);
+
     if (this.explorerCache.folderStructure && this.explorerCache.lastModelsHash === modelsHash) {
       // No hubo cambios reales en modelos, usar cache
+      console.log("[Explorer] Using cached folder structure");
       return this.explorerCache.folderStructure;
     }
 
     console.log("[Explorer] Rebuilding folder structure due to model changes");
-    this.explorerCache.folderStructure = await this.buildFolderStructure(models);
+    const folderStructure = await this.buildFolderStructure(models);
+    console.log("[Explorer] Built folder structure with", folderStructure.folders.size, "folders and", folderStructure.models.length, "root models");
+    
+    this.explorerCache.folderStructure = folderStructure;
     this.explorerCache.lastModelsHash = modelsHash;
 
+    console.log("[Explorer] Cache updated - folderStructure exists:", !!this.explorerCache.folderStructure);
+    
+    // Defensive check - make sure the cache wasn't cleared immediately
+    setTimeout(() => {
+      console.log("[Explorer] Post-build cache check - folderStructure still exists:", !!this.explorerCache.folderStructure);
+    }, 10);
+    
     return this.explorerCache.folderStructure;
   }
 
@@ -901,7 +932,6 @@ export class ExplorerProvider
    * Builds a hierarchical folder structure from model file paths
    */
   private async buildFolderStructure(models: DecoratedClass[]): Promise<FolderNode> {
-    return PerformanceProfiler.measure("ExplorerProvider.buildFolderStructure", async () => {
       const root: FolderNode = { folders: new Map(), models: [] };
 
       for (const model of models) {
@@ -945,7 +975,6 @@ export class ExplorerProvider
       await this.addEmptyDirectoriesToStructure(root);
 
       return root;
-    });
   }
 
   /**

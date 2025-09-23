@@ -172,7 +172,16 @@ export async function resolveTargetUri(
             targetUri = uri;
         } else {
             // AppTreeItem case
-            if ((uri.itemType === 'model' || uri.itemType === 'compositionField') && uri.metadata?.declaration?.uri) {
+            if (uri.itemType === 'folder') {
+                // For folders, use the folder's resourceUri or construct the path
+                if (uri.resourceUri) {
+                    targetUri = uri.resourceUri;
+                } else if (uri.metadata?.declaration.uri.fsPath) {
+                    targetUri = vscode.Uri.file(uri.metadata.declaration.uri.fsPath);
+                } else {
+                    throw new Error(opts.noUriErrorMessage!);
+                }
+            } else if ((uri.itemType === 'model' || uri.itemType === 'compositionField') && uri.metadata?.declaration?.uri) {
                 targetUri = uri.metadata.declaration.uri;
                 modelName = uri.metadata?.name;
             } else {
