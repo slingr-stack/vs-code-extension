@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext, ChangeFieldToSingleValuePayload, RenameFieldPayload, RenameModelPayload } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
 import { isModelFile, isField, areRangesEqual, isFieldMultiple, isModel } from '../../utils/metadata';
+import pluralize from 'pluralize';
 
 /**
  * Tool to change a field from an array type to a single value type.
@@ -162,8 +163,8 @@ export class ChangeFieldToSingleValueTool implements IRefactorTool {
     }
 
     // Singularize name if it's plural and update all references
-    if (field.name.endsWith('s')) {
-        const newName = field.name.slice(0, -1);
+    const newName = pluralize.singular(field.name);
+    if (newName !== field.name) {
         // Update the declaration
         workspaceEdit.replace(declaration.uri, declaration.range, newName);
 
