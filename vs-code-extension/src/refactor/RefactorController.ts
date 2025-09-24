@@ -443,7 +443,7 @@ export class RefactorController {
 
           if (hasRelevantChange) {
               disposable.dispose();
-              if (timeout) clearTimeout(timeout);
+              if (timeout) {clearTimeout(timeout);}
 
               this.checkForCompilationErrors(uris).then(hasErrors => {
                   resolve(hasErrors);
@@ -462,7 +462,7 @@ export class RefactorController {
       this.checkForCompilationErrors(uris).then(hasErrors => {
           if (hasErrors) {
               disposable.dispose();
-              if (timeout) clearTimeout(timeout);
+              if (timeout) {clearTimeout(timeout);}
               resolve(true);
           }
       });

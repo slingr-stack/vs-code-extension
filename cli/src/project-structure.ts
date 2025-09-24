@@ -4,10 +4,10 @@ import { fileURLToPath } from 'node:url'
 
 export interface AppAnswers {
     appType: string
+    database: string
     description: string
     hasBackend: boolean
     hasFrontend: boolean
-    database: string
 }
 
 async function copyTemplateFile(templatePath: string, targetPath: string, replacements?: Record<string, string>): Promise<void> {
@@ -86,24 +86,30 @@ export async function createProjectStructure(appName: string, answers: AppAnswer
 
     // Copiar el template de datasource correspondiente según el tipo de base de datos
     if (answers.hasBackend) {
-        let dbType = answers.database.toLowerCase()
+        const dbType = answers.database.toLowerCase()
         let templateFile = ''
         let targetFile = ''
         switch (dbType) {
-            case 'postgres':
-            case 'postgresql':
-                templateFile = path.join(templatesDir, 'dataSources', 'postgres.ts.template')
-                targetFile = path.join(targetDir, 'src', 'dataSources', 'postgres.ts')
-                break
-            case 'mysql':
+            case 'mysql': {
                 templateFile = path.join(templatesDir, 'dataSources', 'mysql.ts.template')
                 targetFile = path.join(targetDir, 'src', 'dataSources', 'mysql.ts')
                 break
-            // Agregar más casos si hay más templates
-            default:
+            }
+
+            case 'postgres':
+            case 'postgresql': {
                 templateFile = path.join(templatesDir, 'dataSources', 'postgres.ts.template')
                 targetFile = path.join(targetDir, 'src', 'dataSources', 'postgres.ts')
+                break
+            }
+
+            // Agregar más casos si hay más templates
+            default: {
+                templateFile = path.join(templatesDir, 'dataSources', 'postgres.ts.template')
+                targetFile = path.join(targetDir, 'src', 'dataSources', 'postgres.ts')
+            }
         }
+
         await copyTemplateFile(
             templateFile,
             targetFile,
@@ -129,10 +135,10 @@ export async function createProjectStructure(appName: string, answers: AppAnswer
         {
             '{{APP_NAME}}': appName,
             '{{APP_TYPE}}': answers.appType,
+            '{{DB_TYPE}}': answers.database,
             '{{DESCRIPTION}}': answers.description,
             '{{HAS_BACKEND}}': answers.hasBackend ? 'Yes' : 'No',
-            '{{HAS_FRONTEND}}': answers.hasFrontend ? 'Yes' : 'No',
-            '{{DB_TYPE}}': answers.database
+            '{{HAS_FRONTEND}}': answers.hasFrontend ? 'Yes' : 'No'
         }
     )
 
@@ -141,9 +147,9 @@ export async function createProjectStructure(appName: string, answers: AppAnswer
         path.join(templatesDir, 'package.json.template'),
         path.join(targetDir, 'package.json'),
         {
+            '{{APP_KEYWORD}}': answers.appType.toLowerCase().replaceAll(/\s+/g, '-'),
             '{{APP_NAME}}': appName,
-            '{{DESCRIPTION}}': answers.description,
-            '{{APP_KEYWORD}}': answers.appType.toLowerCase().replaceAll(/\s+/g, '-')
+            '{{DESCRIPTION}}': answers.description
         }
     )
 
@@ -153,11 +159,11 @@ export async function createProjectStructure(appName: string, answers: AppAnswer
         path.join(targetDir, 'docs', 'app-description.md'),
         {
             '{{APP_NAME}}': appName,
-            '{{DESCRIPTION}}': answers.description,
             '{{APP_TYPE}}': answers.appType,
+            '{{DB_TYPE}}': answers.database,
+            '{{DESCRIPTION}}': answers.description,
             '{{HAS_BACKEND}}': answers.hasBackend ? 'Included' : 'Not included',
-            '{{HAS_FRONTEND}}': answers.hasFrontend ? 'Included' : 'Not included',
-            '{{DB_TYPE}}': answers.database
+            '{{HAS_FRONTEND}}': answers.hasFrontend ? 'Included' : 'Not included'
         }
     )
 }

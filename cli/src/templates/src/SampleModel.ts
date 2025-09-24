@@ -1,82 +1,73 @@
-import { Field, Text, Email, HTML, Boolean, Model, BaseModel } from "slingr-framework";
+import { BaseModel, Boolean, Email, Field, HTML, Model, Text } from "slingr-framework";
 
 @Model({
     docs: "Represents a person",
 })
 export class Person extends BaseModel {
-    @Field({
-        required: true,
-    })
-    @Text({
-        minLength: 2,
-        maxLength: 30,
-        regex: /^[a-zA-Z]+$/,
-        regexMessage: "firstName must contain only letters",
-    })
-    firstName!: string;
-
-    @Field({
-        required: true,
-    })
-    @Text({
-        minLength: 2,
-        maxLength: 30,
-        regex: /^[a-zA-Z]+$/,
-        regexMessage: "lastName must contain only letters",
-    })
-    lastName!: string;
-
     @Field({})
-    @Email()
-    email!: string;
-
-    @Field({
-        validation: (_: number, person: Person) => {
-            let errors = [];
+    @HTML()
+    additionalInfo!: string;
+@Field({
+        required: true,
+        validation(_: number, person: Person) {
+            const errors = [];
             if (person.age < 0 || person.age > 120) {
                 errors.push({
                     constraint: "invalidAge",
                     message: "Age must be between 0 and 120",
                 });
             }
+
             return errors;
         },
-        required: true,
     })
     age!: number;
-
-
-    @Field({
-        required: (person: Person) => {
-            return (person.age < 18);
-        },
+@Email()
+    @Field({})
+    email!: string;
+@Field({
+        required: true,
     })
-    @Email()
-    parentEmail!: string;
-
-
-    @Field({
+    @Text({
+        maxLength: 30,
+        minLength: 2,
+        regex: /^[a-zA-Z]+$/,
+        regexMessage: "firstName must contain only letters",
+    })
+    firstName!: string;
+@Field({
         available: false, // This field should be excluded from JSON operations
         docs: "Internal identifier not exposed in JSON"
     })
     internalId!: string;
-
+@Boolean()
     @Field({
         required: false,
-        available: (person: Person) => {
-            return person.age >= 18;
+    })
+    isActive!: boolean;
+@Field({
+        required: true,
+    })
+    @Text({
+        maxLength: 30,
+        minLength: 2,
+        regex: /^[a-zA-Z]+$/,
+        regexMessage: "lastName must contain only letters",
+    })
+    lastName!: string;
+@Email()
+    @Field({
+        required(person: Person) {
+            return (person.age < 18);
         },
     })
-    phoneNumber!: string;
-
-    @Field({})
-    @HTML()
-    additionalInfo!: string;
-
-    @Field({
+    parentEmail!: string;
+@Field({
+        available(person: Person) {
+            return person.age >= 18;
+        },
         required: false,
     })
-    @Boolean()
-    isActive!: boolean;
+    phoneNumber!: string;
 
 }

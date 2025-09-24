@@ -4,13 +4,13 @@ describe('Person Model', () => {
     describe('Validation Tests', () => {
         it('should validate a valid adult person', async () => {
             const personData = {
-                firstName: 'John',
-                lastName: 'Doe',
-                email: 'john@example.com',
-                age: 25,
-                phoneNumber: '123-456-7890',
                 additionalInfo: '<p>Some info</p>',
-                isActive: true
+                age: 25,
+                email: 'john@example.com',
+                firstName: 'John',
+                isActive: true,
+                lastName: 'Doe',
+                phoneNumber: '123-456-7890'
             };
 
             const person = Person.fromJSON(personData);
@@ -21,13 +21,13 @@ describe('Person Model', () => {
 
         it('should validate a valid minor person with parent email', async () => {
             const personData = {
-                firstName: 'Jane',
-                lastName: 'Smith',
-                email: 'jane@example.com',
-                age: 16,
-                parentEmail: 'parent@example.com',
                 additionalInfo: '<p>Minor info</p>',
-                isActive: false
+                age: 16,
+                email: 'jane@example.com',
+                firstName: 'Jane',
+                isActive: false,
+                lastName: 'Smith',
+                parentEmail: 'parent@example.com'
             };
 
             const person = Person.fromJSON(personData);
@@ -38,10 +38,10 @@ describe('Person Model', () => {
 
         it('should fail validation when firstName is too short', async () => {
             const personData = {
-                firstName: 'J',
-                lastName: 'Doe',
+                age: 25,
                 email: 'john@example.com',
-                age: 25
+                firstName: 'J',
+                lastName: 'Doe'
             };
 
             const person = Person.fromJSON(personData);
@@ -55,10 +55,10 @@ describe('Person Model', () => {
 
         it('should fail validation when firstName contains numbers', async () => {
             const personData = {
-                firstName: 'John123',
-                lastName: 'Doe',
+                age: 25,
                 email: 'john@example.com',
-                age: 25
+                firstName: 'John123',
+                lastName: 'Doe'
             };
 
             const person = Person.fromJSON(personData);
@@ -72,10 +72,10 @@ describe('Person Model', () => {
 
         it('should fail validation when email is invalid', async () => {
             const personData = {
-                firstName: 'John',
-                lastName: 'Doe',
+                age: 25,
                 email: 'invalid-email',
-                age: 25
+                firstName: 'John',
+                lastName: 'Doe'
             };
 
             const person = Person.fromJSON(personData);
@@ -89,10 +89,10 @@ describe('Person Model', () => {
 
         it('should fail validation when age is negative', async () => {
             const personData = {
-                firstName: 'John',
-                lastName: 'Doe',
+                age: -5,
                 email: 'john@example.com',
-                age: -5
+                firstName: 'John',
+                lastName: 'Doe'
             };
 
             const person = Person.fromJSON(personData);
@@ -106,10 +106,10 @@ describe('Person Model', () => {
 
         it('should fail validation when age is too high', async () => {
             const personData = {
-                firstName: 'John',
-                lastName: 'Doe',
+                age: 150,
                 email: 'john@example.com',
-                age: 150
+                firstName: 'John',
+                lastName: 'Doe'
             };
 
             const person = Person.fromJSON(personData);
@@ -123,10 +123,10 @@ describe('Person Model', () => {
 
         it('should require parentEmail for minors', async () => {
             const personData = {
-                firstName: 'Jane',
-                lastName: 'Smith',
+                age: 16,
                 email: 'jane@example.com',
-                age: 16
+                firstName: 'Jane',
+                lastName: 'Smith'
                 // parentEmail missing
             };
 
@@ -141,10 +141,10 @@ describe('Person Model', () => {
 
         it('should not require parentEmail for adults', async () => {
             const personData = {
-                firstName: 'John',
-                lastName: 'Doe',
+                age: 25,
                 email: 'john@example.com',
-                age: 25
+                firstName: 'John',
+                lastName: 'Doe'
                 // parentEmail not provided
             };
 
@@ -160,12 +160,12 @@ describe('Person Model', () => {
     describe('JSON Serialization Tests', () => {
         it('should exclude internalId from JSON output', () => {
             const personData = {
-                firstName: 'John',
-                lastName: 'Doe',
-                email: 'john@example.com',
                 age: 25,
+                email: 'john@example.com',
+                firstName: 'John',
                 internalId: 'secret-123',
-                isActive: true
+                isActive: true,
+                lastName: 'Doe'
             };
 
             const person = Person.fromJSON(personData);
@@ -181,10 +181,10 @@ describe('Person Model', () => {
 
         it('should include phoneNumber for adults', () => {
             const personData = {
+                age: 25,
+                email: 'john@example.com',
                 firstName: 'John',
                 lastName: 'Doe',
-                email: 'john@example.com',
-                age: 25,
                 phoneNumber: '123-456-7890'
             };
 
@@ -196,10 +196,10 @@ describe('Person Model', () => {
 
         it('should exclude phoneNumber for minors', () => {
             const personData = {
+                age: 16,
+                email: 'jane@example.com',
                 firstName: 'Jane',
                 lastName: 'Smith',
-                email: 'jane@example.com',
-                age: 16,
                 parentEmail: 'parent@example.com',
                 phoneNumber: '123-456-7890'
             };
@@ -216,11 +216,11 @@ describe('Person Model', () => {
     describe('Field Type Tests', () => {
         it('should handle boolean field correctly', async () => {
             const personData = {
-                firstName: 'John',
-                lastName: 'Doe',
-                email: 'john@example.com',
                 age: 25,
-                isActive: true
+                email: 'john@example.com',
+                firstName: 'John',
+                isActive: true,
+                lastName: 'Doe'
             };
 
             const person = Person.fromJSON(personData);
@@ -232,11 +232,11 @@ describe('Person Model', () => {
 
         it('should handle HTML field correctly', async () => {
             const personData = {
-                firstName: 'John',
-                lastName: 'Doe',
-                email: 'john@example.com',
+                additionalInfo: '<p>This is <strong>HTML</strong> content</p>',
                 age: 25,
-                additionalInfo: '<p>This is <strong>HTML</strong> content</p>'
+                email: 'john@example.com',
+                firstName: 'John',
+                lastName: 'Doe'
             };
 
             const person = Person.fromJSON(personData);
@@ -270,10 +270,10 @@ describe('Person Model', () => {
 
         it('should handle boundary age values', async () => {
             const personData = {
-                firstName: 'John',
-                lastName: 'Doe',
+                age: 18, // Boundary between minor and adult
                 email: 'john@example.com',
-                age: 18 // Boundary between minor and adult
+                firstName: 'John',
+                lastName: 'Doe'
             };
 
             const person = Person.fromJSON(personData);

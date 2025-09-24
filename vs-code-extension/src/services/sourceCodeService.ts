@@ -55,8 +55,8 @@ export class SourceCodeService {
         inClass = true;
       }
       if (inClass) {
-        if (line.includes("{")) braceCount++;
-        if (line.includes("}")) braceCount--;
+        if (line.includes("{")) {braceCount++;}
+        if (line.includes("}")) {braceCount--;}
         if (braceCount === 0 && classStartLine !== -1) {
           classEndLine = i;
           break;

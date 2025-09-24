@@ -25,18 +25,18 @@ export class UserInputService {
 
     public async getFieldInfo(modelClass: DecoratedClass, cache?: MetadataCache): Promise<FieldInfo | null> {
         const fieldName = await this.getFieldName(modelClass);
-        if (!fieldName) return null;
+        if (!fieldName) {return null;}
 
         const fieldType = await this.selectFieldType();
-        if (!fieldType) return null;
+        if (!fieldType) {return null;}
 
         const isRequired = await this.getRequiredStatus();
-        if (isRequired === undefined) return null;
+        if (isRequired === undefined) {return null;}
 
         let additionalConfig: Record<string, any> = {};
         if (fieldType.decorator === 'Relationship') {
             const relationshipConfig = await this.getRelationshipConfiguration(cache);
-            if (!relationshipConfig) return null;
+            if (!relationshipConfig) {return null;}
             additionalConfig = relationshipConfig;
         }
 
@@ -91,7 +91,7 @@ export class UserInputService {
     }
 
     private async getRelationshipConfiguration(cache?: MetadataCache): Promise<Record<string, any> | null> {
-        if (!cache) return null;
+        if (!cache) {return null;}
         const availableModels = cache.getDataModelClasses().map(m => m.name).sort();
         if (availableModels.length === 0) {
             vscode.window.showWarningMessage('No other models found for relationship.');
@@ -99,13 +99,13 @@ export class UserInputService {
         }
 
         const targetModel = await vscode.window.showQuickPick(availableModels, { placeHolder: "Select the target model" });
-        if (!targetModel) return null;
+        if (!targetModel) {return null;}
 
         const relationshipType = await vscode.window.showQuickPick(
             ["reference", "composition"],
             { placeHolder: "Select the relationship type" }
         );
-        if (!relationshipType) return null;
+        if (!relationshipType) {return null;}
 
         return { targetModel, relationshipType };
     }
