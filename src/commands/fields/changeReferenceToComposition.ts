@@ -9,6 +9,7 @@ import { ExplorerProvider } from "../../explorer/explorerProvider";
 import { DeleteFieldTool } from "../../refactor/tools/deleteField";
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 import * as path from "path";
+import { ModelService } from "../../services/modelService";
 
 /**
  * Tool for converting reference relationships to composition relationships.
@@ -23,6 +24,7 @@ export class ChangeReferenceToCompositionTool {
   private userInputService: UserInputService;
   private projectAnalysisService: ProjectAnalysisService;
   private sourceCodeService: SourceCodeService;
+  private modelService: ModelService;
   private fileSystemService: FileSystemService;
   private deleteFieldTool: DeleteFieldTool;
 
@@ -30,6 +32,7 @@ export class ChangeReferenceToCompositionTool {
     this.userInputService = new UserInputService();
     this.projectAnalysisService = new ProjectAnalysisService();
     this.sourceCodeService = new SourceCodeService();
+    this.modelService = new ModelService();
     this.fileSystemService = new FileSystemService();
     this.deleteFieldTool = new DeleteFieldTool();
   }
@@ -253,15 +256,16 @@ export class ChangeReferenceToCompositionTool {
     const resolvedEnums = await this.resolveEnumConflicts(enumDefinitions, sourceDocument, classBody, sourceModel.name);
     
     // Step 6: Generate the complete component model content
-    let componentModelCode = await this.sourceCodeService.generateModelFileContent(
+    const docs = cache.getModelDecoratorByName("Model", targetModel)?.arguments?.[0]?.docs;
+    let componentModelCode = await this.modelService.generateModelFileContent(
       targetModel.name,
       resolvedEnums.updatedClassBody,
-      `BaseModel`, // Use component model base class
       dataSource,
-      new Set(["Field", "BaseModel"]), // Ensure required imports
+      undefined,
       true,  // This is a component model (no export keyword)
       targetModel.declaration.uri.fsPath,
-      cache
+      cache,
+      docs
     );
     
     // Step 7: Extract only the component model part (remove imports and add enums)

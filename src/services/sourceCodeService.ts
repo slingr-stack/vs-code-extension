@@ -486,7 +486,7 @@ export class SourceCodeService {
   /**
    * Extracts the datasource import from the source model file.
    */
-  public async extractImport(sourceModel: DecoratedClass, importName: string, cache?: MetadataCache): Promise<string | null> {
+  public async extractDataSourceImport(sourceModel: DecoratedClass, importName: string, cache?: MetadataCache): Promise<string | null> {
     try {
       // First, try to use the cache to find the datasource and generate the import
       if (cache) {
@@ -582,102 +582,6 @@ export class SourceCodeService {
     return classBodyLines.join("\n");
   }
 
-  /**
-   * Creates a complete model file with the given class body content.
-   *
-   * @param modelName - The name of the new model class
-   * @param classBody - The complete class body content
-   * @param baseClass - The base class to extend (default: "BaseModel")
-   * @param dataSource - Optional datasource for the model
-   * @param existingImports - Set of imports that should be included
-   * @param isComponent - Whether this is a component model (affects export and class declaration)
-   * @param targetFilePath - Optional path where the model file will be created (for accurate relative import calculation)
-   * @param cache - Optional metadata cache to lookup datasource information
-   * @returns The complete model file content
-   */
-  public async generateModelFileContent(
-    modelName: string,
-    classBody: string,
-    baseClass: string = "BaseModel",
-    dataSource?: string,
-    existingImports?: Set<string>,
-    isComponent: boolean = false,
-    targetFilePath?: string,
-    cache?: MetadataCache
-  ): Promise<string> {
-    const lines: string[] = [];
-
-    // Determine required imports
-    const imports = new Set(["Model", "Field"]);
-
-    // Add base class to imports
-    const baseClassCore = baseClass.split("<")[0]; // Extract base class name before generic
-    imports.add(baseClassCore);
-
-    // Add existing imports if provided
-    if (existingImports) {
-      existingImports.forEach((imp) => imports.add(imp));
-    }
-
-    // Analyze the class body to determine additional needed imports
-    const bodyImports = this.extractImportsFromClassBody(classBody);
-    bodyImports.forEach((imp) => imports.add(imp));
-
-    // Add import statement
-    const sortedImports = Array.from(imports).sort();
-    lines.push(`import { ${sortedImports.join(", ")} } from "slingr-framework";`);
-    lines.push("");
-
-    // Add datasource import if applicable
-    if (dataSource) {
-      if (targetFilePath) {
-        // Use the new findDataSourcePath function for accurate import resolution
-        try {
-          const dataSourceImport = await this.findDataSourcePath(dataSource, targetFilePath, cache);
-          if (dataSourceImport) {
-            lines.push(dataSourceImport);
-            lines.push("");
-          }
-        } catch (error) {
-          console.warn("Could not resolve datasource import, using fallback:", error);
-          // Fallback to generic import
-          const cleanDataSource = dataSource.replace(/['"]/g, "");
-          lines.push(`import { ${cleanDataSource} } from '../dataSources/${cleanDataSource}';`);
-          lines.push("");
-        }
-      } else {
-        // Fallback to generic import pattern when no target file path is provided
-        const cleanDataSource = dataSource.replace(/['"]/g, "");
-        lines.push(`import { ${cleanDataSource} } from '../dataSources/${cleanDataSource}';`);
-        lines.push("");
-      }
-    }
-
-    // Add model decorator
-    if (dataSource) {
-      lines.push(`@Model({`);
-      lines.push(`\tdataSource: ${dataSource}`);
-      lines.push(`})`);
-    } else {
-      lines.push(`@Model()`);
-    }
-
-    // Add class declaration (export only if not a component model)
-    const exportKeyword = isComponent ? "" : "export ";
-    lines.push(`${exportKeyword}class ${modelName} extends ${baseClass} {`);
-
-    // Add class body (if not empty)
-    if (classBody.trim()) {
-      lines.push("");
-      lines.push(classBody);
-      lines.push("");
-    }
-
-    lines.push(`}`);
-
-    return lines.join("\n");
-  }
-
 
 
   /**
@@ -686,7 +590,7 @@ export class SourceCodeService {
    * @param classBody - The class body content to analyze
    * @returns Set of import names that should be included
    */
-  private extractImportsFromClassBody(classBody: string): Set<string> {
+  public extractImportsFromClassBody(classBody: string): Set<string> {
     const imports = new Set<string>();
 
     // Look for decorator patterns

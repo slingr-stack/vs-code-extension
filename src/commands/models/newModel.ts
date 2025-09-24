@@ -5,7 +5,9 @@ import { AddFieldTool } from "../fields/addField";
 import { MetadataCache } from "../../cache/cache";
 import { AIEnhancedTool, FieldInfo, FIELD_TYPE_OPTIONS } from "../interfaces";
 import { FileSystemService } from "../../services/fileSystemService";
+import { ModelService } from "../../services/modelService";
 import path from "path";
+import { SourceCodeService } from "../../services/sourceCodeService";
 
 /**
  * Tool for creating new Model classes with the @Model decorator and extending BaseModel.
@@ -36,14 +38,17 @@ import path from "path";
  */
 export class NewModelTool implements AIEnhancedTool {
   private fileSystemService: FileSystemService;
+  private sourceCodeService: SourceCodeService;
   private defineFieldsTool: DefineFieldsTool;
   private addFieldTool: AddFieldTool;
+  private addModelService: ModelService;
 
   constructor() {
     this.fileSystemService = new FileSystemService();
+    this.sourceCodeService = new SourceCodeService();
     this.defineFieldsTool = new DefineFieldsTool();
     this.addFieldTool = new AddFieldTool();
-
+    this.addModelService = new ModelService();
   }
 
   /**
@@ -87,33 +92,38 @@ export class NewModelTool implements AIEnhancedTool {
       finalTargetUri = this.fileSystemService.resolveTargetUri(targetUri);
     }
     try {
-      // Step 1: Get model name from user
-      const modelName = await vscode.window.showInputBox({
-        prompt: "Enter the name of the new model (PascalCase)",
-        placeHolder: "e.g., Task, User, Project",
-        validateInput: (value) => {
-          if (!value || value.trim().length === 0) {
-            return "Model name is required";
-          }
-          if (!/^[A-Z][a-zA-Z0-9]*$/.test(value.trim())) {
-            return "Model name must be in PascalCase (e.g., Task, UserProfile)";
-          }
-          return null;
-        },
-      });
-
-      if (!modelName) {
-        return; // User cancelled
-      }
-
-      // Check if model name already exists in cache
+      // Step 1: Get model name from user (with loop for duplicate checking)
+      let modelName: string | undefined;
+      let existingModels: string[] = [];
+      
+      // Get existing model names if cache is available
       if (cache) {
-        const existingModels = cache.getDataModelClasses().map((m) => m.name);
-        if (existingModels.includes(modelName)) {
-          vscode.window.showErrorMessage(`A model named ${modelName} already exists. Please choose a different name.`);
-          return; // Stop the process if model already exists
-        }
+        existingModels = cache.getDataModelClasses().map((m) => m.name);
       }
+
+      do {
+        modelName = await vscode.window.showInputBox({
+          prompt: "Enter the name of the new model (PascalCase)",
+          placeHolder: "e.g., Task, User, Project",
+          validateInput: (value) => {
+            if (!value || value.trim().length === 0) {
+              return "Model name is required";
+            }
+            if (!/^[A-Z][a-zA-Z0-9]*$/.test(value.trim())) {
+              return "Model name must be in PascalCase (e.g., Task, UserProfile)";
+            }
+            // Check if model name already exists
+            if (cache && existingModels.includes(value.trim())) {
+              return `A model named ${value.trim()} already exists. Please choose a different name.`;
+            }
+            return null;
+          },
+        });
+
+        if (!modelName) {
+          return; // User cancelled
+        }
+      } while (cache && existingModels.includes(modelName.trim()));
 
       // Step 2: Get optional documentation
       const docs = await vscode.window.showInputBox({
@@ -137,10 +147,38 @@ export class NewModelTool implements AIEnhancedTool {
         return; // User pressed Esc
       }
 
-      // Step 4: Determine target directory 
+      // Step 4: Ask user to select a datasource (optional)
+      let selectedDataSource: string | undefined;
+      if (cache) {
+        const dataSources = cache.getDataSources();
+        if (dataSources.length > 0) {
+          const dataSourceOptions = [
+            { label: "None (Skip datasource)", description: "Create model without specifying a datasource", dataSourceName: undefined },
+            ...dataSources.map(ds => ({
+              label: ds.name,
+              description: `Type: ${ds.type}`,
+              dataSourceName: ds.name
+            }))
+          ];
+
+          const selectedOption = await vscode.window.showQuickPick(dataSourceOptions, {
+            placeHolder: "Select datasource or skip"
+          });
+
+          // Check if user cancelled
+          if (selectedOption === undefined) {
+            return; // User pressed Esc
+          }
+
+          // Set the selected datasource (undefined if "None" was selected)
+          selectedDataSource = selectedOption.dataSourceName;
+        }
+      }
+
+      // Step 5: Determine target directory 
       let targetDirectory = this.fileSystemService.determineTargetDirectory(finalTargetUri);
 
-      // Step 5: Check if file already exists and handle overwrite
+      // Step 6: Check if file already exists and handle overwrite
       const filePath = path.join(targetDirectory, `${modelName}.ts`);
       const fileUri = vscode.Uri.file(filePath);
       const fileExists = await this.fileSystemService.fileExists(fileUri);
@@ -155,16 +193,23 @@ export class NewModelTool implements AIEnhancedTool {
         }
       }
 
-      // Step 6: Generate model content
-      const modelContent = this.generateModelContent(
+      // Step 7: Generate model content and create file using AddModelService
+      const edit = new vscode.WorkspaceEdit();
+      await this.addModelService.addModelToWorkspaceEdit(
+        edit,
+        filePath,
         modelName,
-        docs?.trim() || null,
-        fieldsInfo?.trim() || null,
-        targetDirectory
+        undefined,
+        selectedDataSource, // Use the selected datasource
+        undefined, // No existing imports
+        false, // Not a component
+        cache,
+        docs // Pass the description if provided
       );
-
-      // Step 7: Create the file  (without handling overwrite since we already did)
-      const targetFileUri = await this.fileSystemService.createFile(modelName, filePath, modelContent, false);
+      
+      // Apply the workspace edit
+      await vscode.workspace.applyEdit(edit);
+      const targetFileUri = vscode.Uri.file(filePath);
 
       // Step 8: Open the new file
       const document = await vscode.workspace.openTextDocument(targetFileUri);
@@ -203,6 +248,10 @@ export class NewModelTool implements AIEnhancedTool {
           ? `Model ${modelName} created and fields processed successfully!`
           : `Model ${modelName} created successfully!`;
 
+      if (selectedDataSource) {
+        successMessage += ` Using datasource: ${selectedDataSource}.`;
+      }
+
       if (parentModelInfo) {
         successMessage += ` Composition relationship added to ${parentModelInfo.name}.`;
       }
@@ -214,46 +263,8 @@ export class NewModelTool implements AIEnhancedTool {
     }
   }
 
-  /**
-   * Generates the TypeScript content for a new model class.
-   *
-   * @param modelName - The name of the model class
-   * @param docs - Optional documentation string
-   * @param fieldsInfo - Optional field information (to be processed later by AI)
-   * @param targetDirectory - The directory where the model file will be created
-   * @returns The complete TypeScript content for the model file
-   */
-  private generateModelContent(
-    modelName: string,
-    docs?: string | null,
-    fieldsInfo?: string | null,
-    targetDirectory?: string
-  ): string {
-    const lines: string[] = [];
 
-    // Add imports with dynamically calculated relative paths
-    lines.push(`import { Model, Field } from 'slingr-framework';`);
-    lines.push("import { BaseModel } from 'slingr-framework';");
-    lines.push("");
 
-    // Add documentation comment if provided
-    if (docs) {
-      lines.push("/**");
-      lines.push(` * ${docs}`);
-      lines.push(" */");
-    }
-
-    // Add Model decorator
-    lines.push(`@Model()`);
-
-    // Add class declaration
-    lines.push(`export class ${modelName} extends BaseModel {`);
-
-    lines.push("}");
-    lines.push("");
-
-    return lines.join("\n");
-  }
 
   /**
    * Detects if the command is being executed from a model context.
@@ -386,27 +397,25 @@ export class NewModelTool implements AIEnhancedTool {
     dataSource?: string
   ): Promise<vscode.Uri> {
     try {
-      // Generate model content
-      const modelContent = this.generateModelContent(modelName, docs);
-
-      // Modify the content to include datasource if provided
-      let finalContent = modelContent;
-      if (dataSource) {
-        finalContent = finalContent.replace(
-          '@Model()',
-          `@Model({\n\tdataSource: ${dataSource}\n})`
-        );
-      }
-
-      // Create the file
-      const targetFileUri = await this.fileSystemService.createFile(
-        modelName, 
-        targetFilePath, 
-        finalContent, 
-        false // Don't handle overwrite since we control the path
+      // Create workspace edit
+      const edit = new vscode.WorkspaceEdit();
+      
+      // Use AddModelService to generate the model
+      await this.addModelService.addModelToWorkspaceEdit(
+        edit,
+        targetFilePath,
+        modelName,
+        "", // Empty class body for now
+        dataSource,
+        undefined, // No existing imports
+        false, // Not a component
+        undefined // No cache
       );
-
-      return targetFileUri;
+      
+      // Apply the workspace edit
+      await vscode.workspace.applyEdit(edit);
+      
+      return vscode.Uri.file(targetFilePath);
     } catch (error) {
       throw new Error(`Failed to create model programmatically: ${error}`);
     }
