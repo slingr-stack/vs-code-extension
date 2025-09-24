@@ -1,7 +1,7 @@
 {
   "name": "slingr-vscode-extension",
   "displayName": "Slingr VsCode Extension",
-  "description": "VS Code extension for Slingr framework development",
+  "description": "",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.103.0"
@@ -341,20 +341,13 @@
       ]
     }
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/slingr-stack/framework.git",
-    "directory": "vs-code-extension"
-  },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test",
-    "build": "npm run compile",
-    "clean": "rm -rf out"
+    "test": "vscode-test"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
