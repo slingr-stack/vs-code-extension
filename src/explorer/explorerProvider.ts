@@ -711,9 +711,9 @@ export class ExplorerProvider
         ) {
           const relationshipType = this.extractBaseTypeFromArrayType(field.type);
           const relatedModel = this.cache.getDataModelClasses().find((model) => model.name === relationshipType);
-          const upperFieldName = field.name.charAt(0).toUpperCase() + field.name.slice(1);
+
           const compositionItem = new AppTreeItem(
-            upperFieldName,
+            field.name,
             vscode.TreeItemCollapsibleState.Collapsed,
             "compositionField",
             this.extensionUri,
@@ -972,7 +972,6 @@ export class ExplorerProvider
   }
 
   private mapPropertyToTreeItem(propData: PropertyMetadata, itemType: string, parent?: AppTreeItem): AppTreeItem {
-    const upperFieldName = propData.name.charAt(0).toUpperCase() + propData.name.slice(1);
 
     // Check if this is a reference field and adjust the itemType accordingly
     let actualItemType = itemType;
@@ -986,7 +985,7 @@ export class ExplorerProvider
     }
 
     const item = new AppTreeItem(
-      upperFieldName,
+      propData.name,
       vscode.TreeItemCollapsibleState.None,
       actualItemType,
       this.extensionUri,
