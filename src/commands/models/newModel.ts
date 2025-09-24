@@ -368,16 +368,16 @@ export class NewModelTool implements AIEnhancedTool {
     // Create the parent model URI
     const parentModelUri = vscode.Uri.file(parentModelInfo.filePath);
 
-    // Find the Relationship field type option
-    const relationshipFieldType = FIELD_TYPE_OPTIONS.find((option) => option.decorator === "Relationship");
-    if (!relationshipFieldType) {
-      throw new Error("Relationship field type not found in FIELD_TYPE_OPTIONS");
+    // Find the Composition field type option (preferred over generic Relationship)
+    const compositionFieldType = FIELD_TYPE_OPTIONS.find((option) => option.decorator === "Composition");
+    if (!compositionFieldType) {
+      throw new Error("Composition field type not found in FIELD_TYPE_OPTIONS");
     }
 
     // Create the field info for the composition relationship
     const fieldInfo: FieldInfo = {
       name: fieldName,
-      type: relationshipFieldType,
+      type: compositionFieldType,
       required: false, // Composition relationships are typically optional
       additionalConfig: {
         targetModel: newModelName,

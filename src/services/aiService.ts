@@ -147,8 +147,8 @@ You are an expert in the Slingr framework. Your task is to create a new data mod
 1.  **Framework Usage:** You MUST use the Slingr framework. All models MUST extend \`BaseModel\` and use the \`@Model()\` and \`@Field()\` decorators.
 2.  **File Location:** The new model file should be placed in the \`/src/data\` directory. The filename should be the camelCase version of the model name (e.g., \`userProfile.ts\` for a \`UserProfile\` model).
 3.  **Model Naming:** The class name for the model should be in PascalCase.
-4.  **Field Types:** Use appropriate field types and decorators from the Slingr framework (e.g., \`@Text\`, \`@Email\`, \`@Integer\`, \`@Relationship\`).
-5.  **Relationships:** If the model references other existing models, make sure to import them and use the \`@Relationship\` decorator correctly. In the other way round, if other models reference this model, ensure to use the \`@Relationship\` decorator in those models as well.
+4.  **Field Types:** Use appropriate field types and decorators from the Slingr framework (e.g., \`@Text\`, \`@Email\`, \`@Integer\`, \`@Reference\`, \`@Composition\`).
+5.  **Relationships:** For relationships, use specific decorators: \`@Reference\` for independent models that can exist separately, \`@Composition\` for dependent models that cannot exist without the parent. Only use the generic \`@Relationship\` decorator when the specific decorators don't fit.
 6.  **Code Only:** Provide only the TypeScript code for the new model file. Do not include any explanations or markdown formatting.
 
 **Example of a good response:**
@@ -178,8 +178,7 @@ export class Customer extends BaseModel {
 This new model will be used as a composition in the "${parentModelInfo.name}" model.
 
 **IMPORTANT:** After creating the new model, you MUST also add a composition relationship field to the "${parentModelInfo.name}" model (located at ${parentModelInfo.filePath}) that references this new model. The field should:
-- Use the @Relationship decorator
-- Have relationshipType: 'composition'
+- Use the @Composition decorator (preferred over generic @Relationship)
 - Be named as a plural, camelCase version of the new model name
 - Import the new model class
             `;
@@ -291,7 +290,7 @@ title!: string;
 description!: string;
 
 @Field()
-@Relationship()
+@Reference()
 customer!: Customer;
 
 @Field()
@@ -299,9 +298,7 @@ customer!: Customer;
 date!: Date;
 
 @Field()
-@Relationship({
-    type: 'composition'
-})
+@Composition()
 project!: Project;
 
 @Field()

@@ -254,7 +254,22 @@ export class AddFieldTool implements AIEnhancedTool {
     cache?: MetadataCache
   ): Promise<void> {
     const lines = document.getText().split("\n");
-    const newImports = new Set<string>(["Field", fieldInfo.type.decorator]);
+    const newImports = new Set<string>(["Field"]);
+    
+    // Add the appropriate decorator import based on field type
+    if (fieldInfo.type.decorator === "Relationship" && fieldInfo.additionalConfig?.relationshipType) {
+      // For generic Relationship, use specific decorator if possible
+      const relationshipType = fieldInfo.additionalConfig.relationshipType;
+      if (relationshipType === "reference") {
+        newImports.add("Reference");
+      } else if (relationshipType === "composition") {
+        newImports.add("Composition");
+      } else {
+        newImports.add("Relationship");
+      }
+    } else {
+      newImports.add(fieldInfo.type.decorator);
+    }
 
     // Add imports using source code service logic (we need to call a helper method)
     await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, newImports);
@@ -414,8 +429,9 @@ export class AddFieldTool implements AIEnhancedTool {
     // Step 4: Handle special field types
     let additionalConfig: Record<string, any> = {};
 
-    if (fieldType.decorator === "Relationship") {
-      const relationshipConfig = await this.getRelationshipConfiguration(cache);
+    // Handle all relationship field types
+    if (this.isRelationshipField(fieldType.decorator)) {
+      const relationshipConfig = await this.getRelationshipConfiguration(fieldType.decorator, cache);
       if (!relationshipConfig) {
         return null; // User cancelled
       }
@@ -478,9 +494,16 @@ export class AddFieldTool implements AIEnhancedTool {
   }
 
   /**
-   * Gets relationship configuration for Relationship fields.
+   * Checks if a field decorator represents a relationship field.
    */
-  private async getRelationshipConfiguration(cache?: MetadataCache): Promise<Record<string, any> | null> {
+  private isRelationshipField(decorator: string): boolean {
+    return ["Relationship", "Reference", "Composition", "SharedComposition"].includes(decorator);
+  }
+
+  /**
+   * Gets relationship configuration for relationship fields.
+   */
+  private async getRelationshipConfiguration(decorator: string, cache?: MetadataCache): Promise<Record<string, any> | null> {
     // Step 1: Get available models
     const availableModels = this.getAvailableModels(cache);
     if (availableModels.length === 0) {
@@ -494,10 +517,10 @@ export class AddFieldTool implements AIEnhancedTool {
     const targetModel = await vscode.window.showQuickPick(
       availableModels.map((model) => ({
         label: model,
-        description: `Reference to ${model} model`,
+        description: `${this.getRelationshipDescription(decorator)} to ${model} model`,
       })),
       {
-        placeHolder: "Select the target model for this relationship",
+        placeHolder: `Select the target model for this ${decorator.toLowerCase()}`,
       }
     );
 
@@ -505,33 +528,58 @@ export class AddFieldTool implements AIEnhancedTool {
       return null; // User cancelled
     }
 
-    // Step 3: Let user select relationship type
-    const relationshipType = await vscode.window.showQuickPick(
-      [
+    // Step 3: For generic Relationship decorator, let user select relationship type
+    let relationshipType: string;
+    if (decorator === "Relationship") {
+      const relationshipTypeSelection = await vscode.window.showQuickPick(
+        [
+          {
+            label: "Reference",
+            description: "Reference relationship - points to another entity",
+            value: "reference",
+          },
+          {
+            label: "Composition",
+            description: "Composition relationship - contains/owns another entity",
+            value: "composition",
+          },
+        ],
         {
-          label: "Reference",
-          description: "Reference relationship - points to another entity",
-          value: "reference",
-        },
-        {
-          label: "Composition",
-          description: "Composition relationship - contains/owns another entity",
-          value: "composition",
-        },
-      ],
-      {
-        placeHolder: "Select the relationship type",
-      }
-    );
+          placeHolder: "Select the relationship type",
+        }
+      );
 
-    if (!relationshipType) {
-      return null; // User cancelled
+      if (!relationshipTypeSelection) {
+        return null; // User cancelled
+      }
+      relationshipType = relationshipTypeSelection.value;
+    } else {
+      // For specific decorators, derive the relationship type
+      relationshipType = decorator.toLowerCase();
     }
 
     return {
       targetModel: targetModel.label,
-      relationshipType: relationshipType.value,
+      relationshipType: relationshipType,
     };
+  }
+
+  /**
+   * Gets a human-readable description for the relationship type.
+   */
+  private getRelationshipDescription(decorator: string): string {
+    switch (decorator) {
+      case "Reference":
+        return "Reference relationship";
+      case "Composition":
+        return "Composition relationship";
+      case "SharedComposition":
+        return "Shared composition relationship";
+      case "Relationship":
+        return "Generic relationship";
+      default:
+        return "Relationship";
+    }
   }
   /**
    * Gets available models from the cache.
@@ -561,10 +609,25 @@ export class AddFieldTool implements AIEnhancedTool {
     }
 
     // Add type-specific decorator
-    if (fieldInfo.type.decorator === "Relationship" && fieldInfo.additionalConfig?.relationshipType) {
-      lines.push(`@${fieldInfo.type.decorator}({`);
-      lines.push(`  type: '${fieldInfo.additionalConfig.relationshipType}'`);
-      lines.push(`})`);
+    // Handle relationship decorators
+    if (this.isRelationshipField(fieldInfo.type.decorator)) {
+      if (fieldInfo.type.decorator === "Relationship" && fieldInfo.additionalConfig?.relationshipType) {
+        // For generic Relationship decorator, use specific decorators when possible
+        const relationshipType = fieldInfo.additionalConfig.relationshipType;
+        if (relationshipType === "reference") {
+          lines.push("@Reference()");
+        } else if (relationshipType === "composition") {
+          lines.push("@Composition()");
+        } else {
+          // Fallback to generic Relationship with type parameter
+          lines.push(`@Relationship({`);
+          lines.push(`  type: '${relationshipType}'`);
+          lines.push(`})`);
+        }
+      } else {
+        // Use specific decorators directly (Reference, Composition, SharedComposition)
+        lines.push(`@${fieldInfo.type.decorator}()`);
+      }
     } else {
       lines.push(`@${fieldInfo.type.decorator}()`);
     }
@@ -574,13 +637,10 @@ export class AddFieldTool implements AIEnhancedTool {
     if (fieldInfo.type.decorator === "Choice") {
       const enumName = this.generateEnumName(fieldInfo.name);
       lines.push(`${fieldInfo.name}!: ${enumName};`);
-    } else if (fieldInfo.type.decorator === "Relationship") {
-      // For Relationship fields, use the target model type
+    } else if (this.isRelationshipField(fieldInfo.type.decorator)) {
+      // For relationship fields, use the target model type as single values (not arrays)
       const targetModel = fieldInfo.additionalConfig?.targetModel || "any";
-      // Check if it's a composition relationship to determine if it should be an array
-      const isComposition = fieldInfo.additionalConfig?.relationshipType === "composition";
-      const typeDeclaration = isComposition ? `${targetModel}[]` : targetModel;
-      lines.push(`${fieldInfo.name}!: ${typeDeclaration};`);
+      lines.push(`${fieldInfo.name}!: ${targetModel};`);
     } else {
       lines.push(`${fieldInfo.name}!: ${fieldInfo.type.tsType};`);
     }

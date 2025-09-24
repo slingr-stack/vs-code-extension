@@ -204,7 +204,7 @@ export class TestModel extends BaseModel {
 export class Address {
 
   @Field()
-  @Relationship({ type: 'reference' })
+  @Reference()
   parent!: User;
 
 }`;
@@ -236,9 +236,7 @@ export class Address {
             const result = generateCompositionFieldCode(fieldInfo, 'Address', true);
             
             const expected = `@Field()
-@Relationship({
-  type: 'composition'
-})
+@Composition()
 addresses!: Address[];`;
             
             assert.strictEqual(result, expected);
@@ -268,9 +266,7 @@ addresses!: Address[];`;
             const result = generateCompositionFieldCode(fieldInfo, 'Profile', false);
             
             const expected = `@Field()
-@Relationship({
-  type: 'composition'
-})
+@Composition()
 profile!: Profile;`;
             
             assert.strictEqual(result, expected);
