@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext, ChangeFieldToArrayPayload, RenameModelPayload, RenameFieldPayload } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
 import { isModelFile, isField, areRangesEqual, isFieldMultiple, isModel } from '../../utils/metadata';
+import pluralize from 'pluralize';
 
 /**
  * Tool to change a field from a single value type to an array type.
@@ -151,9 +152,9 @@ export class ChangeFieldToArrayTool implements IRefactorTool {
             }
         }
 
-        // Pluralize name if it's not already plural and update all references
-        if (!field.name.endsWith('s')) {
-            const newName = `${field.name}s`;
+        // 2. Pluralize name if it's not already plural and update all references
+        const newName = pluralize.plural(field.name);
+        if (newName !== field.name) {
             // Update the declaration
             workspaceEdit.replace(declaration.uri, declaration.range, newName);
 

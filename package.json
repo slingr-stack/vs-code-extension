@@ -380,6 +380,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/pluralize": "^0.0.33",
     "@types/vscode": "^1.103.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
@@ -389,6 +390,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "pluralize": "^8.0.0",
     "ts-morph": "^26.0.0"
   }
 }
