@@ -22,7 +22,7 @@ export class AIService {
       prompt: "Describe the model you want to create",
       placeHolder: "e.g., A customer model with name, email, and phone number.",
     });
-    if (!userInput) return;
+    if (!userInput) {return;}
 
     const appDescriptionPath = vscode.workspace.workspaceFolders?.[0].uri.fsPath + "/docs/app-description.md";
     let appDescription = "No application description found.";

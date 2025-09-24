@@ -11,6 +11,7 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
+    "test:ci": "npm run test --workspace=slingr-framework && npm run test --workspace=@slingr/cli",
     "lint": "npm run lint --workspaces --if-present",
     "install:all": "npm install && npm install --workspaces",
     "clean": "npm run clean --workspaces --if-present"

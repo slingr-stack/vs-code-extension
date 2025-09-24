@@ -11,6 +11,6 @@ export default [
   ...oclif,
   prettier,
   {
-    ignores: ['scripts/**', 'bin/**'],
+    ignores: ['scripts/**', 'bin/**', 'src/templates/**'],
   },
 ]

@@ -1,12 +1,12 @@
 import fs from 'fs-extra'
-import path from 'path'
+import path from 'node:path'
 
 export interface DataSourcePortInfo {
-    fileName: string
-    type: string
-    port: number
-    host?: string
     database?: string
+    fileName: string
+    host?: string
+    port: number
+    type: string
 }
 
 /**
@@ -36,16 +36,16 @@ export async function extractDataSourcePorts(specificFile?: string): Promise<Dat
             continue
         }
 
-        const fileContent = await fs.readFile(filePath, 'utf-8')
+        const fileContent = await fs.readFile(filePath, 'utf8')
 
         // Extract values using regex
-        const extractRaw = (key: string): string | null => {
+        const extractRaw = (key: string): null | string => {
             const re = new RegExp(key + "\\s*:\\s*([^,\n]+)", 'i')
             const m = fileContent.match(re)
             return m ? m[1].trim() : null
         }
 
-        const interpret = (raw: string | null): any => {
+        const interpret = (raw: null | string): any => {
             if (!raw) return undefined
             raw = raw.replace(/,$/, '').trim()
 
@@ -54,7 +54,7 @@ export async function extractDataSourcePorts(specificFile?: string): Promise<Dat
 
             // Handle parseInt with fallback
             let m = raw.match(/parseInt\([^|]+\|\|\s*['"]([^'"]+)['"]\)/i)
-            if (m) return parseInt(m[1], 10)
+            if (m) return Number.parseInt(m[1], 10)
 
             // Handle environment variables with fallback
             m = raw.match(/process\.env\.[A-Z0-9_]+\s*\|\|\s*['"]([^'"]+)['"]/i)
@@ -66,7 +66,7 @@ export async function extractDataSourcePorts(specificFile?: string): Promise<Dat
 
             // Handle plain numbers
             m = raw.match(/^(\d+)$/)
-            if (m) return parseInt(m[1], 10)
+            if (m) return Number.parseInt(m[1], 10)
 
             return raw
         }
@@ -86,11 +86,11 @@ export async function extractDataSourcePorts(specificFile?: string): Promise<Dat
 
         if (typeof port === 'number') {
             dataSources.push({
+                database: interpret(extractRaw('database')) ?? undefined,
                 fileName: file,
-                type: typeVal,
-                port,
                 host: interpret(extractRaw('host')) ?? 'localhost',
-                database: interpret(extractRaw('database')) ?? undefined
+                port,
+                type: typeVal
             })
         }
     }

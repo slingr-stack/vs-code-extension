@@ -1,15 +1,24 @@
 import type { Config } from "jest";
 
 const config: Config = {
+  coverageProvider: "v8",
+  moduleDirectories: ["node_modules", "<rootDir>"],
+  moduleNameMapper: {
+    "#(.*)": "<rootDir>/node_modules/$1",
+    "slingr-framework": "<rootDir>/node_modules/slingr-framework",
+  },
+  modulePaths: ["<rootDir>"],
   preset: "ts-jest",
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   testEnvironment: "node",
+  testMatch: ["<rootDir>/src/**/*.test.ts"],
   transform: {
     '^.+\\.(ts|tsx|js|jsx)$': [
       'ts-jest',
       {
         tsconfig: {
-          module: 'commonjs',
           allowJs: true,
+          module: 'commonjs',
 
         },
       },
@@ -19,15 +28,6 @@ const config: Config = {
   transformIgnorePatterns: [
     '/node_modules/(?!slingr-framework)',
   ],
-  testMatch: ["<rootDir>/src/**/*.test.ts"],
-  moduleNameMapper: {
-    "#(.*)": "<rootDir>/node_modules/$1",
-    "slingr-framework": "<rootDir>/node_modules/slingr-framework",
-  },
-  coverageProvider: "v8",
-  setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
-  modulePaths: ["<rootDir>"],
-  moduleDirectories: ["node_modules", "<rootDir>"],
 };
 
 module.exports = config;

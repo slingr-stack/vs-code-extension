@@ -1,6 +1,6 @@
 import { Command, Flags } from '@oclif/core'
 import fs from 'fs-extra'
-import { execSync } from 'child_process'
+import { execSync } from 'node:child_process'
 
 export default class InfraDown extends Command {
     static description = 'Stop infrastructure services using Docker Compose (data is preserved by default)'
@@ -8,36 +8,13 @@ export default class InfraDown extends Command {
         '<%= config.bin %> <%= command.id %> # Stop services, preserve data',
         '<%= config.bin %> <%= command.id %> --volumes # Stop services and delete all data'
     ]
-
-    static flags = {
+static flags = {
+        help: Flags.help({ char: 'h' }),
         volumes: Flags.boolean({
             char: 'v',
-            description: 'Remove volumes as well (WARNING: This will delete all data)',
-            default: false
-        }),
-        help: Flags.help({ char: 'h' })
-    }
-
-    private async checkDockerComposeFile(): Promise<void> {
-        const dockerComposeFile = 'docker-compose.yml'
-
-        if (!await fs.pathExists(dockerComposeFile)) {
-            this.error('No docker-compose.yml file found. Please run "slingr infra update" first to generate the infrastructure configuration.')
-        }
-    }
-
-    private async checkDockerInstallation(): Promise<void> {
-        try {
-            execSync('docker --version', { stdio: 'pipe' })
-        } catch (error) {
-            this.error('Docker is not installed. Please install Docker to run infrastructure services.')
-        }
-
-        try {
-            execSync('docker compose version', { stdio: 'pipe' })
-        } catch (error) {
-            this.error('Docker Compose is not installed. Please install Docker Compose to run infrastructure services.')
-        }
+            default: false,
+            description: 'Remove volumes as well (WARNING: This will delete all data)'
+        })
     }
 
     async run(): Promise<void> {
@@ -73,6 +50,28 @@ export default class InfraDown extends Command {
 
         } catch (error) {
             this.error((error as Error).message)
+        }
+    }
+
+    private async checkDockerComposeFile(): Promise<void> {
+        const dockerComposeFile = 'docker-compose.yml'
+
+        if (!await fs.pathExists(dockerComposeFile)) {
+            this.error('No docker-compose.yml file found. Please run "slingr infra update" first to generate the infrastructure configuration.')
+        }
+    }
+
+    private async checkDockerInstallation(): Promise<void> {
+        try {
+            execSync('docker --version', { stdio: 'pipe' })
+        } catch {
+            this.error('Docker is not installed. Please install Docker to run infrastructure services.')
+        }
+
+        try {
+            execSync('docker compose version', { stdio: 'pipe' })
+        } catch {
+            this.error('Docker Compose is not installed. Please install Docker Compose to run infrastructure services.')
         }
     }
 }

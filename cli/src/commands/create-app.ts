@@ -20,20 +20,10 @@ export default class CreateApp extends Command {
     '<%= config.bin %> <%= command.id %> my-crm --type="CRM" --backend --frontend --database=postgres --description="A CRM system for managing customers"'
   ]
   static override flags = {
-    help: Flags.help({ char: 'h' }),
-    type: Flags.string({
-      char: 't',
-      description: 'Type of application (e.g., CRM, task manager, ERP)',
-    }),
     backend: Flags.boolean({
+      allowNo: true,
       char: 'b',
-      description: 'Include backend for the application',
-      allowNo: true
-    }),
-    frontend: Flags.boolean({
-      char: 'f',
-      description: 'Include frontend for the application',
-      allowNo: true
+      description: 'Include backend for the application'
     }),
     database: Flags.string({
       char: 'd',
@@ -43,6 +33,16 @@ export default class CreateApp extends Command {
     description: Flags.string({
       char: 'D',
       description: 'Description of what the application needs to do'
+    }),
+    frontend: Flags.boolean({
+      allowNo: true,
+      char: 'f',
+      description: 'Include frontend for the application'
+    }),
+    help: Flags.help({ char: 'h' }),
+    type: Flags.string({
+      char: 't',
+      description: 'Type of application (e.g., CRM, task manager, ERP)',
     })
   }
 
@@ -51,29 +51,30 @@ export default class CreateApp extends Command {
     let appName = args.name
 
     // If no name is provided, ask for it
-    if (!appName) {
-      const response = await inquirer.prompt<{ name: string }>([
-        {
-          type: 'input',
-          name: 'name',
-          message: 'What is the name of your application?',
-          validate: async (input: string) => {
-            if (input.length === 0) return 'Please provide a name for your application'
-            const targetDir = path.join(process.cwd(), input)
-            if (await fse.pathExists(targetDir)) {
-              return `Directory ${input} already exists!`
-            }
-            return true
-          }
-        }
-      ])
-      appName = response.name
-    } else {
+    if (appName) {
       // Check if directory already exists when name is provided as argument
       const targetDir = path.join(process.cwd(), appName)
       if (await fse.pathExists(targetDir)) {
         this.error(`Directory ${appName} already exists!`)
       }
+    } else {
+      const response = await inquirer.prompt<{ name: string }>([
+        {
+          message: 'What is the name of your application?',
+          name: 'name',
+          type: 'input',
+          async validate(input: string) {
+            if (input.length === 0) return 'Please provide a name for your application'
+            const targetDir = path.join(process.cwd(), input)
+            if (await fse.pathExists(targetDir)) {
+              return `Directory ${input} already exists!`
+            }
+
+            return true
+          }
+        }
+      ])
+      appName = response.name
     }
 
     let answers: AppAnswers
@@ -89,10 +90,10 @@ export default class CreateApp extends Command {
       // Use provided flags
       answers = {
         appType: flags.type!,
+        database: flags.database as 'mysql' | 'postgres',
+        description: flags.description!,
         hasBackend: flags.backend!,
-        hasFrontend: flags.frontend!,
-        database: flags.database as 'postgres' | 'mysql',
-        description: flags.description!
+        hasFrontend: flags.frontend!
       }
     } else {
       this.log('')
@@ -102,11 +103,11 @@ export default class CreateApp extends Command {
       // Interactive questions, pre-filling with any provided flags
       answers = await inquirer.prompt<AppAnswers>([
         {
+          default: flags.type,
           message: 'What type of application are you going to create? ',
           name: 'appType',
           suffix: "For example, a CRM, a task manager, an ERP, etc.\n",
           type: 'input',
-          default: flags.type,
           validate: (input: string) => input.length > 0 || 'Please provide an application type'
         },
         {
@@ -122,20 +123,20 @@ export default class CreateApp extends Command {
           type: 'confirm',
         },
         {
-          type: 'list',
-          name: 'database',
-          message: 'Which database do you want to use?',
           choices: [
             { name: 'PostgreSQL', value: 'postgres' },
             { name: 'MySQL', value: 'mysql' }
           ],
-          default: flags.database || 'postgres'
+          default: flags.database || 'postgres',
+          message: 'Which database do you want to use?',
+          name: 'database',
+          type: 'list'
         },
         {
+          default: flags.description,
           message: 'Perfect! Please, provide a description of what your app needs to do:\n',
           name: 'description',
           type: 'input',
-          default: flags.description,
           validate: (input: string) => input.length > 0 || 'Please provide a description'
         }
       ])

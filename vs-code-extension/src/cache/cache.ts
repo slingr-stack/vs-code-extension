@@ -886,7 +886,7 @@ export class MetadataCache {
         
         for (const file of Object.values(this.cache)) {
             const sourceFile = this.tsMorphProject.getSourceFile(file.uri.fsPath);
-            if (!sourceFile) continue;
+            if (!sourceFile) {continue;}
 
             // Collect classes and their properties
             for (const cls of Object.values(file.classes)) {

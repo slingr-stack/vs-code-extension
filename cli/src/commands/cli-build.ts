@@ -1,17 +1,15 @@
 import { Command } from '@oclif/core'
-import { execSync } from 'child_process'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { execSync } from 'node:child_process'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 export default class CliBuild extends Command {
-    static description = 'Rebuild the Slingr CLI tool itself. This command is used for CLI development and maintenance, not for building Slingr applications.'
-
-    static examples = [
+    static aliases = ['cli-build']
+static description = 'Rebuild the Slingr CLI tool itself. This command is used for CLI development and maintenance, not for building Slingr applications.'
+static examples = [
         '<%= config.bin %> <%= command.id %>',
         'Description: Use this command when you need to rebuild the Slingr CLI after making changes to the CLI codebase.'
     ]
-
-    static aliases = ['cli-build']
     static strict = false
 
     public async run(): Promise<void> {

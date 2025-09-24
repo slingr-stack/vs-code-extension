@@ -1,10 +1,10 @@
-import { execSync } from 'child_process'
-import * as net from 'net'
+import { execSync } from 'node:child_process'
+import * as net from 'node:net'
 
 /**
  * Check if a port is being used by a Docker container from the current project
  */
-export function isPortUsedByProjectDocker(port: number): { isDocker: boolean; containerName?: string; containerId?: string } {
+export function isPortUsedByProjectDocker(port: number): { containerId?: string; containerName?: string; isDocker: boolean; } {
     try {
         // Get current working directory name as project identifier
         const projectName = process.cwd().split('/').pop()?.toLowerCase() || 'unknown'
@@ -35,14 +35,14 @@ export function isPortUsedByProjectDocker(port: number): { isDocker: boolean; co
                     }).trim()
 
                     return {
-                        isDocker: true,
+                        containerId,
                         containerName,
-                        containerId
+                        isDocker: true
                     }
                 } catch {
                     return {
-                        isDocker: true,
-                        containerName
+                        containerName,
+                        isDocker: true
                     }
                 }
             }
@@ -93,7 +93,7 @@ export async function isPortInUse(port: number, host = 'localhost'): Promise<boo
 /**
  * Find what process is using a specific port
  */
-export function getProcessUsingPort(port: number): string | null {
+export function getProcessUsingPort(port: number): null | string {
     try {
         // Use lsof to find what's using the port (works on macOS and Linux)
         const result = execSync(`lsof -ti:${port}`, { encoding: 'utf-8', stdio: 'pipe' })
@@ -111,7 +111,7 @@ export function getProcessUsingPort(port: number): string | null {
                 return `Process ID: ${pid}`
             }
         }
-    } catch (error) {
+    } catch {
         // lsof might not be available or port might not be in use
         try {
             // Fallback: try netstat (more widely available)
@@ -131,12 +131,13 @@ export function getProcessUsingPort(port: number): string | null {
 /**
  * Find an available port starting from a given port
  */
-export async function findAvailablePort(startingPort: number, maxAttempts = 10): Promise<number | null> {
+export async function findAvailablePort(startingPort: number, maxAttempts = 10): Promise<null | number> {
     for (let port = startingPort; port < startingPort + maxAttempts; port++) {
         if (!(await isPortInUse(port))) {
             return port
         }
     }
+
     return null
 }
 
@@ -144,11 +145,11 @@ export async function findAvailablePort(startingPort: number, maxAttempts = 10):
  * Check multiple ports and return information about their usage
  */
 export async function checkPortsUsage(ports: number[]): Promise<Array<{
-    port: number
+    containerId?: string
+    containerName?: string
     inUse: boolean
     isProjectDocker?: boolean
-    containerName?: string
-    containerId?: string
+    port: number
     process?: string
 }>> {
     const results = []
@@ -158,18 +159,18 @@ export async function checkPortsUsage(ports: number[]): Promise<Array<{
         const dockerInfo = isPortUsedByProjectDocker(port)
 
         const result: {
-            port: number
+            containerId?: string
+            containerName?: string
             inUse: boolean
             isProjectDocker?: boolean
-            containerName?: string
-            containerId?: string
+            port: number
             process?: string
         } = {
-            port,
+            containerId: dockerInfo.containerId,
+            containerName: dockerInfo.containerName,
             inUse,
             isProjectDocker: dockerInfo.isDocker,
-            containerName: dockerInfo.containerName,
-            containerId: dockerInfo.containerId
+            port
         }
 
         if (inUse && !dockerInfo.isDocker) {
