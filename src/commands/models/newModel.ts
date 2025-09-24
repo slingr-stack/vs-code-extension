@@ -69,11 +69,11 @@ export class NewModelTool implements AIEnhancedTool {
   /**
    * Creates a new model file in the specified directory.
    *
-   * @param targetUri - The URI where the new model should be created (file, folder, or AppTreeItem)
+   * @param targetUri - The URI where the new model should be created (file, folder, or AppTreeItem) - optional
    * @param cache - The metadata cache for context about existing models (optional)
    * @returns Promise that resolves when the model is created
    */
-  public async createNewModel(targetUri: vscode.Uri | AppTreeItem, cache?: MetadataCache): Promise<void> {
+  public async createNewModel(targetUri?: vscode.Uri | AppTreeItem, cache?: MetadataCache): Promise<void> {
     let finalTargetUri: vscode.Uri;
     let parentModelInfo: { name: string; filePath: string } | null = null;
 
@@ -82,9 +82,31 @@ export class NewModelTool implements AIEnhancedTool {
       // Detect if we're coming from a model context
       parentModelInfo = this.detectParentModel(targetUri, cache);
       finalTargetUri = this.fileSystemService.resolveTargetUri(targetUri);
-    } else {
+    } else if (targetUri) {
       // Handle vscode.Uri case
       finalTargetUri = this.fileSystemService.resolveTargetUri(targetUri);
+    } else {
+      // Handle undefined case - use workspace folder or a default location
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (workspaceFolder) {
+        // Try to use src/data folder if it exists, otherwise create it or use workspace root
+        const srcDataPath = vscode.Uri.joinPath(workspaceFolder.uri, 'src', 'data');
+        try {
+          await vscode.workspace.fs.stat(srcDataPath);
+          finalTargetUri = srcDataPath;
+        } catch {
+          // src/data doesn't exist, try to create it
+          try {
+            await vscode.workspace.fs.createDirectory(srcDataPath);
+            finalTargetUri = srcDataPath;
+          } catch {
+            // Can't create src/data, use workspace root
+            finalTargetUri = workspaceFolder.uri;
+          }
+        }
+      } else {
+        throw new Error('No workspace folder is open. Please open a workspace folder first.');
+      }
     }
     try {
       // Step 1: Get model name from user

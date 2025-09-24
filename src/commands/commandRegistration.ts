@@ -69,14 +69,10 @@ export function registerGeneralCommands(
 
     // New Model Tool
     const newModelTool = new NewModelTool();
-    registerCommand(
-        disposables,
-        'slingr-vscode-extension.newModel',
-        async (result: UriResolutionResult) => {
-            await newModelTool.createNewModel(result.targetUri, cache);
-        },
-        URI_OPTIONS.ANY_FILE
-    );
+    const newModelCommand = vscode.commands.registerCommand('slingr-vscode-extension.newModel', (uri?: vscode.Uri | AppTreeItem) => {
+        return newModelTool.createNewModel(uri, cache);
+    });
+    disposables.push(newModelCommand);
 
     // Define Fields Tool
     const defineFieldsTool = new DefineFieldsTool();
