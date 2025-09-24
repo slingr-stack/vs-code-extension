@@ -236,15 +236,18 @@ export class NewModelTool implements AIEnhancedTool {
     lines.push("import { BaseModel } from 'slingr-framework';");
     lines.push("");
 
-    // Add documentation comment if provided
+    // Add Model decorator with docs if provided
     if (docs) {
-      lines.push("/**");
-      lines.push(` * ${docs}`);
-      lines.push(" */");
+      // Escape single quotes in the docs string to prevent breaking the code
+      const escapedDocs = docs.replace(/'/g, "\\'");
+      lines.push(`@Model({`);
+      lines.push(`  docs: '${escapedDocs}'`);
+      lines.push(`})`);
     }
-
-    // Add Model decorator
-    lines.push(`@Model()`);
+    else {
+      // Add Model decorator
+      lines.push(`@Model()`);
+    }
 
     // Add class declaration
     lines.push(`export class ${modelName} extends BaseModel {`);
