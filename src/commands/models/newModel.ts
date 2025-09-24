@@ -198,7 +198,7 @@ export class NewModelTool implements AIEnhancedTool {
           // Give the cache a moment to process the new file
           await new Promise((resolve) => setTimeout(resolve, 500));
 
-          await this.defineFieldsTool.processFieldDescriptions(fieldsInfo.trim(), targetFileUri, cache, modelName);
+          await this.defineFieldsTool.processFieldDescriptions(fieldsInfo.trim(), targetFileUri, cache, modelName, true);
         } catch (fieldError) {
           console.warn("Failed to process field descriptions:", fieldError);
           vscode.window.showWarningMessage(

@@ -27,20 +27,23 @@ export class DefineFieldsTool {
      * @param targetModelUri - URI of the model file where fields will be added
      * @param cache - Metadata cache for context about existing models and fields
      * @param modelName - Name of the target model class
+     * @param autoExecute - Whether to automatically execute the AI prompt without user confirmation
      * @returns Promise that resolves when fields are processed and added
      */
     public async processFieldDescriptions(
         fieldsDescription: string,
         targetModelUri: vscode.Uri,
         cache: MetadataCache,
-        modelName: string
+        modelName: string,
+        autoExecute: boolean = false
     ): Promise<void> {
         try {
             this.aiService.defineFieldsWithAI(
                 fieldsDescription,
                 targetModelUri,
                 cache,
-                modelName
+                modelName,
+                autoExecute
             );
         }
         catch (error) {

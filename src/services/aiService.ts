@@ -75,7 +75,8 @@ export class AIService {
     fieldsDescription: string,
     targetModelUri: vscode.Uri,
     cache: MetadataCache,
-    modelName: string
+    modelName: string,
+    autoExecute: boolean = false
   ): Promise<void> {
     try {
       // Step 1: Gather application context
@@ -88,16 +89,25 @@ export class AIService {
       const prompt = this.generateDefineFieldsPrompt(fieldsDescription, appContext, modelContext);
 
       // Step 4: Request AI field generation
-      const action = await vscode.window.showInformationMessage(
-        "AI Field Generation: An AI prompt has been prepared. Do you want to execute it in the chat view?",
-        "Execute Prompt"
-      );
-
-      if (action === "Execute Prompt") {
+      if (autoExecute) {
+        // Automatically execute the AI prompt without user confirmation
         await vscode.commands.executeCommand("workbench.action.chat.open", { query: prompt });
+      } else {
+        // Ask for user confirmation before executing
+        const action = await vscode.window.showInformationMessage(
+          "AI Field Generation: An AI prompt has been prepared. Do you want to execute it in the chat view?",
+          "Execute Prompt"
+        );
+
+        if (action === "Execute Prompt") {
+          await vscode.commands.executeCommand("workbench.action.chat.open", { query: prompt });
+        }
       }
 
-      vscode.window.showInformationMessage(`Fields successfully generated for ${modelName}!`);
+      // Only show success message if not auto-executing (since the calling code will handle messaging)
+      if (!autoExecute) {
+        vscode.window.showInformationMessage(`Fields successfully generated for ${modelName}!`);
+      }
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to process field descriptions: ${error}`);
       console.error("Error processing field descriptions:", error);
