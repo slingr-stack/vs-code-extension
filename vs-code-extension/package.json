@@ -1,0 +1,373 @@
+{
+  "name": "slingr-vscode-extension",
+  "displayName": "Slingr VsCode Extension",
+  "description": "VS Code extension for Slingr framework development",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.103.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:typescript"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "slingr-vscode-extension.helloWorld",
+        "title": "Hello World"
+      },
+      {
+        "command": "slingr-vscode-extension.navigateToCode",
+        "title": "Navigate to code"
+      },
+      {
+        "command": "slingr-vscode-extension.refreshNavigation",
+        "title": "Refresh app navigation"
+      },
+      {
+        "command": "slingr-vscode-extension.refactor",
+        "title": "Refactor"
+      },
+      {
+        "command": "slingr-vscode-extension.renameModel",
+        "title": "Rename"
+      },
+      {
+        "command": "slingr-vscode-extension.deleteModel",
+        "title": "Delete"
+      },
+      {
+        "command": "slingr-vscode-extension.renameField",
+        "title": "Rename"
+      },
+      {
+        "command": "slingr-vscode-extension.deleteField",
+        "title": "Delete"
+      },
+      {
+        "command": "slingr-vscode-extension.changeFieldType",
+        "title": "Change type"
+      },
+      {
+        "command": "slingr.runInfraUpdate",
+        "title": "Run infrastructure update"
+      },
+      {
+        "command": "slingr-vscode-extension.newModel",
+        "title": "New model"
+      },
+      {
+        "command": "slingr-vscode-extension.defineFields",
+        "title": "Define fields with AI"
+      },
+      {
+        "command": "slingr-vscode-extension.addField",
+        "title": "Add field"
+      },
+      {
+        "command": "slingr-vscode-extension.newFolder",
+        "title": "New folder"
+      },
+      {
+        "command": "slingr-vscode-extension.renameFolder",
+        "title": "Rename"
+      },
+      {
+        "command": "slingr-vscode-extension.deleteFolder",
+        "title": "Delete"
+      },
+      {
+        "command": "slingr-vscode-extension.createTest",
+        "title": "Create test"
+      },
+      {
+        "command": "slingr-vscode-extension.createModelFromDescription",
+        "title": "Create model from description"
+      },
+      {
+        "command": "slingr-vscode-extension.modifyModel",
+        "title": "Modify with AI"
+      },
+      {
+        "command": "slingr-vscode-extension.newDataSource",
+        "title": "New data source"
+      },
+      {
+        "command": "slingr-vscode-extension.renameDataSource",
+        "title": "Rename data source"
+      },
+      {
+        "command": "slingr-vscode-extension.deleteDataSource",
+        "title": "Delete data source"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "slingr-vscode-extension.actions",
+        "label": "Slingr Actions"
+      },
+      {
+        "id": "slingr-vscode-extension.refactorings",
+        "label": "Refactor"
+      },
+      {
+        "id": "slingr-vscode-extension.creation",
+        "label": "Creation"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "resourceScheme == 'file' && resourceLangId == 'typescript' && resourcePath =~ /src[\\\\/]data[\\\\/]/",
+          "submenu": "slingr-vscode-extension.actions",
+          "group": "9_refactor@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "resourceScheme == 'file' && resourceLangId == 'typescript' && resourcePath =~ /src[\\\\/]data[\\\\/]/",
+          "submenu": "slingr-vscode-extension.actions",
+          "group": "2_workspace"
+        },
+        {
+          "command": "slingr-vscode-extension.newDataSource",
+          "when": "explorerResourceIsFolder && resourcePath =~ /src[\\\\/]dataSources$/",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.renameDataSource",
+          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourceLangId == 'typescript' && resourcePath =~ /src[\\\\/]dataSources[\\\\/]/",
+          "group": "1_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteDataSource",
+          "when": "resourceScheme == 'file' && !explorerResourceIsFolder && resourceLangId == 'typescript' && resourcePath =~ /src[\\\\/]dataSources[\\\\/]/",
+          "group": "2_modification"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "slingr-vscode-extension.newFolder",
+          "when": "view == slingrExplorer && viewItem == 'dataRoot'",
+          "group": "0_creation@1"
+        },
+        {
+          "command": "slingr-vscode-extension.newModel",
+          "when": "view == slingrExplorer && viewItem == 'dataRoot'",
+          "group": "0_creation@2"
+        },
+        {
+          "command": "slingr-vscode-extension.addField",
+          "when": "view == slingrExplorer && viewItem == 'model'",
+          "group": "0_creation@1"
+        },
+        {
+          "command": "slingr-vscode-extension.defineFields",
+          "when": "view == slingrExplorer && viewItem == 'model'",
+          "group": "0_creation@2"
+        },
+        {
+          "command": "slingr-vscode-extension.renameModel",
+          "when": "view == slingrExplorer && viewItem == 'model'",
+          "group": "1_modification@1"
+        },
+        {
+          "command": "slingr-vscode-extension.modifyModel",
+          "when": "view == slingrExplorer && viewItem == 'model'",
+          "group": "1_modification@2"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteModel",
+          "when": "view == slingrExplorer && viewItem == 'model'",
+          "group": "1_modification@3"
+        },
+        {
+          "command": "slingr-vscode-extension.renameField",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "0_modification@1"
+        },
+        {
+          "command": "slingr-vscode-extension.changeFieldType",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "0_modification@2"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteField",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "0_modification@3"
+        },
+        {
+          "command": "slingr-vscode-extension.newFolder",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "0_creation@1"
+        },
+        {
+          "command": "slingr-vscode-extension.newModel",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "0_creation@2"
+        },
+        {
+          "command": "slingr-vscode-extension.renameFolder",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "1_modification@1"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteFolder",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "1_modification@2"
+        },
+        {
+          "command": "slingr-vscode-extension.newDataSource",
+          "when": "view == slingrExplorer && viewItem == 'dataSourcesRoot'",
+          "group": "0_creation"
+        },
+        {
+          "command": "slingr-vscode-extension.renameDataSource",
+          "when": "view == slingrExplorer && viewItem == 'dataSource'",
+          "group": "1_modification"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteDataSource",
+          "when": "view == slingrExplorer && viewItem == 'dataSource'",
+          "group": "2_modification"
+        }
+      ],
+      "slingr-vscode-extension.actions": [
+        {
+          "submenu": "slingr-vscode-extension.creation",
+          "group": "0_creation"
+        },
+        {
+          "submenu": "slingr-vscode-extension.refactorings",
+          "group": "1_refactor"
+        }
+      ],
+      "slingr-vscode-extension.creation": [
+        {
+          "command": "slingr-vscode-extension.newFolder",
+          "when": "(view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot')) || !viewItem",
+          "group": "0_model@1"
+        },
+        {
+          "command": "slingr-vscode-extension.newModel",
+          "when": "(view == slingrExplorer && (viewItem == 'folder' || viewItem == 'dataRoot')) || !viewItem",
+          "group": "0_model@2"
+        },
+        {
+          "command": "slingr-vscode-extension.addField",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "1_field@1"
+        },
+        {
+          "command": "slingr-vscode-extension.defineFields",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "1_field@2"
+        },
+        {
+          "command": "slingr-vscode-extension.createTest",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "2_test@1"
+        }
+      ],
+      "slingr-vscode-extension.refactorings": [
+        {
+          "command": "slingr-vscode-extension.renameModel",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "1_modification@1"
+        },
+        {
+          "command": "slingr-vscode-extension.modifyModel",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "1_modification@2"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteModel",
+          "when": "(view == slingrExplorer && viewItem == 'model') || !viewItem",
+          "group": "2_modification@1"
+        },
+        {
+          "command": "slingr-vscode-extension.renameFolder",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "1_modification@3"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteFolder",
+          "when": "view == slingrExplorer && viewItem == 'folder'",
+          "group": "2_modification@2"
+        },
+        {
+          "command": "slingr-vscode-extension.renameField",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "1_modification@4"
+        },
+        {
+          "command": "slingr-vscode-extension.changeFieldType",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "1_modification@5"
+        },
+        {
+          "command": "slingr-vscode-extension.deleteField",
+          "when": "view == slingrExplorer && viewItem == 'field'",
+          "group": "2_modification@3"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "slingr-vscode-extension",
+          "title": "Slingr",
+          "icon": "resources/slingr-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "slingr-vscode-extension": [
+        {
+          "id": "slingrExplorer",
+          "name": "Slingr Explorer",
+          "icon": "resources/slingr-icon.jpg" 
+        },
+        {
+          "id": "slingrQuickInfo",
+          "name": "Quick Info",
+          "type": "webview",
+          "icon": "resources/eye.svg"
+        }
+      ]
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slingr-stack/framework.git",
+    "directory": "vs-code-extension"
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "build": "npm run compile",
+    "clean": "rm -rf out"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.103.0",
+    "@typescript-eslint/eslint-plugin": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.32.0",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "ts-morph": "^26.0.0"
+  }
+}
