@@ -488,7 +488,7 @@ export class ParentModel extends BaseModel {
             
             // We can't directly test the private method, but we can verify the generated content
             // by creating a model and checking the file content
-            const testContent = (tool as any).generateModelContent('TestModel', 'Test documentation', null, testDataDir);
+            const testContent = (tool as any).generateModelContent('TestModel', 'Test documentation', null, testDataDir, null);
             
             assert.ok(testContent.includes('import { Model, Field } from \'slingr-framework\';'), 'Should import decorators');
             assert.ok(testContent.includes('import { BaseModel } from \'slingr-framework\';'), 'Should import BaseModel');

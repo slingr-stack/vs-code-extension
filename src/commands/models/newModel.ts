@@ -148,7 +148,44 @@ export class NewModelTool implements AIEnhancedTool {
         return; // User pressed Esc
       }
 
-      // Step 3: Get optional fields information
+      // Step 3: Get datasource selection
+      let selectedDataSource: string | null = null;
+      if (cache) {
+        const availableDataSources = cache.getDataSources();
+        
+        if (availableDataSources.length === 1) {
+          // Automatically use the single datasource
+          selectedDataSource = availableDataSources[0].name;
+        } else if (availableDataSources.length > 1) {
+          // Ask user to select from multiple datasources
+          const dataSourceItems = availableDataSources.map(ds => ({
+            label: ds.name,
+            description: `Type: ${ds.type}`,
+            value: ds.name
+          }));
+
+          // Add an option to skip datasource selection
+          dataSourceItems.push({
+            label: "None",
+            description: "Don't specify a datasource for this model",
+            value: null as any
+          });
+
+          const selectedItem = await vscode.window.showQuickPick(dataSourceItems, {
+            placeHolder: "Select a datasource for this model (or None to skip)",
+            matchOnDescription: true
+          });
+
+          if (selectedItem === undefined) {
+            return; // User cancelled
+          }
+
+          selectedDataSource = selectedItem.value;
+        }
+        // If no datasources available, selectedDataSource remains null
+      }
+
+      // Step 4: Get optional fields information
       const fieldsInfo = await vscode.window.showInputBox({
         prompt: "Enter field information (free text, press Enter to skip)",
         placeHolder: "e.g., title (string), description (text), project (relationship to Project), status (enum)",
@@ -159,10 +196,10 @@ export class NewModelTool implements AIEnhancedTool {
         return; // User pressed Esc
       }
 
-      // Step 4: Determine target directory 
+      // Step 5: Determine target directory 
       let targetDirectory = this.fileSystemService.determineTargetDirectory(finalTargetUri);
 
-      // Step 5: Check if file already exists and handle overwrite
+      // Step 6: Check if file already exists and handle overwrite
       const filePath = path.join(targetDirectory, `${modelName}.ts`);
       const fileUri = vscode.Uri.file(filePath);
       const fileExists = await this.fileSystemService.fileExists(fileUri);
@@ -177,22 +214,23 @@ export class NewModelTool implements AIEnhancedTool {
         }
       }
 
-      // Step 6: Generate model content
+      // Step 7: Generate model content
       const modelContent = this.generateModelContent(
         modelName,
         docs?.trim() || null,
         fieldsInfo?.trim() || null,
-        targetDirectory
+        targetDirectory,
+        selectedDataSource
       );
 
-      // Step 7: Create the file  (without handling overwrite since we already did)
+      // Step 8: Create the file  (without handling overwrite since we already did)
       const targetFileUri = await this.fileSystemService.createFile(modelName, filePath, modelContent, false);
 
-      // Step 8: Open the new file
+      // Step 9: Open the new file
       const document = await vscode.workspace.openTextDocument(targetFileUri);
       await vscode.window.showTextDocument(document);
 
-      // Step 9: Process field descriptions if provided and cache is available
+      // Step 10: Process field descriptions if provided and cache is available
       if (fieldsInfo?.trim() && cache) {
         try {
           // Give the cache a moment to process the new file
@@ -207,7 +245,7 @@ export class NewModelTool implements AIEnhancedTool {
         }
       }
 
-      // Step 10: Handle parent model relationship if applicable
+      // Step 11: Handle parent model relationship if applicable
       if (parentModelInfo && cache) {
         try {
           await this.addCompositionRelationshipToParent(parentModelInfo, modelName, cache);
@@ -219,11 +257,15 @@ export class NewModelTool implements AIEnhancedTool {
         }
       }
 
-      // Step 11: Show success message
+      // Step 12: Show success message
       let successMessage =
         fieldsInfo?.trim() && cache
           ? `Model ${modelName} created and fields processed successfully!`
           : `Model ${modelName} created successfully!`;
+
+      if (selectedDataSource) {
+        successMessage += ` Using datasource: ${selectedDataSource}.`;
+      }
 
       if (parentModelInfo) {
         successMessage += ` Composition relationship added to ${parentModelInfo.name}.`;
@@ -243,13 +285,15 @@ export class NewModelTool implements AIEnhancedTool {
    * @param docs - Optional documentation string
    * @param fieldsInfo - Optional field information (to be processed later by AI)
    * @param targetDirectory - The directory where the model file will be created
+   * @param dataSource - Optional datasource name to include in the Model decorator
    * @returns The complete TypeScript content for the model file
    */
   private generateModelContent(
     modelName: string,
     docs?: string | null,
     fieldsInfo?: string | null,
-    targetDirectory?: string
+    targetDirectory?: string,
+    dataSource?: string | null
   ): string {
     const lines: string[] = [];
 
@@ -258,16 +302,25 @@ export class NewModelTool implements AIEnhancedTool {
     lines.push("import { BaseModel } from 'slingr-framework';");
     lines.push("");
 
-    // Add Model decorator with docs if provided
-    if (docs) {
-      // Escape single quotes in the docs string to prevent breaking the code
-      const escapedDocs = docs.replace(/'/g, "\\'");
+    // Add Model decorator with docs and/or datasource if provided
+    const hasOptions = docs || dataSource;
+    
+    if (hasOptions) {
       lines.push(`@Model({`);
-      lines.push(`  docs: '${escapedDocs}'`);
+      
+      if (docs) {
+        // Escape single quotes in the docs string to prevent breaking the code
+        const escapedDocs = docs.replace(/'/g, "\\'");
+        lines.push(`  docs: '${escapedDocs}'${dataSource ? ',' : ''}`);
+      }
+      
+      if (dataSource) {
+        lines.push(`  dataSource: '${dataSource}'`);
+      }
+      
       lines.push(`})`);
-    }
-    else {
-      // Add Model decorator
+    } else {
+      // Add Model decorator without options
       lines.push(`@Model()`);
     }
 
@@ -389,7 +442,7 @@ export class NewModelTool implements AIEnhancedTool {
     await this.addFieldTool.addFieldProgrammatically(
       parentModelUri,
       fieldInfo,
-      newModelName,
+      parentModelInfo.name, // Use parent model name, not new model name
       cache,
       true // silent mode - suppress success/error messages
     );
@@ -412,22 +465,13 @@ export class NewModelTool implements AIEnhancedTool {
   ): Promise<vscode.Uri> {
     try {
       // Generate model content
-      const modelContent = this.generateModelContent(modelName, docs);
-
-      // Modify the content to include datasource if provided
-      let finalContent = modelContent;
-      if (dataSource) {
-        finalContent = finalContent.replace(
-          '@Model()',
-          `@Model({\n\tdataSource: ${dataSource}\n})`
-        );
-      }
+      const modelContent = this.generateModelContent(modelName, docs, null, undefined, dataSource);
 
       // Create the file
       const targetFileUri = await this.fileSystemService.createFile(
         modelName, 
         targetFilePath, 
-        finalContent, 
+        modelContent, 
         false // Don't handle overwrite since we control the path
       );
 
