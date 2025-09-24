@@ -1,7 +1,0 @@
-*
-!bin/**
-!dist/**
-!oclif.manifest.json
-!README.md
-!package.json
-!LICENSE

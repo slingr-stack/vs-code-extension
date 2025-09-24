@@ -17,7 +17,7 @@
     "fs-extra": "^11.3.1",
     "inquirer": "^8.2.7",
     "js-yaml": "^4.1.0",
-    "slingr-framework": "workspace:*"
+    "slingr-framework": "github:slingr-stack/framework"
   },
   "devDependencies": {
     "@eslint/compat": "^1",
@@ -62,11 +62,7 @@
     ],
     "topicSeparator": " "
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/slingr-stack/framework.git",
-    "directory": "cli"
-  },
+  "repository": "slingr-stack/cli",
   "scripts": {
     "build": "shx rm -rf dist && tsc -b",
     "lint": "eslint",
