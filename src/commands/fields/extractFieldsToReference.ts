@@ -9,6 +9,7 @@ import { NewModelTool } from "../models/newModel";
 import { AddFieldTool } from "./addField";
 import { DeleteFieldTool } from "../../refactor/tools/deleteField";
 import { ExtractFieldsController } from "./extractFieldsController";
+import { ModelService } from "../../services/modelService";
 import * as path from "path";
 
 /**
@@ -22,12 +23,14 @@ export class ExtractFieldsToReferenceTool extends ExtractFieldsController {
   private newModelTool: NewModelTool;
   private addFieldTool: AddFieldTool;
   private deleteFieldTool: DeleteFieldTool;
+  private modelService: ModelService;
 
   constructor() {
     super();
     this.newModelTool = new NewModelTool();
     this.addFieldTool = new AddFieldTool();
     this.deleteFieldTool = new DeleteFieldTool();
+    this.modelService = new ModelService();
   }
 
   /**
@@ -116,12 +119,13 @@ export class ExtractFieldsToReferenceTool extends ExtractFieldsController {
       // Get the URI from the payload
       const newModelUri = payload.urisToCreate![0].uri;
 
-      // Generate the complete file content
-      const completeFileContent = this.generateCompleteReferenceModelFile(
+      // Generate the complete file content using ModelService
+      const completeFileContent = await this.generateCompleteReferenceModelFileWithService(
         payload.newModelName,
         payload.fieldsToExtract,
         sourceModel,
-        cache
+        cache,
+        newModelUri.fsPath
       );
 
       const metadata: vscode.WorkspaceEditEntryMetadata = {
@@ -195,12 +199,13 @@ export class ExtractFieldsToReferenceTool extends ExtractFieldsController {
 
     const edit = new vscode.WorkspaceEdit();
 
-    // Generate the complete file content including imports and model
-    const completeFileContent = this.generateCompleteReferenceModelFile(
+    // Generate the complete file content including imports and model using ModelService
+    const completeFileContent = await this.generateCompleteReferenceModelFileWithService(
       newModelName,
       fieldsToExtract,
       sourceModel,
-      cache
+      cache,
+      newModelUri.fsPath
     );
 
     edit.createFile(newModelUri, {
@@ -213,59 +218,50 @@ export class ExtractFieldsToReferenceTool extends ExtractFieldsController {
   }
 
   /**
-   * Generates the complete file content for the new reference model, including imports.
+   * Generates the complete file content for the new reference model using ModelService.
    */
-  private generateCompleteReferenceModelFile(
+  private async generateCompleteReferenceModelFileWithService(
     modelName: string,
     fieldsToExtract: PropertyMetadata[],
     sourceModel: DecoratedClass,
-    cache: MetadataCache
-  ): string {
-    const lines: string[] = [];
-
+    cache: MetadataCache,
+    targetFilePath: string
+  ): Promise<string> {
     // Extract data source from source model
     const dataSource = this.extractDataSourceFromModel(sourceModel, cache);
 
-    // Generate imports
-    const requiredImports = new Set(["Model", "Field", "BaseModel"]);
+    // Generate class body from fields
+    const classBodyLines: string[] = [];
+    for (const field of fieldsToExtract) {
+      const fieldCode = this.generateFieldCodeFromPropertyMetadata(field);
+      classBodyLines.push(fieldCode);
+      classBodyLines.push(""); // Empty line between fields
+    }
+    const classBody = classBodyLines.join("\n");
+
+    // Collect required imports from PropertyMetadata decorators
+    const existingImports = new Set<string>();
     for (const field of fieldsToExtract) {
       for (const decorator of field.decorators) {
-        requiredImports.add(decorator.name);
+        existingImports.add(decorator.name);
       }
     }
 
-    // Add the import statement
-    const importList = Array.from(requiredImports).sort();
-    lines.push(`import { ${importList.join(", ")} } from 'slingr-framework';`);
-
-    //Add dataSource import
-    lines.push(`import { ${dataSource} } from '../dataSources/datasource';`);
-    lines.push(""); // Empty line after imports
-
-    // Add model decorator and class
-    if (dataSource) {
-      lines.push(`@Model({`);
-      lines.push(`  dataSource: ${dataSource}`);
-      lines.push(`})`);
-    } else {
-      lines.push(`@Model()`);
-    }
-
-    lines.push(`export class ${modelName} extends BaseModel {`);
-    lines.push("");
-
-    // Add each field using PropertyMetadata to preserve all decorator information
-    for (const field of fieldsToExtract) {
-      const fieldCode = this.generateFieldCodeFromPropertyMetadata(field);
-      lines.push(...fieldCode.split("\n").map((line) => (line ? `  ${line}` : "")));
-      lines.push("");
-    }
-
-    lines.push("}");
-    lines.push(""); // Empty line at end
-
-    return lines.join("\n");
+    // Use ModelService to generate the complete file content
+    return await this.modelService.generateModelFileContent(
+      modelName,
+      classBody,
+      dataSource,
+      existingImports,
+      false, // isComponent = false since it's a separate model file
+      targetFilePath,
+      cache,
+      undefined, // no docs
+      true // includeImports = true since this is a new file
+    );
   }
+
+
 
   /**
    * Extracts the dataSource from a model using the cache.
