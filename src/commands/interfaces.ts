@@ -72,7 +72,7 @@ export const FIELD_TYPE_OPTIONS: FieldTypeOption[] = [
     },
     {
         label: "HTML",
-        decorator: "Html",
+        decorator: "HTML",
         tsType: "string",
         description: "Rich text content with HTML support"
     },

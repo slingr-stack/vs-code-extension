@@ -86,7 +86,7 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         ],
         buildDecoratorString: genericBuildDecoratorString
     },
-    'Html': {
+    'HTML': {
         requiredTsType: 'string',
         supportedArgs: [
             { name: 'docs', type: 'string' },
