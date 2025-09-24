@@ -1,6 +1,13 @@
 /.idea/
 node_modules/
-package-lock.json
 dist/
 prompts/
 .vscode/settings.json
+
+# Monorepo structure
+framework/node_modules/
+cli/node_modules/
+vs-code-extension/node_modules/
+
+# Keep package-lock.json at root and in each package
+# package-lock.json  - removed this since it's needed for monorepo management

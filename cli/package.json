@@ -1,0 +1,23 @@
+{
+  "name": "@slingr/cli",
+  "version": "1.0.0",
+  "description": "Slingr CLI - Command line tools for Slingr framework",
+  "main": "dist/index.js",
+  "bin": {
+    "slingr": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "echo 'CLI build - to be implemented'",
+    "test": "echo 'CLI tests - to be implemented'",
+    "clean": "rm -rf dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slingr-stack/framework.git",
+    "directory": "cli"
+  },
+  "author": "Slingr",
+  "license": "Apache-2.0",
+  "dependencies": {},
+  "devDependencies": {}
+}
