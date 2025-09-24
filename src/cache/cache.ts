@@ -124,6 +124,7 @@ export class MetadataCache {
     public readonly onInfrastructureStatusChange: vscode.Event<InfrastructureStatusChangeEvent> = this._onInfrastructureStatusChange.event;
     public isInfrastructureUpdateNeeded: boolean = false;
     private outOfSyncDataSources: Set<string> = new Set();
+    private isBuildingReferences = false;
 
     /**
      * Initializes the cache and the ts-morph project.
@@ -317,7 +318,6 @@ export class MetadataCache {
             return;
         }
 
-        //this.isProcessingQueue = true;
         const { uri, type } = this.fileChangeQueue.shift()!;
         const filePath = uri.fsPath.replace(/\\/g, '/');
 
@@ -380,7 +380,8 @@ export class MetadataCache {
                 this.cache[filePath] = newFileMeta;
             }
             
-            this.buildAllReferences();
+            // Rebuild all references since this file change might affect references in other files
+            await this.buildAllReferences();
             let fileType: CacheFileUpdateType = 'unknown';
             if (filePath.includes('/src/dataSources/')) {
                 fileType = 'dataSource';
@@ -484,7 +485,8 @@ export class MetadataCache {
         }
 
         // Build references and fire update event (same as processQueue)
-        this.buildAllReferences();
+        // Rebuild all references since this file change might affect references in other files
+        await this.buildAllReferences();
         this._onDidUpdate.fire({ type: 'dataSource', uri: uri });
 
         // Fire infrastructure status change event AFTER cache has been updated
@@ -833,32 +835,42 @@ export class MetadataCache {
      * @param targetFilePath Optional file path to rebuild references for. If not provided, rebuilds all.
      */
     private async buildAllReferences(targetFilePath?: string): Promise<void> {
-        
-        // If targetFilePath is provided, only rebuild references for that specific file
-        if (targetFilePath) {
-            this.buildReferencesForFile(targetFilePath);
+        // Prevent concurrent reference building operations
+        if (this.isBuildingReferences) {
             return;
         }
+        
+        this.isBuildingReferences = true;
+        
+        try {
+            // If targetFilePath is provided, only rebuild references for that specific file
+            if (targetFilePath) {
+                this.buildReferencesForFile(targetFilePath);
+                return;
+            }
 
-        // Full rebuild - clear all references first
-        let totalItems = 0;
-        for (const file of Object.values(this.cache)) {
-            for (const cls of Object.values(file.classes)) {
-                cls.references = [];
-                totalItems++;
-                for (const prop of Object.values(cls.properties)) {
-                    prop.references = [];
+            // Full rebuild - clear all references first
+            let totalItems = 0;
+            for (const file of Object.values(this.cache)) {
+                for (const cls of Object.values(file.classes)) {
+                    cls.references = [];
+                    totalItems++;
+                    for (const prop of Object.values(cls.properties)) {
+                        prop.references = [];
+                        totalItems++;
+                    }
+                }
+                for (const ds of Object.values(file.dataSources)) {
+                    ds.references = [];
                     totalItems++;
                 }
             }
-            for (const ds of Object.values(file.dataSources)) {
-                ds.references = [];
-                totalItems++;
-            }
-        }
 
-        // single pass through all source files
-        await this.buildReferencesOptimized();
+            // single pass through all source files
+            await this.buildReferencesOptimized();
+        } finally {
+            this.isBuildingReferences = false;
+        }
     }
 
     /**
@@ -886,7 +898,9 @@ export class MetadataCache {
         
         for (const file of Object.values(this.cache)) {
             const sourceFile = this.tsMorphProject.getSourceFile(file.uri.fsPath);
-            if (!sourceFile) continue;
+            if (!sourceFile) {
+                continue;
+            }
 
             // Collect classes and their properties
             for (const cls of Object.values(file.classes)) {
@@ -932,6 +946,17 @@ export class MetadataCache {
         const sourceFile = this.tsMorphProject.getSourceFile(normalizedPath);
         if (!sourceFile) {
             return;
+        }
+
+        // Clear existing references for this file before rebuilding
+        for (const cls of Object.values(file.classes)) {
+            cls.references = [];
+            for (const prop of Object.values(cls.properties)) {
+                prop.references = [];
+            }
+        }
+        for (const ds of Object.values(file.dataSources)) {
+            ds.references = [];
         }
 
         for (const cls of Object.values(file.classes)) {
@@ -990,7 +1015,18 @@ export class MetadataCache {
                         preciseRange
                     );
 
-                    metadataObject.references.push(refLocation);
+                    // Check for duplicates before adding
+                    const isDuplicate = metadataObject.references.some(existing => 
+                        existing.uri.fsPath === refLocation.uri.fsPath &&
+                        existing.range.start.line === refLocation.range.start.line &&
+                        existing.range.start.character === refLocation.range.start.character &&
+                        existing.range.end.line === refLocation.range.end.line &&
+                        existing.range.end.character === refLocation.range.end.character
+                    );
+
+                    if (!isDuplicate) {
+                        metadataObject.references.push(refLocation);
+                    }
                 }
             }
         } catch (error) {
