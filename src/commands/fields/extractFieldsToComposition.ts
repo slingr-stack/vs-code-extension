@@ -260,6 +260,11 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
       classBodyLines.push(fieldCode);
       classBodyLines.push(""); // Empty line between fields
     }
+    
+    // Add owner field
+    const ownerFieldCode = this.generateOwnerFieldCode(outerModelName);
+    classBodyLines.push(ownerFieldCode);
+    
     const classBody = classBodyLines.join("\n");
 
     // Collect required imports from PropertyMetadata decorators
@@ -269,6 +274,8 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
         existingImports.add(decorator.name);
       }
     }
+    // Add OwnerReference import for the owner field
+    existingImports.add("OwnerReference");
 
     // Ensure required imports are added to the document
     await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, existingImports);
@@ -373,6 +380,24 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
     const typeAnnotation = isArray ? `${innerModelName}[]` : innerModelName;
     lines.push(`${fieldInfo.name}!: ${typeAnnotation};`);
 
+    return lines.join("\n");
+  }
+
+  /**
+   * Generates the TypeScript code for the owner field.
+   */
+  private generateOwnerFieldCode(ownerModelName: string): string {
+    const lines: string[] = [];
+    
+    // Add Field decorator
+    lines.push("@Field({})");
+    
+    // Add OwnerReference decorator
+    lines.push("@OwnerReference()");
+    
+    // Add property declaration
+    lines.push(`owner!: ${ownerModelName};`);
+    
     return lines.join("\n");
   }
 

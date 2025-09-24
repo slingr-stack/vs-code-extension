@@ -85,7 +85,7 @@ export class ChangeReferenceToCompositionTool {
       }
 
      // Add necessary imports to the workspace edit
-      await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, new Set(["Model", "BaseModel", "Field", "Composition"]));
+      await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, new Set(["Model", "BaseModel", "Field", "Composition", "OwnerReference"]));
 
       // Step 9: Focus on the newly modified field
       await this.sourceCodeService.focusOnElement(document, fieldName);
@@ -255,11 +255,15 @@ export class ChangeReferenceToCompositionTool {
     const sourceDocument = await vscode.workspace.openTextDocument(sourceModel.declaration.uri);
     const resolvedEnums = await this.resolveEnumConflicts(enumDefinitions, sourceDocument, classBody, sourceModel.name);
     
-    // Step 6: Generate the complete component model content
+    // Step 6: Add owner field to the class body
+    const ownerFieldCode = this.generateOwnerFieldCode(sourceModel.name);
+    const updatedClassBody = resolvedEnums.updatedClassBody + '\n\n' + ownerFieldCode;
+    
+    // Step 7: Generate the complete component model content
     const docs = cache.getModelDecoratorByName("Model", targetModel)?.arguments?.[0]?.docs;
     let componentModelCode = await this.modelService.generateModelFileContent(
       targetModel.name,
-      resolvedEnums.updatedClassBody,
+      updatedClassBody,
       dataSource,
       undefined,
       true,  // This is a component model (no export keyword)
@@ -268,10 +272,10 @@ export class ChangeReferenceToCompositionTool {
       docs
     );
     
-    // Step 7: Extract only the component model part (remove imports and add enums)
+    // Step 8: Extract only the component model part (remove imports and add enums)
     const componentModelParts = this.extractComponentModelFromFileContent(componentModelCode);
     
-    // Step 8: Add enum definitions if any exist
+    // Step 9: Add enum definitions if any exist
     if (resolvedEnums.enumDefinitions.length > 0) {
       const enumsContent = resolvedEnums.enumDefinitions.join('\n\n');
       return `${enumsContent}\n\n${componentModelParts}`;
@@ -564,6 +568,24 @@ export class ChangeReferenceToCompositionTool {
         }
       }
     }
+  }
+
+  /**
+   * Generates the TypeScript code for the owner field.
+   */
+  private generateOwnerFieldCode(ownerModelName: string): string {
+    const lines: string[] = [];
+    
+    // Add Field decorator
+    lines.push("@Field({})");
+    
+    // Add OwnerReference decorator
+    lines.push("@OwnerReference()");
+    
+    // Add property declaration
+    lines.push(`owner!: ${ownerModelName};`);
+    
+    return lines.join("\n");
   }
 
   /**
