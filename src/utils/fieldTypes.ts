@@ -63,23 +63,16 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         supportedArgs: [
             { name: 'docs', type: 'string' },
             { name: 'isUnique', type: 'boolean' },
-            { name: 'maxLength', type: 'number' },
             { name: 'minLength', type: 'number' },
+            { name: 'maxLength', type: 'number' },
             { name: 'regex', type: 'string' },
             { name: 'regexMessage', type: 'string' },
         ],
         buildDecoratorString: genericBuildDecoratorString
     },
-    'LongText': {
-        requiredTsType: 'string',
-        supportedArgs: [
-            { name: 'docs', type: 'string' },
-            { name: 'isUnique', type: 'boolean' },
-        ],
-        buildDecoratorString: genericBuildDecoratorString
-    },
     'Email': {
         requiredTsType: 'string',
+        mapsFromTsTypes: ['string'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
             { name: 'isUnique', type: 'boolean' },
@@ -88,6 +81,7 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
     },
     'HTML': {
         requiredTsType: 'string',
+        mapsFromTsTypes: ['string'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
         ],
@@ -108,13 +102,12 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         ],
         buildDecoratorString: genericBuildDecoratorString
     },
-    'Money': {
+    'Number': {
         requiredTsType: 'number',
+        mapsFromTsTypes: ['number'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
-            { name: 'numberOfDecimals', type: 'number' },
-            { name: 'roundingType', type: 'enum' },
-            { name: 'error', type: 'string' },
+            { name: 'isUnique', type: 'boolean' },
             { name: 'positive', type: 'boolean' },
             { name: 'negative', type: 'boolean' },
             { name: 'min', type: 'number' },
@@ -122,17 +115,55 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         ],
         buildDecoratorString: genericBuildDecoratorString
     },
-
-    // --- Date/Time Types ---
-    'Date': {
-        requiredTsType: 'Date',
-        mapsFromTsTypes: ['Date'],
-        supportedArgs: [{ name: 'docs', type: 'string' }],
+    'Decimal': {
+        requiredTsType: 'number',
+        mapsFromTsTypes: ['number'],
+        supportedArgs: [
+            { name: 'docs', type: 'string' },
+            { name: 'isUnique', type: 'boolean' },
+            { name: 'precision', type: 'number' },
+            { name: 'scale', type: 'number' },
+            { name: 'positive', type: 'boolean' },
+            { name: 'negative', type: 'boolean' },
+            { name: 'min', type: 'number' },
+            { name: 'max', type: 'number' },
+        ],
         buildDecoratorString: genericBuildDecoratorString
     },
-    'DateRange': {
-        requiredTsType: 'DateRange',
-        supportedArgs: [{ name: 'docs', type: 'string' }],
+    'Money': {
+        requiredTsType: 'Money',
+        mapsFromTsTypes: ['Money'],
+        supportedArgs: [
+            { name: 'docs', type: 'string' },
+            { name: 'decimals', type: 'number' },
+            { name: 'roundingType', type: 'enum' },
+            { name: 'positive', type: 'boolean' },
+            { name: 'negative', type: 'boolean' },
+            { name: 'min', type: 'string' },
+            { name: 'max', type: 'string' },
+        ],
+        buildDecoratorString: genericBuildDecoratorString
+    },
+
+    // --- Date/Time Types ---
+    'DateTime': {
+        requiredTsType: 'Date',
+        mapsFromTsTypes: ['Date'],
+        supportedArgs: [
+            { name: 'docs', type: 'string' },
+            { name: 'min', type: 'object' },
+            { name: 'max', type: 'object' },
+        ],
+        buildDecoratorString: genericBuildDecoratorString
+    },
+    'DateTimeRange': {
+        requiredTsType: 'DateTimeRangeValue',
+        mapsFromTsTypes: ['DateTimeRangeValue'],
+        supportedArgs: [
+            { name: 'docs', type: 'string' },
+            { name: 'allowOpenRanges', type: 'boolean' },
+            { name: 'timezone', type: 'string' },
+        ],
         buildDecoratorString: genericBuildDecoratorString
     },
 
@@ -150,14 +181,49 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
     // --- Special Types ---
     'Choice': {
         requiredTsType: undefined,
-        supportedArgs: [],
+        supportedArgs: [
+            { name: 'docs', type: 'string' },
+        ],
         buildDecoratorString: genericBuildDecoratorString
     },
+    
+    // --- Relationship Types ---
     'Relationship': {
         requiredTsType: undefined,
         supportedArgs: [
-            { name: 'type', type: 'string' },
-            { name: 'filter', type: 'object' },
+            { name: 'docs', type: 'string' },
+            { name: 'type', type: 'enum' },
+            { name: 'elementType', type: 'string' },
+            { name: 'load', type: 'boolean' },
+            { name: 'onDelete', type: 'enum' },
+        ],
+        buildDecoratorString: genericBuildDecoratorString
+    },
+    'Reference': {
+        requiredTsType: undefined,
+        supportedArgs: [
+            { name: 'docs', type: 'string' },
+            { name: 'load', type: 'boolean' },
+            { name: 'onDelete', type: 'enum' },
+            { name: 'elementType', type: 'string' },
+        ],
+        buildDecoratorString: genericBuildDecoratorString
+    },
+    'Composition': {
+        requiredTsType: undefined,
+        supportedArgs: [
+            { name: 'docs', type: 'string' },
+            { name: 'load', type: 'boolean' },
+            { name: 'elementType', type: 'string' },
+        ],
+        buildDecoratorString: genericBuildDecoratorString
+    },
+    'SharedComposition': {
+        requiredTsType: undefined,
+        supportedArgs: [
+            { name: 'docs', type: 'string' },
+            { name: 'load', type: 'boolean' },
+            { name: 'elementType', type: 'string' },
         ],
         buildDecoratorString: genericBuildDecoratorString
     },

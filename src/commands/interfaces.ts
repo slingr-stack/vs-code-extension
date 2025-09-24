@@ -56,19 +56,13 @@ export const FIELD_TYPE_OPTIONS: FieldTypeOption[] = [
         label: "Text",
         decorator: "Text",
         tsType: "string",
-        description: "Short text field (up to 255 characters)"
-    },
-    {
-        label: "Long Text",
-        decorator: "LongText", 
-        tsType: "string",
-        description: "Long text field for large content"
+        description: "Short text field with optional length and regex validation"
     },
     {
         label: "Email",
         decorator: "Email",
         tsType: "string",
-        description: "Email address with validation"
+        description: "Email address with built-in validation"
     },
     {
         label: "HTML",
@@ -80,25 +74,37 @@ export const FIELD_TYPE_OPTIONS: FieldTypeOption[] = [
         label: "Integer",
         decorator: "Integer",
         tsType: "number",
-        description: "Whole number field"
+        description: "Whole number field with optional range constraints"
+    },
+    {
+        label: "Number",
+        decorator: "Number",
+        tsType: "number",
+        description: "Floating-point number field with optional constraints"
+    },
+    {
+        label: "Decimal",
+        decorator: "Decimal",
+        tsType: "number",
+        description: "Decimal number with precision and scale control"
     },
     {
         label: "Money",
         decorator: "Money",
-        tsType: "number",
-        description: "Currency amount field"
+        tsType: "Money",
+        description: "Monetary value with precision control and rounding"
     },
     {
-        label: "Date",
-        decorator: "Date",
+        label: "Date Time",
+        decorator: "DateTime",
         tsType: "Date",
-        description: "Date field"
+        description: "Date and time field with optional range constraints"
     },
     {
-        label: "Date Range",
-        decorator: "DateRange",
-        tsType: "DateRange",
-        description: "Date range field"
+        label: "Date Time Range",
+        decorator: "DateTimeRange",
+        tsType: "DateTimeRangeValue",
+        description: "Date and time range field with timezone support"
     },
     {
         label: "Boolean",
@@ -109,14 +115,32 @@ export const FIELD_TYPE_OPTIONS: FieldTypeOption[] = [
     {
         label: "Choice",
         decorator: "Choice",
-        tsType: "string", // Will be replaced with actual enum type
-        description: "Selection from predefined options"
+        tsType: "enum",
+        description: "Enumeration field for predefined choices"
     },
     {
         label: "Relationship",
         decorator: "Relationship",
-        tsType: "object", // Will be replaced with actual model type
-        description: "Reference to another model"
+        tsType: "object",
+        description: "Generic relationship to other models"
+    },
+    {
+        label: "Reference",
+        decorator: "Reference",
+        tsType: "object",
+        description: "Reference relationship to independent models"
+    },
+    {
+        label: "Composition",
+        decorator: "Composition",
+        tsType: "object",
+        description: "Composition relationship where child cannot exist without parent"
+    },
+    {
+        label: "Shared Composition",
+        decorator: "SharedComposition",
+        tsType: "object",
+        description: "Shared composition relationship across multiple models"
     }
 ];
 
