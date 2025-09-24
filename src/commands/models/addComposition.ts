@@ -404,7 +404,7 @@ export class AddCompositionTool {
     lines.push(`})`);
     lines.push(`class ${innerModelName} extends BaseModel {`);
     lines.push(``);
-    lines.push(`\t@Field({})`);
+    lines.push(`\t@Field()`);
     lines.push(`\t@UUID()`);
 	  lines.push(`\t@PrimaryKey()`);
 	  lines.push(`\tid!: string`);
@@ -457,7 +457,7 @@ export class AddCompositionTool {
     const lines: string[] = [];
 
     // Add Field decorator
-    lines.push("@Field({})");
+    lines.push("@Field()");
 
     // Add Relationship decorator
     lines.push("@Composition()");

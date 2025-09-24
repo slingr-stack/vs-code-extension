@@ -317,7 +317,7 @@ export class ExtractFieldsToReferenceTool extends ExtractFieldsController {
     const lines: string[] = [];
 
     // Add Field decorator
-    lines.push("  @Field({})");
+    lines.push("  @Field()");
 
     // Add Reference decorator
     lines.push("  @Reference()");

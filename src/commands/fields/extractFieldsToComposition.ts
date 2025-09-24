@@ -390,7 +390,7 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
       lines.push("  required: true");
       lines.push("})");
     } else {
-      lines.push("@Field({})");
+      lines.push("@Field()");
     }
 
     // Add Composition decorator

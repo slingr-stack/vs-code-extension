@@ -517,7 +517,7 @@ export class ChangeCompositionToReferenceTool {
     const lines: string[] = [];
 
     // Add Field decorator
-    lines.push("@Field({})");
+    lines.push("@Field()");
 
     // Add Reference decorator
     lines.push("@Reference()");

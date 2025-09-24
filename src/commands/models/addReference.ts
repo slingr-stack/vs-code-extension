@@ -353,7 +353,7 @@ export class AddReferenceTool {
     }
     lines.push(`export class ${modelName} extends BaseModel {`);
     lines.push(``);
-    lines.push(`\t@Field({})`);
+    lines.push(`\t@Field()`);
     lines.push(`\t@UUID()`);
 	  lines.push(`\t@PrimaryKey()`);
 	  lines.push(`\tid!: string`);
@@ -409,7 +409,7 @@ export class AddReferenceTool {
     const lines: string[] = [];
 
     // Add Field decorator
-    lines.push("@Field({})");
+    lines.push("@Field()");
 
     // Add Relationship decorator for reference
     lines.push("@Reference()");

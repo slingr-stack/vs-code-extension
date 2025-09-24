@@ -235,7 +235,7 @@ export class Address {
             
             const result = generateCompositionFieldCode(fieldInfo, 'Address', true);
             
-            const expected = `@Field({})
+            const expected = `@Field()
 @Relationship({
   type: 'composition'
 })
@@ -267,7 +267,7 @@ addresses!: Address[];`;
             
             const result = generateCompositionFieldCode(fieldInfo, 'Profile', false);
             
-            const expected = `@Field({})
+            const expected = `@Field()
 @Relationship({
   type: 'composition'
 })
@@ -313,7 +313,7 @@ profile!: Profile;`;
 
             // Verify the composition field was added
             assert.ok(modifiedContent.includes('addresses'), 'Composition field name should be in the modified content');
-            assert.ok(modifiedContent.includes('@Field({})'), 'Field decorator should be present');
+            assert.ok(modifiedContent.includes('@Field()'), 'Field decorator should be present');
             assert.ok(modifiedContent.includes('@Composition()'), 'Composition decorator should be present');
             assert.ok(modifiedContent.includes('addresses!: Address[]'), 'Field declaration should be present');
 

@@ -502,7 +502,7 @@ export class ChangeReferenceToCompositionTool {
     const lines: string[] = [];
 
     // Add Field decorator
-    lines.push("@Field({})");
+    lines.push("@Field()");
 
     // Add Composition decorator
     lines.push("@Composition()");

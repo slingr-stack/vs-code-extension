@@ -557,7 +557,7 @@ export class AddFieldTool implements AIEnhancedTool {
       lines.push("  required: true");
       lines.push("})");
     } else {
-      lines.push("@Field({})");
+      lines.push("@Field()");
     }
 
     // Add type-specific decorator

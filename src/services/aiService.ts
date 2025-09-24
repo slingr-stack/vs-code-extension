@@ -286,25 +286,25 @@ Example output format:
 @Text()
 title!: string;
 
-@Field({})
+@Field()
 @Text()
 description!: string;
 
-@Field({})
+@Field()
 @Relationship()
 customer!: Customer;
 
-@Field({})
+@Field()
 @Date()
 date!: Date;
 
-@Field({})
+@Field()
 @Relationship({
     type: 'composition'
 })
 project!: Project;
 
-@Field({})
+@Field()
 @Choice()
 status: ProjectStatus = ProjectStatus.Planning;
 \`\`\`

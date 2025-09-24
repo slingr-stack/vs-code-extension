@@ -27,7 +27,7 @@ import path from "path";
  * }
  *
  * // If created from a Project model context, automatically adds to Project:
- * @Field({})
+ * @Field()
  * @Relationship({
  *   type: 'composition'
  * })
