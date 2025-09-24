@@ -9,6 +9,7 @@ import { NewModelTool } from "../models/newModel";
 import { AddFieldTool } from "./addField";
 import { DeleteFieldTool } from "../../refactor/tools/deleteField";
 import { ExtractFieldsController } from "./extractFieldsController";
+import { ModelService } from "../../services/modelService";
 import * as path from "path";
 
 /**
@@ -22,12 +23,14 @@ export class ExtractFieldsToParentTool extends ExtractFieldsController {
   private newModelTool: NewModelTool;
   private addFieldTool: AddFieldTool;
   private deleteFieldTool: DeleteFieldTool;
+  private modelService: ModelService;
 
   constructor() {
     super();
     this.newModelTool = new NewModelTool();
     this.addFieldTool = new AddFieldTool();
     this.deleteFieldTool = new DeleteFieldTool();
+    this.modelService = new ModelService();
   }
 
   /**
@@ -109,12 +112,11 @@ export class ExtractFieldsToParentTool extends ExtractFieldsController {
       // Get the URI from the payload
       const newParentModelUri = payload.urisToCreate![0].uri;
 
-      // Generate the complete file content for the abstract parent model
-      const completeFileContent = this.generateCompleteParentModelFile(
+      // Generate the complete file content for the abstract parent model using ModelService
+      const completeFileContent = await this.generateCompleteParentModelFileWithService(
         payload.newParentModelName,
         payload.fieldsToExtract,
-        sourceModel,
-        cache
+        newParentModelUri.fsPath
       );
 
       const metadata: vscode.WorkspaceEditEntryMetadata = {
@@ -155,47 +157,49 @@ export class ExtractFieldsToParentTool extends ExtractFieldsController {
   }
 
   /**
-   * Generates the complete file content for the new abstract parent model, including imports.
+   * Generates the complete file content for the new abstract parent model using ModelService.
    */
-  private generateCompleteParentModelFile(
+  private async generateCompleteParentModelFileWithService(
     modelName: string,
     fieldsToExtract: PropertyMetadata[],
-    sourceModel: DecoratedClass,
-    cache: MetadataCache
-  ): string {
-    const lines: string[] = [];
+    targetFilePath: string
+  ): Promise<string> {
+    // Generate class body from fields
+    const classBodyLines: string[] = [];
+    for (const field of fieldsToExtract) {
+      const fieldCode = this.generateFieldCodeFromPropertyMetadata(field);
+      classBodyLines.push(fieldCode);
+      classBodyLines.push(""); // Empty line between fields
+    }
+    const classBody = classBodyLines.join("\n");
 
-    // Generate imports
-    const requiredImports = new Set(["BaseModel", "Field", "Model"]);
+    // Collect required imports from PropertyMetadata decorators
+    const existingImports = new Set<string>();
     for (const field of fieldsToExtract) {
       for (const decorator of field.decorators) {
-        requiredImports.add(decorator.name);
+        existingImports.add(decorator.name);
       }
     }
 
-    // Add the import statement
-    const importList = Array.from(requiredImports).sort();
-    lines.push(`import { ${importList.join(", ")} } from 'slingr-framework';`);
-    lines.push(""); // Empty line after imports
+    // Use ModelService to generate the complete file content
+    // Abstract parent models have no dataSource and no default id field
+    const modelContent = await this.modelService.generateModelFileContent(
+      modelName,
+      classBody,
+      undefined, // no dataSource for abstract parent models
+      existingImports,
+      false, // isComponent = false since it's a separate model file
+      targetFilePath,
+      undefined, // no cache needed for abstract parent models
+      undefined, // no docs
+      true, // includeImports = true since this is a new file
+    );
 
-    // Add model decorator
-    lines.push(`@Model()`);
-
-    // Add abstract model class extending BaseModel
-    lines.push(`export abstract class ${modelName} extends BaseModel {`);
-    lines.push("");
-
-    // Add each field using PropertyMetadata to preserve all decorator information
-    for (const field of fieldsToExtract) {
-      const fieldCode = this.generateFieldCodeFromPropertyMetadata(field);
-      lines.push(...fieldCode.split("\n").map((line) => (line ? `  ${line}` : "")));
-      lines.push("");
-    }
-
-    lines.push("}");
-    lines.push(""); // Empty line at end
-
-    return lines.join("\n");
+    // Replace the class declaration to make it abstract
+    return modelContent.replace(
+      `export class ${modelName} extends BaseModel {`,
+      `export abstract class ${modelName} extends BaseModel {`
+    );
   }
 
   /**

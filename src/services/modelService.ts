@@ -20,6 +20,8 @@ export class ModelService {
    * @param isComponent - Whether this is a component model (affects export and class declaration)
    * @param cache - Optional metadata cache to lookup datasource information
    * @param docs - Optional documentation string for the model
+   * @param includeImports - Whether to include import statements (default: true)
+   * @param includeDefaultId - Whether to include the default id field (default: true)
    */
   public async addModelToWorkspaceEdit(
     edit: vscode.WorkspaceEdit,
@@ -30,44 +32,52 @@ export class ModelService {
     existingImports?: Set<string>,
     isComponent: boolean = false,
     cache?: MetadataCache,
-    docs?: string
+    docs?: string,
+    includeImports: boolean = true,
+    includeDefaultId: boolean = true
   ): Promise<void> {
     const lines: string[] = [];
 
-    // Determine required imports
-    const imports = new Set(["BaseModel", "UUID", "Model", "Field"]);
-
-    // Add existing imports if provided
-    if (existingImports) {
-      existingImports.forEach((imp) => imports.add(imp));
-    }
-
-    if (classBody) {
-      // Analyze the class body to determine additional needed imports
-      const bodyImports = this.sourceCodeService.extractImportsFromClassBody(classBody);
-      bodyImports.forEach((imp) => imports.add(imp));
-    }
-
-    // Add import statement
-    const sortedImports = Array.from(imports).sort();
-    lines.push(`import { ${sortedImports.join(", ")} } from "slingr-framework";`);
-
-    // Add datasource import if applicable
-    if (dataSource) {
-      // Use the new findDataSourcePath function for accurate import resolution
-      try {
-        const dataSourceImport = await this.sourceCodeService.findDataSourcePath(dataSource, targetFilePath, cache);
-        if (dataSourceImport) {
-          lines.push(dataSourceImport);
-          lines.push("");
-        }
-      } catch (error) {
-        console.warn("Could not resolve datasource import, using fallback:", error);
-        // Fallback to generic import
-        const cleanDataSource = dataSource.replace(/['"]/g, "");
-        lines.push(`import { ${cleanDataSource} } from '../dataSources/${cleanDataSource}';`);
-        lines.push("");
+    if (includeImports) {
+      // Determine required imports
+      const imports = new Set(["BaseModel", "Model", "Field"]);
+      
+      // Add UUID import only if we're including the default id field
+      if (includeDefaultId) {
+        imports.add("UUID");
       }
+
+      // Add existing imports if provided
+      if (existingImports) {
+        existingImports.forEach((imp) => imports.add(imp));
+      }
+
+      if (classBody) {
+        // Analyze the class body to determine additional needed imports
+        const bodyImports = this.sourceCodeService.extractImportsFromClassBody(classBody);
+        bodyImports.forEach((imp) => imports.add(imp));
+      }
+
+      // Add import statement
+      const sortedImports = Array.from(imports).sort();
+      lines.push(`import { ${sortedImports.join(", ")} } from "slingr-framework";`);
+
+      // Add datasource import if applicable
+      if (dataSource) {       
+        // Use the new findDataSourcePath function for accurate import resolution
+        try {
+          const dataSourceImport = await this.sourceCodeService.findDataSourcePath(dataSource, targetFilePath, cache);
+          if (dataSourceImport) {
+            lines.push(dataSourceImport);
+          }
+        } catch (error) {
+          console.warn("Could not resolve datasource import, using fallback:", error);
+          // Fallback to generic import
+          const cleanDataSource = dataSource.replace(/['"]/g, "");
+          lines.push(`import { ${cleanDataSource} } from '../dataSources/${cleanDataSource}';`);
+        }
+      }
+      lines.push("");
     }
 
     // Add model decorator
@@ -92,19 +102,31 @@ export class ModelService {
     // Add class declaration (export only if not a component model)
     const exportKeyword = isComponent ? "" : "export ";
     lines.push(`${exportKeyword}class ${modelName} extends BaseModel {`);
-    lines.push(``);
-    lines.push(`\t@Field({`);
-    lines.push(`\t\tprimaryKey: true,`);
-    lines.push(`\t})`);
-    lines.push(`\t@UUID({`);
-    lines.push(`\t\tgenerated: true,`);
-    lines.push(`\t})`);
-    lines.push(`\tid!: string`);
+    
+    // Add default id field if requested
+    if (includeDefaultId) {
+      lines.push(``);
+      lines.push(`\t@Field({`);
+      lines.push(`\t\tprimaryKey: true,`);
+      lines.push(`\t})`);
+      lines.push(`\t@UUID({`);
+      lines.push(`\t\tgenerated: true,`);
+      lines.push(`\t})`);
+      lines.push(`\tid!: string`);
+    }
 
     // Add class body (if not empty)
     if (classBody && classBody.trim()) {
       lines.push("");
-      lines.push(classBody);
+      // Split class body into lines and indent each line
+      const classBodyLines = classBody.split('\n');
+      for (const line of classBodyLines) {
+        if (line.trim()) {
+          lines.push(`\t${line}`);
+        } else {
+          lines.push(''); // Keep empty lines as empty
+        }
+      }
       lines.push("");
     }
 
@@ -127,6 +149,9 @@ export class ModelService {
    * @param isComponent - Whether this is a component model (affects export and class declaration)
    * @param targetFilePath - Optional path where the model file will be created (for accurate relative import calculation)
    * @param cache - Optional metadata cache to lookup datasource information
+   * @param docs - Optional documentation string for the model
+   * @param includeImports - Whether to include import statements (default: true)
+   * @param includeDefaultId - Whether to include the default id field (default: true)
    * @returns The complete model file content
    */
   public async generateModelFileContent(
@@ -137,11 +162,13 @@ export class ModelService {
     isComponent: boolean = false,
     targetFilePath?: string,
     cache?: MetadataCache,
-    docs?: string
+    docs?: string,
+    includeImports: boolean = true,
+    includeDefaultId: boolean = true
   ): Promise<string> {
     // Create a temporary workspace edit to generate the content
     const tempEdit = new vscode.WorkspaceEdit();
-    const tempFilePath = targetFilePath || "/tmp/temp-model.ts";
+    const tempFilePath = targetFilePath || "";
 
     await this.addModelToWorkspaceEdit(
       tempEdit,
@@ -152,7 +179,9 @@ export class ModelService {
       existingImports,
       isComponent,
       cache,
-      docs
+      docs,
+      includeImports,
+      includeDefaultId
     );
 
     // Extract the content from the workspace edit

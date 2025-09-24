@@ -376,20 +376,4 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
     return lines.join("\n");
   }
 
-  /**
-   * Merges two workspace edits into one.
-   */
-  private mergeWorkspaceEdits(target: vscode.WorkspaceEdit, source: vscode.WorkspaceEdit): void {
-    // Merge text edits
-    source.entries().forEach(([uri, edits]) => {
-      const existing = target.get(uri) || [];
-      target.set(uri, [...existing, ...edits]);
-    });
-
-    // Merge file operations if any
-    if (source.size > 0) {
-      // Copy any file operations from source to target
-      // This is a simplified merge - in practice you might need more sophisticated merging
-    }
-  }
 }

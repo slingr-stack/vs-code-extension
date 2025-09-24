@@ -8,6 +8,7 @@ import {
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cache";
 import { DeleteFieldTool } from "../../refactor/tools/deleteField";
 import { ExtractFieldsController } from "./extractFieldsController";
+import { ModelService } from "../../services/modelService";
 import * as path from "path";
 
 /**
@@ -19,10 +20,12 @@ import * as path from "path";
  */
 export class ExtractFieldsToEmbeddedTool extends ExtractFieldsController {
     private deleteFieldTool: DeleteFieldTool;
+    private modelService: ModelService;
 
     constructor() {
         super();
         this.deleteFieldTool = new DeleteFieldTool();
+        this.modelService = new ModelService();
     }
 
     /**
@@ -113,10 +116,11 @@ export class ExtractFieldsToEmbeddedTool extends ExtractFieldsController {
             // Get the URI from the payload
             const newModelUri = payload.urisToCreate![0].uri;
 
-            // Generate the complete file content
-            const completeFileContent = this.generateCompleteEmbeddedModelFile(
+            // Generate the complete file content using ModelService
+            const completeFileContent = await this.generateCompleteEmbeddedModelFileWithService(
                 payload.newModelName,
-                payload.fieldsToExtract
+                payload.fieldsToExtract,
+                newModelUri.fsPath
             );
 
             const metadata: vscode.WorkspaceEditEntryMetadata = {
@@ -158,45 +162,46 @@ export class ExtractFieldsToEmbeddedTool extends ExtractFieldsController {
     }
 
     /**
-     * Generates the complete file content for the new embedded model, including imports.
+     * Generates the complete file content for the new embedded model using ModelService.
      * Embedded models extend BaseModel and have no dataSource.
      */
-    private generateCompleteEmbeddedModelFile(
+    private async generateCompleteEmbeddedModelFileWithService(
         modelName: string,
-        fieldsToExtract: PropertyMetadata[]
-    ): string {
-        const lines: string[] = [];
-
-        // Generate imports for embedded model (no dataSource import needed)
-        const requiredImports = new Set(["Field", "BaseModel", "Model"]);
-        for (const field of fieldsToExtract) {
-            for (const decorator of field.decorators) {
-                requiredImports.add(decorator.name);
-            }
-        }
-        // Add the import statement
-        const importList = Array.from(requiredImports).sort();
-        lines.push(`import { ${importList.join(", ")} } from 'slingr-framework';`);
-        lines.push(""); // Empty line after imports
-
-        // Add model decorator
-        lines.push(`@Model()`);
-
-        // Add class
-        lines.push(`export class ${modelName} extends BaseModel {`);
-        lines.push("");
-
-        // Add each field using PropertyMetadata to preserve all decorator information
+        fieldsToExtract: PropertyMetadata[],
+        targetFilePath: string
+    ): Promise<string> {
+        // Generate class body from fields
+        const classBodyLines: string[] = [];
         for (const field of fieldsToExtract) {
             const fieldCode = this.generateFieldCodeFromPropertyMetadata(field);
-            lines.push(...fieldCode.split("\n").map((line) => (line ? `  ${line}` : "")));
-            lines.push("");
+            classBodyLines.push(fieldCode);
+            classBodyLines.push(""); // Empty line between fields
         }
+        const classBody = classBodyLines.join("\n");
 
-        lines.push("}");
-        lines.push(""); // Empty line at end
+        // Collect required imports from PropertyMetadata decorators
+        const existingImports = new Set<string>();
+        for (const field of fieldsToExtract) {
+            for (const decorator of field.decorators) {
+                existingImports.add(decorator.name);
+            }
+        }
+        
 
-        return lines.join("\n");
+        // Use ModelService to generate the complete file content
+        // Embedded models have no dataSource, so we pass undefined
+        return await this.modelService.generateModelFileContent(
+            modelName,
+            classBody,
+            undefined, // no dataSource for embedded models
+            existingImports,
+            false, // isComponent = false since it's a separate model file
+            targetFilePath,
+            undefined, // no cache needed for embedded models
+            undefined, // no docs
+            true, // includeImports = true since this is a new file
+            false // includeDefaultId = false for embedded models
+        );
     }
 
     /**
