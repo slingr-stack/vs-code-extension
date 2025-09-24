@@ -175,6 +175,21 @@ export async function resolveTargetUri(
             if ((uri.itemType === 'model' || uri.itemType === 'compositionField') && uri.metadata?.declaration?.uri) {
                 targetUri = uri.metadata.declaration.uri;
                 modelName = uri.metadata?.name;
+            } else if (uri.itemType === 'folder' && uri.folderPath) {
+                // Handle folder context - create a URI for the folder
+                const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                if (!workspaceFolder) {
+                    throw new Error('No workspace folder found');
+                }
+                const basePath = vscode.Uri.joinPath(workspaceFolder.uri, 'src', 'data');
+                targetUri = vscode.Uri.joinPath(basePath, ...uri.folderPath.split(/[\/\\]/));
+            } else if (uri.itemType === 'dataRoot') {
+                // Handle data root context - use the data folder
+                const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                if (!workspaceFolder) {
+                    throw new Error('No workspace folder found');
+                }
+                targetUri = vscode.Uri.joinPath(workspaceFolder.uri, 'src', 'data');
             } else {
                 throw new Error(opts.noUriErrorMessage!);
             }

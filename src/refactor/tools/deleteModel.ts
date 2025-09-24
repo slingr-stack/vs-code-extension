@@ -264,6 +264,15 @@ export class DeleteModelTool implements IRefactorTool {
         workspaceEdit.replace(ref.uri, ref.range, "/* DELETED_REFERENCE */", {label: `Reference to deleted model '${deletedModelName}'`, needsConfirmation: true} );
       }
     }
+
+    // Add file deletion operations to the workspace edit
+    for (const uri of urisToDelete) {
+      workspaceEdit.deleteFile(uri, { 
+        recursive: true, 
+        ignoreIfNotExists: true
+      }, 
+      {label: `Delete file or directory '${uri.fsPath}'`, needsConfirmation: true} );
+    }
     
     await this.cleanupRelationshipFields(deletedModelName, workspaceEdit, cache);
     return workspaceEdit;

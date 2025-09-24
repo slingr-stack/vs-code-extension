@@ -146,13 +146,6 @@ export class RefactorController {
         return;
       }
 
-      const hasFileOps = ('urisToDelete' in changeObject.payload && (changeObject.payload as any).urisToDelete?.length > 0) ||
-                         ('newUri' in changeObject.payload && !!(changeObject.payload as any).newUri);
-
-      if (workspaceEdit.size === 0 && !hasFileOps) {
-        vscode.window.showInformationMessage("No changes were needed for this refactoring.");
-        return;
-      }
       await this.presentChangesForApproval(workspaceEdit, changeObject);
     }
   }
@@ -183,46 +176,16 @@ export class RefactorController {
     changeObject: ChangeObject,
     allChanges?: ChangeObject[] 
   ): Promise<void> {
-    // Create a new workspace edit with confirmation metadata
-    const confirmedEdit = new vscode.WorkspaceEdit();
-    const metadata: vscode.WorkspaceEditEntryMetadata = {
-      needsConfirmation: true,
-      label: "Review Refactoring Changes",
-    };
-
-    // Copy all text edits with confirmation metadata
-    for (const [uri, textEdits] of workspaceEdit.entries()) {
-      for (const edit of textEdits) {
-        confirmedEdit.replace(uri, edit.range, edit.newText, metadata);
-      }
-    }
-
-    // Add file operations from change payloads to the workspace edit
-    const changesToProcess = allChanges || [changeObject];
-    for (const change of changesToProcess) {
-      if (change.type === 'DELETE_MODEL') {
-        const deletePayload = change.payload as DeleteModelPayload;
-        if (Array.isArray(deletePayload.urisToDelete)) {
-          for (const uri of deletePayload.urisToDelete) {
-            confirmedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
-          }
-        }
-      }
-      
-      if (change.type === 'RENAME_MODEL') {
-        const renamePayload = change.payload as RenameModelPayload;
-        if (renamePayload.newUri) {
-          confirmedEdit.renameFile(change.uri, renamePayload.newUri);
-        }
-      }
-    }
-
     this.isApplyingEdit = true;
     try {
-      const success = await vscode.workspace.applyEdit(workspaceEdit,{isRefactoring: true});
+      let success;
+      const changesToProcess = allChanges || [changeObject];
+
+      // Apply the workspace edit directly with refactoring flag
+      // VS Code will automatically show the refactor preview for file operations and text edits
+      success = await vscode.workspace.applyEdit(workspaceEdit, { isRefactoring: true });
       if (success) {
         await vscode.workspace.saveAll(false);
-        const changesToProcess = allChanges || [changeObject];
         // Check for compilation errors after applying changes
         const changesWithPrompts = changesToProcess.filter(change => {
           const tool = this.changeHandlerMap.get(change.type);
@@ -370,25 +333,7 @@ export class RefactorController {
             }
           }
 
-          // Handle delete operations from change payload
-          if ('urisToDelete' in change.payload && Array.isArray((change.payload as any).urisToDelete)) {
-            for (const uri of (change.payload as any).urisToDelete) {
-              const deleteOpId = `DELETE::${uri.toString()}`;
-              if (!fileOperations.has(deleteOpId)) {
-                fileOperations.add(deleteOpId);
-                mergedEdit.deleteFile(uri, { recursive: true, ignoreIfNotExists: true });
-              }
-            }
-          }
 
-          // Handle rename operations from change payload
-          if ('newUri' in change.payload && (change.payload as any).newUri) {
-            const renameOpId = `RENAME::${change.uri.toString()}::${(change.payload as any).newUri.toString()}`;
-            if (!fileOperations.has(renameOpId)) {
-              fileOperations.add(renameOpId);
-              mergedEdit.renameFile(change.uri, (change.payload as any).newUri);
-            }
-          }
 
         } catch (error) {
           vscode.window.showErrorMessage(`Error preparing refactor for '${change.description}': ${error}`);
@@ -475,7 +420,9 @@ export class RefactorController {
 
           if (hasRelevantChange) {
               disposable.dispose();
-              if (timeout) clearTimeout(timeout);
+              if (timeout) {
+                clearTimeout(timeout);
+              }
 
               this.checkForCompilationErrors(uris).then(hasErrors => {
                   resolve(hasErrors);
@@ -494,7 +441,9 @@ export class RefactorController {
       this.checkForCompilationErrors(uris).then(hasErrors => {
           if (hasErrors) {
               disposable.dispose();
-              if (timeout) clearTimeout(timeout);
+              if (timeout) {
+                clearTimeout(timeout);
+              }
               resolve(true);
           }
       });
