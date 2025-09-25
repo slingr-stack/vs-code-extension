@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cache";
-import { DefineFieldsTool } from "../fields/defineFields";
+import { DefineFieldsTool } from "./defineFields";
 import { AIEnhancedTool, FIELD_TYPE_OPTIONS, FieldTypeDefinition, FieldInfo } from "../../utils/fieldTypeRegistry";
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 import { AIService } from "../../services/aiService";

@@ -1,7 +1,7 @@
 
 import * as vscode from 'vscode';
 import { DataSourceMetadata, DecoratedClass, MethodMetadata, PropertyMetadata } from "../cache/cache";
-import { FIELD_TYPE_REGISTRY } from '../utils/fieldTypeRegistry';
+import { FIELD_TYPE_REGISTRY } from './fieldTypeRegistry';
 
 /**
  * Checks if a URI corresponds to a file in the model directory.
