@@ -1,0 +1,61 @@
+import { BaseModel, Field, Model, Text, DateTime, DateTimeRange, DateTimeRangeValue } from "../../index";
+
+@Model({
+  docs: "Represents a project with date-related fields",
+})
+export class Project extends BaseModel {
+  @Field({
+    required: true,
+  })
+  @Text({
+    minLength: 2,
+    maxLength: 100,
+  })
+  name!: string;
+
+
+  @Field({
+    required: true,
+  })
+  @DateTime({
+    min: new Date('2020-01-01'),
+    max: new Date('2030-12-31'),
+  })
+  startDate!: Date;
+
+
+  @Field({
+    required: false,
+  })
+  @DateTime()
+  endDate?: Date;
+
+
+  @Field({
+    required: true,
+  })
+  @DateTimeRange({
+    from: false,
+    to: false,
+  })
+  activeRange!: DateTimeRangeValue;
+
+
+  @Field({
+    required: false,
+  })
+  @DateTimeRange({
+    from: true,
+    to: true,
+  })
+  flexibleRange?: DateTimeRangeValue;
+
+
+  @Field({
+    required: false,
+  })
+  @Text({
+    maxLength: 500,
+  })
+  description!: string;
+}

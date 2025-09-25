@@ -1,0 +1,17 @@
+# GitHub Copilot Instructions for {{APP_NAME}}
+
+This is a {{APP_TYPE}} application built with Slingr.
+
+## Project Description
+{{DESCRIPTION}}
+
+## Architecture
+- Backend: {{HAS_BACKEND}}
+- Frontend: {{HAS_FRONTEND}}
+- Database: {{DB_TYPE}}
+
+## Development Guidelines
+- Use TypeScript for all code
+- Follow Slingr conventions and patterns
+- Maintain clean, readable code with proper documentation
+- Use the provided data models as starting points

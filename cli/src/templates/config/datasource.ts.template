@@ -1,0 +1,9 @@
+import { TypeORMSqlDataSource } from 'slingr-framework'
+
+export const mainDataSource = new TypeORMSqlDataSource({
+  type: '{{DB_TYPE}}', 
+  managed: true,
+  filename: ':memory:',
+  logging: false,
+  synchronize: true,
+})

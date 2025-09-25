@@ -6,7 +6,6 @@
 		{
 			"type": "npm",
 			"script": "watch",
-			"path": "vs-code-extension/",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
 			"presentation": {

@@ -6,10 +6,10 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/vs-code-extension"
+				"--extensionDevelopmentPath=${workspaceFolder}"
 			],
 			"outFiles": [
-				"${workspaceFolder}/vs-code-extension/out/**/*.js"
+				"${workspaceFolder}/out/**/*.js"
 			],
 			"preLaunchTask": "${defaultBuildTask}"
 		},
@@ -18,11 +18,11 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/vs-code-extension",
-				"--extensionTestsPath=${workspaceFolder}/vs-code-extension/out/test"
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test"
 			],
 			"outFiles": [
-				"${workspaceFolder}/vs-code-extension/out/**/*.js"
+				"${workspaceFolder}/out/**/*.js"
 			],
 			"preLaunchTask": "${defaultBuildTask}"
 		},
@@ -31,12 +31,12 @@
 			"type": "extensionHost", 
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/vs-code-extension",
-				"--extensionTestsPath=${workspaceFolder}/vs-code-extension/out/test",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test",
 				"--grep=Explorer"
 			],
 			"outFiles": [
-				"${workspaceFolder}/vs-code-extension/out/**/*.js"
+				"${workspaceFolder}/out/**/*.js"
 			],
 			"preLaunchTask": "${defaultBuildTask}"
 		},
@@ -45,12 +45,12 @@
 			"type": "extensionHost", 
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/vs-code-extension",
-				"--extensionTestsPath=${workspaceFolder}/vs-code-extension/out/test",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test",
 				"--grep=should refresh when cache updates"
 			],
 			"outFiles": [
-				"${workspaceFolder}/vs-code-extension/out/**/*.js"
+				"${workspaceFolder}/out/**/*.js"
 			],
 			"preLaunchTask": "${defaultBuildTask}"
 		}
