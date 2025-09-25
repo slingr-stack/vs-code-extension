@@ -1,0 +1,191 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    // ========================================
+    // FRAMEWORK TASKS
+    // ========================================
+    {
+      "label": "build-framework",
+      "type": "npm",
+      "script": "build",
+      "path": "framework/",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true
+      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "test-framework",
+      "type": "npm",
+      "script": "test",
+      "path": "framework/",
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "watch-framework",
+      "type": "npm",
+      "script": "watch",
+      "path": "framework/",
+      "group": "build",
+      "isBackground": true,
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": ["$tsc-watch"]
+    },
+
+    // ========================================
+    // CLI TASKS
+    // ========================================
+    {
+      "label": "build-cli",
+      "type": "npm",
+      "script": "build",
+      "path": "cli/",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "test-cli",
+      "type": "npm",
+      "script": "test",
+      "path": "cli/",
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+
+    // ========================================
+    // VS CODE EXTENSION TASKS
+    // ========================================
+    {
+      "label": "npm: compile - vs-code-extension",
+      "type": "npm",
+      "script": "compile",
+      "path": "vs-code-extension/",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "compile-extension",
+      "type": "npm",
+      "script": "compile",
+      "path": "vs-code-extension/",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "watch-extension",
+      "type": "npm",
+      "script": "watch",
+      "path": "vs-code-extension/",
+      "group": "build",
+      "isBackground": true,
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": ["$tsc-watch"]
+    },
+
+    // ========================================
+    // MONOREPO TASKS
+    // ========================================
+    {
+      "label": "build-all",
+      "type": "npm",
+      "script": "build",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "test-all",
+      "type": "npm",
+      "script": "test",
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "install-all",
+      "type": "npm",
+      "script": "install:all",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+
+    // ========================================
+    // COMPOUND TASKS
+    // ========================================
+    {
+      "label": "setup-development",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "install-all",
+        "build-framework",
+        "build-cli",
+        "compile-extension"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    }
+  ]
+}
