@@ -1,7 +1,7 @@
 
 import * as vscode from 'vscode';
 import { DataSourceMetadata, DecoratedClass, MethodMetadata, PropertyMetadata } from "../cache/cache";
-import { fieldTypeConfig } from '../utils/fieldTypes';
+import { FIELD_TYPE_REGISTRY } from '../utils/fieldTypeRegistry';
 
 /**
  * Checks if a URI corresponds to a file in the model directory.
@@ -25,7 +25,7 @@ export function isModel(metadata: DecoratedClass | PropertyMetadata | DataSource
     return metadata.decorators.some(d => d.name === 'Model');
 }
 
-const fieldDecoratorNames = Object.keys(fieldTypeConfig);
+const fieldDecoratorNames = Object.keys(FIELD_TYPE_REGISTRY);
 
 function hasDecorators(obj: any): obj is { decorators: Array<{ name: string }> } {
     if ('dataSources' in obj) {

@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { AddFieldTool } from '../commands/fields/addField';
 import { MetadataCache } from '../cache/cache';
-import { FIELD_TYPE_OPTIONS } from '../commands/interfaces';
+import { FIELD_TYPE_OPTIONS } from '../utils/fieldTypeRegistry';
 
 // Only run tests if we're in a test environment (Mocha globals are available)
 if (typeof suite !== 'undefined') {

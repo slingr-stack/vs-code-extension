@@ -3,7 +3,7 @@ import { MetadataCache, DecoratedClass } from "../cache/cache";
 import { FileSystemService } from "./fileSystemService";
 import * as path from "path";
 import { PropertyMetadata } from "../cache/cache";
-import { fieldTypeConfig } from "../utils/fieldTypes";
+import { FIELD_TYPE_REGISTRY } from "../utils/fieldTypeRegistry";
 
 export class ProjectAnalysisService {
   private fileSystemService: FileSystemService;
@@ -47,7 +47,7 @@ export class ProjectAnalysisService {
     const context: ApplicationContext = {
       existingModels: [],
       commonFieldPatterns: new Map(),
-      availableFieldTypes: Object.keys(fieldTypeConfig),
+      availableFieldTypes: Object.keys(FIELD_TYPE_REGISTRY),
       projectStructure: await this.analyzeProjectStructure(),
       relationshipTargets: [],
     };

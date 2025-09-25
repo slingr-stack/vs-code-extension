@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import { MetadataCache, DecoratedClass } from "../cache/cache";
-import { FieldInfo } from "../commands/interfaces";
+import { FieldInfo } from "../utils/fieldTypeRegistry";
 import { AppTreeItem } from "../explorer/appTreeItem";
-import { fieldTypeConfig } from "../utils/fieldTypes";
+import { FIELD_TYPE_REGISTRY } from "../utils/fieldTypeRegistry";
 import { ApplicationContext, ModelContext } from "./projectAnalysisService";
 import { FileSystemService } from "./fileSystemService";
 import { ProjectAnalysisService } from "./projectAnalysisService";
@@ -236,9 +236,9 @@ ${
 ### Available Field Types and Their Usage:
 ${appContext.availableFieldTypes
   .map((type) => {
-    const config = fieldTypeConfig[type];
-    const supportedArgs = config.supportedArgs?.map((arg) => `${arg.name}: ${arg.type}`).join(", ");
-    return `- @${type}(): ${config.requiredTsType || "various"} (args: ${supportedArgs || "none"})`;
+    const config = FIELD_TYPE_REGISTRY[type];
+    const supportedArgs = config.supportedArgs?.map((arg: any) => `${arg.name}: ${arg.type}`).join(", ");
+    return `- @${type}(): ${config.tsType || "various"} (args: ${supportedArgs || "none"})`;
   })
   .join("\n")}
 

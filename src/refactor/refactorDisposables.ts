@@ -16,7 +16,7 @@ import { ExtractFieldsToCompositionTool } from '../commands/fields/extractFields
 import { isField, isModelFile } from '../utils/metadata';
 import { ExtractFieldsToReferenceTool } from '../commands/fields/extractFieldsToReference';
 import { PropertyMetadata } from '../cache/cache';
-import { fieldTypeConfig } from '../utils/fieldTypes';
+import { FIELD_TYPE_REGISTRY } from '../utils/fieldTypeRegistry';
 import { RenameDataSourceTool } from './tools/renameDataSource';
 import { DeleteDataSourceTool } from './tools/deleteDataSource';
 import { ExtractFieldsToEmbeddedTool } from '../commands/fields/extractFieldsToEmbedded';
@@ -160,10 +160,10 @@ export class RefactorCodeActionProvider implements vscode.CodeActionProvider {
                 codeActions.push(action);
             }
 
-            // Suggest type-specific decorators based on fieldTypes.ts
+            // Suggest type-specific decorators based on FIELD_TYPE_REGISTRY
             const fieldTsType = fieldMetadata.type.toLowerCase();
-            for (const decoratorName in fieldTypeConfig) {
-                const config = fieldTypeConfig[decoratorName];
+            for (const decoratorName in FIELD_TYPE_REGISTRY) {
+                const config = FIELD_TYPE_REGISTRY[decoratorName];
                 if (config.mapsFromTsTypes?.includes(fieldTsType) && !existingDecorators.has(decoratorName)) {
                      const action = new vscode.CodeAction(`Add @${decoratorName} Decorator`, vscode.CodeActionKind.Refactor);
                      action.command = {

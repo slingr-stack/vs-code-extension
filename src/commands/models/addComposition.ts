@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { MetadataCache, DecoratedClass } from "../../cache/cache";
-import { AIEnhancedTool, FieldInfo, FieldTypeOption } from "../interfaces";
+import { AIEnhancedTool, FieldInfo, FieldTypeDefinition } from "../../utils/fieldTypeRegistry";
 import { UserInputService } from "../../services/userInputService";
 import { ProjectAnalysisService } from "../../services/projectAnalysisService";
 import { SourceCodeService } from "../../services/sourceCodeService";
@@ -211,11 +211,13 @@ export class AddCompositionTool {
     cache: MetadataCache
   ): Promise<void> {
     // Create field info for the composition field
-    const fieldType: FieldTypeOption = {
+    const fieldType: FieldTypeDefinition = {
       label: "Relationship",
       decorator: "Composition",
       tsType: isArray ? `${innerModelName}[]` : innerModelName,
       description: "Composition relationship",
+      supportedArgs: undefined,
+      buildDecoratorString: () => "@Composition()"
     };
 
     const fieldInfo: FieldInfo = {
@@ -425,11 +427,13 @@ export class AddCompositionTool {
     cache: MetadataCache
   ): Promise<void> {
     // Create field info for the composition field
-    const fieldType: FieldTypeOption = {
+    const fieldType: FieldTypeDefinition = {
       label: "Relationship",
       decorator: "Composition",
       tsType: isArray ? `${innerModelName}[]` : innerModelName,
       description: "Composition relationship",
+      supportedArgs: undefined,
+      buildDecoratorString: () => "@Composition()"
     };
 
     const fieldInfo: FieldInfo = {

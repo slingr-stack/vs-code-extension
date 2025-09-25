@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { MetadataCache, DecoratedClass } from "../../cache/cache";
-import { AIEnhancedTool, FieldInfo, FieldTypeOption } from "../interfaces";
+import { AIEnhancedTool, FieldInfo, FieldTypeDefinition } from "../../utils/fieldTypeRegistry";
 import { UserInputService } from "../../services/userInputService";
 import { ProjectAnalysisService } from "../../services/projectAnalysisService";
 import { SourceCodeService } from "../../services/sourceCodeService";
@@ -377,11 +377,13 @@ export class AddReferenceTool {
     cache: MetadataCache
   ): Promise<void> {
     // Create field info for the reference field
-    const fieldType: FieldTypeOption = {
+    const fieldType: FieldTypeDefinition = {
       label: "Relationship",
       decorator: "Reference",
       tsType: targetModelName,
       description: "Reference relationship",
+      supportedArgs: undefined,
+      buildDecoratorString: () => "@Reference()"
     };
 
     const fieldInfo: FieldInfo = {

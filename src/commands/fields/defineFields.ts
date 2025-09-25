@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cache";
-import { fieldTypeConfig } from "../../utils/fieldTypes";
+import { FIELD_TYPE_REGISTRY } from "../../utils/fieldTypeRegistry";
 import { AIService } from "../../services/aiService";
 /**
  * Tool for defining fields using AI assistance.

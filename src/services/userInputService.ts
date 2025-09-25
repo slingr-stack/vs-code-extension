@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { FIELD_TYPE_OPTIONS, FieldTypeOption, FieldInfo } from '../commands/interfaces';
+import { FIELD_TYPE_OPTIONS, FieldTypeDefinition, FieldInfo } from '../utils/fieldTypeRegistry';
 import { MetadataCache, DecoratedClass } from '../cache/cache';
 
 export class UserInputService {
@@ -68,7 +68,7 @@ export class UserInputService {
         });
     }
 
-    private async selectFieldType(): Promise<FieldTypeOption | undefined> {
+    private async selectFieldType(): Promise<FieldTypeDefinition | undefined> {
         const items = FIELD_TYPE_OPTIONS.map(option => ({
             label: option.label,
             description: option.description,

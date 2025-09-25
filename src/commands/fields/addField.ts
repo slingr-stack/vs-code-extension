@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cache";
 import { DefineFieldsTool } from "../fields/defineFields";
-import { AIEnhancedTool, FIELD_TYPE_OPTIONS, FieldTypeOption, FieldInfo } from "../interfaces";
+import { AIEnhancedTool, FIELD_TYPE_OPTIONS, FieldTypeDefinition, FieldInfo } from "../../utils/fieldTypeRegistry";
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 import { AIService } from "../../services/aiService";
 import { UserInputService } from "../../services/userInputService";
@@ -449,7 +449,7 @@ export class AddFieldTool implements AIEnhancedTool {
   /**
    * Shows a quick pick for field type selection.
    */
-  private async selectFieldType(): Promise<FieldTypeOption | null> {
+  private async selectFieldType(): Promise<FieldTypeDefinition | null> {
     const items = FIELD_TYPE_OPTIONS.map((option) => ({
       label: option.label,
       description: option.description,

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { ChangeObject, IRefactorTool, ManualRefactorContext, ChangeFieldTypePayload, RenameModelPayload, RenameFieldPayload, ChangeType } from '../refactorInterfaces';
 import { FileMetadata, MetadataCache, PropertyMetadata } from '../../cache/cache';
 import { isModel, isModelFile, isField } from '../../utils/metadata';
-import { fieldTypeConfig } from '../../utils/fieldTypes';
+import { FIELD_TYPE_REGISTRY } from '../../utils/fieldTypeRegistry';
 
 /**
  * A refactoring tool that handles changing field type decorators in model classes.
@@ -25,7 +25,7 @@ import { fieldTypeConfig } from '../../utils/fieldTypes';
  */
 export class ChangeFieldTypeTool implements IRefactorTool {
 
-    private readonly availableTypes = Object.keys(fieldTypeConfig);
+    private readonly availableTypes = Object.keys(FIELD_TYPE_REGISTRY);
 
     public getCommandId(): string {
         return 'slingr-vscode-extension.changeFieldType';
@@ -266,10 +266,10 @@ export class ChangeFieldTypeTool implements IRefactorTool {
                 oldArgs = new Map(Object.entries(oldDecorator.arguments));
             }
 
-            const newTypeConfig = fieldTypeConfig[newType];
+            const newTypeConfig = FIELD_TYPE_REGISTRY[newType];
             const transferredArgs = new Map<string, any>();
             if (newTypeConfig) {
-                const newSupportedArgNames = new Set(newTypeConfig.supportedArgs?.map(arg => arg.name));
+                const newSupportedArgNames = new Set(newTypeConfig.supportedArgs?.map((arg: any) => arg.name));
                 for (const [key, value] of oldArgs.entries()) {
                     if (newSupportedArgNames.has(key)) { transferredArgs.set(key, value); }
                 }
@@ -439,8 +439,8 @@ export class ChangeFieldTypeTool implements IRefactorTool {
      */
     private getDecoratorForType(tsType: string): string | undefined {
     const lowerTsType = tsType.toLowerCase();
-    for (const decoratorName in fieldTypeConfig) {
-        const config = fieldTypeConfig[decoratorName];
+    for (const decoratorName in FIELD_TYPE_REGISTRY) {
+        const config = FIELD_TYPE_REGISTRY[decoratorName];
         if (config.mapsFromTsTypes?.includes(lowerTsType)) {
             return decoratorName;
         }
@@ -465,7 +465,7 @@ export class ChangeFieldTypeTool implements IRefactorTool {
      * ```
      */
     private getRequiredTypeForDecorator(decoratorName: string): string | undefined {
-    return fieldTypeConfig[decoratorName]?.requiredTsType;
+    return FIELD_TYPE_REGISTRY[decoratorName]?.tsType;
 }
 
 

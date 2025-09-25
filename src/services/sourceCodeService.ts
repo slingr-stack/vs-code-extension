@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { DecoratedClass, MetadataCache } from "../cache/cache";
-import { FieldInfo } from "../commands/interfaces";
+import { FieldInfo } from "../utils/fieldTypeRegistry";
 import { detectIndentation, applyIndentation } from "../utils/detectIndentation";
 import { FileSystemService } from "./fileSystemService";
 import { ProjectAnalysisService } from "./projectAnalysisService";

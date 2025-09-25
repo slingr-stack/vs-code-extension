@@ -1,3 +1,36 @@
+import * as vscode from "vscode";
+import { MetadataCache } from "../cache/cache";
+
+/**
+ * Interface for tools that can be enhanced with AI assistance.
+ * 
+ * Tools implementing this interface provide both manual operation and AI-enhanced
+ * processing capabilities. The AI enhancement is triggered when users provide
+ * additional context or descriptions that can benefit from intelligent analysis.
+ */
+export interface AIEnhancedTool {
+    /**
+     * Processes user input with AI enhancement.
+     * 
+     * This method is called when AI assistance is requested for the tool's operation.
+     * It should handle the AI processing workflow including context gathering,
+     * prompt generation, and result integration.
+     * 
+     * @param userInput - Description or context provided by the user for AI processing
+     * @param targetUri - Target location (file, folder, or tree item) for the operation
+     * @param cache - Metadata cache instance for accessing application context
+     * @param additionalContext - Optional additional context for the operation
+     * @returns Promise that resolves when the AI-enhanced processing is complete
+     */
+    processWithAI(
+        userInput: string,
+        targetUri: vscode.Uri,
+        modelName: string,
+        cache: MetadataCache,
+        additionalContext?: any
+    ): Promise<void>;
+}
+
 /**
  * Defines a supported argument for a field decorator.
  */
@@ -7,32 +40,54 @@ export interface DecoratorArgument {
 }
 
 /**
- * Configuration object that defines how field types are handled in decorators.
+ * Comprehensive field type definition that combines configuration and UI display information.
  * 
- * This interface provides the mapping and generation logic for converting between
- * TypeScript types and their corresponding field decorators.
- * 
- * @interface FieldTypeConfig
- * 
- * @property {string} [requiredTsType] - The TypeScript type that this decorator requires.
- * For example, a Text decorator might require 'string', while a Number decorator requires 'number'.
- * 
- * @property {string[]} [mapsFromTsTypes] - An array of TypeScript types that can be automatically
- * mapped to this decorator. For instance, 'string' type might suggest using a 'Text' decorator.
- * 
- * @property {function} buildDecoratorString - A function that generates the actual decorator
- * string based on the field metadata and new type. This allows for complex decorator generation
- * that may include additional parameters or custom formatting.
+ * This interface provides complete information about field types including:
+ * - UI display properties for user selection
+ * - Decorator configuration and arguments
+ * - TypeScript type mapping
+ * - Decorator string generation logic
  */
-export interface FieldTypeConfig {
-    requiredTsType?: string;
-
+export interface FieldTypeDefinition {
+    /** Display name for the field type */
+    label: string;
+    
+    /** TypeScript decorator name */
+    decorator: string;
+    
+    /** Required TypeScript type for the field */
+    tsType: string;
+    
+    /** Description of when to use this field type */
+    description: string;
+    
+    /** Alternative TypeScript types that can be mapped to this decorator */
     mapsFromTsTypes?: string[];
-
+    
+    /** Supported arguments for the decorator */
     supportedArgs: DecoratorArgument[] | undefined;
-
+    
+    /** Function that generates the actual decorator string */
     buildDecoratorString: (newTypeName: string, transferredArgs: Map<string, any>) => string;
 }
+
+/**
+ * Field information structure used for field creation and modification.
+ */
+export interface FieldInfo {
+    /** Field name in camelCase */
+    name: string;
+    /** Field type information */
+    type: FieldTypeDefinition;
+    /** Whether the field is required */
+    required: boolean;
+    /** Optional description for AI enhancement */
+    description?: string;
+    /** Additional field-specific configuration */
+    additionalConfig?: Record<string, any>;
+}
+
+
 
 // A generic function to build the decorator string 
 function genericBuildDecoratorString(newTypeName: string, transferredArgs: Map<string, any>): string {
@@ -55,10 +110,17 @@ function genericBuildDecoratorString(newTypeName: string, transferredArgs: Map<s
     return `@${newTypeName}({${argsString}\n})`;
 }
 
-export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
+/**
+ * Comprehensive field type registry containing all supported field types.
+ * This is the single source of truth for field type definitions.
+ */
+export const FIELD_TYPE_REGISTRY: Record<string, FieldTypeDefinition> = {
     // --- String-based Types ---
     'Text': {
-        requiredTsType: 'string',
+        label: "Text",
+        decorator: "Text",
+        tsType: "string",
+        description: "Short text field with optional length and regex validation",
         mapsFromTsTypes: ['string'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
@@ -71,7 +133,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         buildDecoratorString: genericBuildDecoratorString
     },
     'Email': {
-        requiredTsType: 'string',
+        label: "Email",
+        decorator: "Email", 
+        tsType: "string",
+        description: "Email address with built-in validation",
         mapsFromTsTypes: ['string'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
@@ -80,7 +145,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         buildDecoratorString: genericBuildDecoratorString
     },
     'HTML': {
-        requiredTsType: 'string',
+        label: "HTML",
+        decorator: "HTML",
+        tsType: "string",
+        description: "Rich text content with HTML support",
         mapsFromTsTypes: ['string'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
@@ -90,7 +158,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
 
     // --- Number-based Types ---
     'Integer': {
-        requiredTsType: 'number',
+        label: "Integer",
+        decorator: "Integer",
+        tsType: "number",
+        description: "Whole number field with optional range constraints",
         mapsFromTsTypes: ['number'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
@@ -103,7 +174,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         buildDecoratorString: genericBuildDecoratorString
     },
     'Number': {
-        requiredTsType: 'number',
+        label: "Number",
+        decorator: "Number",
+        tsType: "number",
+        description: "Floating-point number field with optional constraints",
         mapsFromTsTypes: ['number'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
@@ -116,7 +190,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         buildDecoratorString: genericBuildDecoratorString
     },
     'Decimal': {
-        requiredTsType: 'number',
+        label: "Decimal",
+        decorator: "Decimal",
+        tsType: "number",
+        description: "Decimal number with precision and scale control",
         mapsFromTsTypes: ['number'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
@@ -131,7 +208,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         buildDecoratorString: genericBuildDecoratorString
     },
     'Money': {
-        requiredTsType: 'Money',
+        label: "Money",
+        decorator: "Money",
+        tsType: "Money",
+        description: "Monetary value with precision control and rounding",
         mapsFromTsTypes: ['Money'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
@@ -147,7 +227,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
 
     // --- Date/Time Types ---
     'DateTime': {
-        requiredTsType: 'Date',
+        label: "Date Time",
+        decorator: "DateTime",
+        tsType: "Date",
+        description: "Date and time field with optional range constraints",
         mapsFromTsTypes: ['Date'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
@@ -157,7 +240,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         buildDecoratorString: genericBuildDecoratorString
     },
     'DateTimeRange': {
-        requiredTsType: 'DateTimeRangeValue',
+        label: "Date Time Range",
+        decorator: "DateTimeRange",
+        tsType: "DateTimeRangeValue",
+        description: "Date and time range field with timezone support",
         mapsFromTsTypes: ['DateTimeRangeValue'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
@@ -169,7 +255,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
 
     // --- Boolean Type ---
     'Boolean': {
-        requiredTsType: 'boolean',
+        label: "Boolean",
+        decorator: "Boolean",
+        tsType: "boolean",
+        description: "True/false field",
         mapsFromTsTypes: ['boolean'],
         supportedArgs: [
             { name: 'docs', type: 'string' },
@@ -180,7 +269,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
 
     // --- Special Types ---
     'Choice': {
-        requiredTsType: undefined,
+        label: "Choice",
+        decorator: "Choice",
+        tsType: "enum",
+        description: "Enumeration field for predefined choices",
         supportedArgs: [
             { name: 'docs', type: 'string' },
         ],
@@ -189,7 +281,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
     
     // --- Relationship Types ---
     'Relationship': {
-        requiredTsType: undefined,
+        label: "Relationship",
+        decorator: "Relationship",
+        tsType: "object",
+        description: "Generic relationship to other models",
         supportedArgs: [
             { name: 'docs', type: 'string' },
             { name: 'type', type: 'enum' },
@@ -200,7 +295,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         buildDecoratorString: genericBuildDecoratorString
     },
     'Reference': {
-        requiredTsType: undefined,
+        label: "Reference",
+        decorator: "Reference",
+        tsType: "object",  
+        description: "Reference relationship to independent models",
         supportedArgs: [
             { name: 'docs', type: 'string' },
             { name: 'load', type: 'boolean' },
@@ -210,7 +308,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         buildDecoratorString: genericBuildDecoratorString
     },
     'Composition': {
-        requiredTsType: undefined,
+        label: "Composition",
+        decorator: "Composition",
+        tsType: "object",
+        description: "Composition relationship where child cannot exist without parent",
         supportedArgs: [
             { name: 'docs', type: 'string' },
             { name: 'load', type: 'boolean' },
@@ -219,7 +320,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         buildDecoratorString: genericBuildDecoratorString
     },
     'SharedComposition': {
-        requiredTsType: undefined,
+        label: "Shared Composition",
+        decorator: "SharedComposition", 
+        tsType: "object",
+        description: "Shared composition relationship across multiple models",
         supportedArgs: [
             { name: 'docs', type: 'string' },
             { name: 'load', type: 'boolean' },
@@ -228,3 +332,10 @@ export const fieldTypeConfig: Record<string, FieldTypeConfig> = {
         buildDecoratorString: genericBuildDecoratorString
     },
 };
+
+/**
+ * Array of field type definitions for UI selection.
+ * This provides backward compatibility with FIELD_TYPE_OPTIONS.
+ */
+export const FIELD_TYPE_OPTIONS: FieldTypeDefinition[] = Object.values(FIELD_TYPE_REGISTRY);
+
