@@ -19,4 +19,8 @@
 	"exclude": [
 		"node_modules/**/*"
 	]
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> framework/main

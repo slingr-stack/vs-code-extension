@@ -3,7 +3,11 @@ import { AppTreeItem } from "../../explorer/appTreeItem";
 import { DefineFieldsTool } from "../fields/defineFields";
 import { AddFieldTool } from "../fields/addField";
 import { MetadataCache } from "../../cache/cache";
+<<<<<<< HEAD
 import { AIEnhancedTool, FieldInfo, FIELD_TYPE_OPTIONS } from "../../utils/fieldTypeRegistry";
+=======
+import { AIEnhancedTool, FieldInfo, FIELD_TYPE_OPTIONS } from "../interfaces";
+>>>>>>> framework/main
 import { FileSystemService } from "../../services/fileSystemService";
 import path from "path";
 
@@ -27,7 +31,11 @@ import path from "path";
  * }
  *
  * // If created from a Project model context, automatically adds to Project:
+<<<<<<< HEAD
  * @Field()
+=======
+ * @Field({})
+>>>>>>> framework/main
  * @Relationship({
  *   type: 'composition'
  * })
@@ -57,7 +65,10 @@ export class NewModelTool implements AIEnhancedTool {
   async processWithAI(
     userInput: string,
     targetUri: vscode.Uri,
+<<<<<<< HEAD
     modelName: string,
+=======
+>>>>>>> framework/main
     cache: MetadataCache,
     additionalContext?: any
   ): Promise<void> {
@@ -69,11 +80,19 @@ export class NewModelTool implements AIEnhancedTool {
   /**
    * Creates a new model file in the specified directory.
    *
+<<<<<<< HEAD
    * @param targetUri - The URI where the new model should be created (file, folder, or AppTreeItem) - optional
    * @param cache - The metadata cache for context about existing models (optional)
    * @returns Promise that resolves when the model is created
    */
   public async createNewModel(targetUri?: vscode.Uri | AppTreeItem, cache?: MetadataCache): Promise<void> {
+=======
+   * @param targetUri - The URI where the new model should be created (file, folder, or AppTreeItem)
+   * @param cache - The metadata cache for context about existing models (optional)
+   * @returns Promise that resolves when the model is created
+   */
+  public async createNewModel(targetUri: vscode.Uri | AppTreeItem, cache?: MetadataCache): Promise<void> {
+>>>>>>> framework/main
     let finalTargetUri: vscode.Uri;
     let parentModelInfo: { name: string; filePath: string } | null = null;
 
@@ -82,6 +101,7 @@ export class NewModelTool implements AIEnhancedTool {
       // Detect if we're coming from a model context
       parentModelInfo = this.detectParentModel(targetUri, cache);
       finalTargetUri = this.fileSystemService.resolveTargetUri(targetUri);
+<<<<<<< HEAD
     } else if (targetUri) {
       // Handle vscode.Uri case
       finalTargetUri = this.fileSystemService.resolveTargetUri(targetUri);
@@ -107,6 +127,11 @@ export class NewModelTool implements AIEnhancedTool {
       } else {
         throw new Error('No workspace folder is open. Please open a workspace folder first.');
       }
+=======
+    } else {
+      // Handle vscode.Uri case
+      finalTargetUri = this.fileSystemService.resolveTargetUri(targetUri);
+>>>>>>> framework/main
     }
     try {
       // Step 1: Get model name from user
@@ -148,6 +173,7 @@ export class NewModelTool implements AIEnhancedTool {
         return; // User pressed Esc
       }
 
+<<<<<<< HEAD
       // Step 3: Get datasource selection
       let selectedDataSource: string | null = null;
       if (cache) {
@@ -186,6 +212,9 @@ export class NewModelTool implements AIEnhancedTool {
       }
 
       // Step 4: Get optional fields information
+=======
+      // Step 3: Get optional fields information
+>>>>>>> framework/main
       const fieldsInfo = await vscode.window.showInputBox({
         prompt: "Enter field information (free text, press Enter to skip)",
         placeHolder: "e.g., title (string), description (text), project (relationship to Project), status (enum)",
@@ -196,10 +225,17 @@ export class NewModelTool implements AIEnhancedTool {
         return; // User pressed Esc
       }
 
+<<<<<<< HEAD
       // Step 5: Determine target directory 
       let targetDirectory = this.fileSystemService.determineTargetDirectory(finalTargetUri);
 
       // Step 6: Check if file already exists and handle overwrite
+=======
+      // Step 4: Determine target directory 
+      let targetDirectory = this.fileSystemService.determineTargetDirectory(finalTargetUri);
+
+      // Step 5: Check if file already exists and handle overwrite
+>>>>>>> framework/main
       const filePath = path.join(targetDirectory, `${modelName}.ts`);
       const fileUri = vscode.Uri.file(filePath);
       const fileExists = await this.fileSystemService.fileExists(fileUri);
@@ -214,11 +250,16 @@ export class NewModelTool implements AIEnhancedTool {
         }
       }
 
+<<<<<<< HEAD
       // Step 7: Generate model content
+=======
+      // Step 6: Generate model content
+>>>>>>> framework/main
       const modelContent = this.generateModelContent(
         modelName,
         docs?.trim() || null,
         fieldsInfo?.trim() || null,
+<<<<<<< HEAD
         targetDirectory,
         selectedDataSource
       );
@@ -231,12 +272,29 @@ export class NewModelTool implements AIEnhancedTool {
       await vscode.window.showTextDocument(document);
 
       // Step 10: Process field descriptions if provided and cache is available
+=======
+        targetDirectory
+      );
+
+      // Step 7: Create the file  (without handling overwrite since we already did)
+      const targetFileUri = await this.fileSystemService.createFile(modelName, filePath, modelContent, false);
+
+      // Step 8: Open the new file
+      const document = await vscode.workspace.openTextDocument(targetFileUri);
+      await vscode.window.showTextDocument(document);
+
+      // Step 9: Process field descriptions if provided and cache is available
+>>>>>>> framework/main
       if (fieldsInfo?.trim() && cache) {
         try {
           // Give the cache a moment to process the new file
           await new Promise((resolve) => setTimeout(resolve, 500));
 
+<<<<<<< HEAD
           await this.defineFieldsTool.processFieldDescriptions(fieldsInfo.trim(), targetFileUri, cache, modelName, true);
+=======
+          await this.defineFieldsTool.processFieldDescriptions(fieldsInfo.trim(), targetFileUri, cache, modelName);
+>>>>>>> framework/main
         } catch (fieldError) {
           console.warn("Failed to process field descriptions:", fieldError);
           vscode.window.showWarningMessage(
@@ -245,7 +303,11 @@ export class NewModelTool implements AIEnhancedTool {
         }
       }
 
+<<<<<<< HEAD
       // Step 11: Handle parent model relationship if applicable
+=======
+      // Step 10: Handle parent model relationship if applicable
+>>>>>>> framework/main
       if (parentModelInfo && cache) {
         try {
           await this.addCompositionRelationshipToParent(parentModelInfo, modelName, cache);
@@ -257,16 +319,23 @@ export class NewModelTool implements AIEnhancedTool {
         }
       }
 
+<<<<<<< HEAD
       // Step 12: Show success message
+=======
+      // Step 11: Show success message
+>>>>>>> framework/main
       let successMessage =
         fieldsInfo?.trim() && cache
           ? `Model ${modelName} created and fields processed successfully!`
           : `Model ${modelName} created successfully!`;
 
+<<<<<<< HEAD
       if (selectedDataSource) {
         successMessage += ` Using datasource: ${selectedDataSource}.`;
       }
 
+=======
+>>>>>>> framework/main
       if (parentModelInfo) {
         successMessage += ` Composition relationship added to ${parentModelInfo.name}.`;
       }
@@ -285,15 +354,22 @@ export class NewModelTool implements AIEnhancedTool {
    * @param docs - Optional documentation string
    * @param fieldsInfo - Optional field information (to be processed later by AI)
    * @param targetDirectory - The directory where the model file will be created
+<<<<<<< HEAD
    * @param dataSource - Optional datasource name to include in the Model decorator
+=======
+>>>>>>> framework/main
    * @returns The complete TypeScript content for the model file
    */
   private generateModelContent(
     modelName: string,
     docs?: string | null,
     fieldsInfo?: string | null,
+<<<<<<< HEAD
     targetDirectory?: string,
     dataSource?: string | null
+=======
+    targetDirectory?: string
+>>>>>>> framework/main
   ): string {
     const lines: string[] = [];
 
@@ -302,6 +378,7 @@ export class NewModelTool implements AIEnhancedTool {
     lines.push("import { BaseModel } from 'slingr-framework';");
     lines.push("");
 
+<<<<<<< HEAD
     // Add Model decorator with docs and/or datasource if provided
     const hasOptions = docs || dataSource;
     
@@ -324,6 +401,18 @@ export class NewModelTool implements AIEnhancedTool {
       lines.push(`@Model()`);
     }
 
+=======
+    // Add documentation comment if provided
+    if (docs) {
+      lines.push("/**");
+      lines.push(` * ${docs}`);
+      lines.push(" */");
+    }
+
+    // Add Model decorator
+    lines.push(`@Model()`);
+
+>>>>>>> framework/main
     // Add class declaration
     lines.push(`export class ${modelName} extends BaseModel {`);
 
@@ -421,16 +510,27 @@ export class NewModelTool implements AIEnhancedTool {
     // Create the parent model URI
     const parentModelUri = vscode.Uri.file(parentModelInfo.filePath);
 
+<<<<<<< HEAD
     // Find the Composition field type option (preferred over generic Relationship)
     const compositionFieldType = FIELD_TYPE_OPTIONS.find((option) => option.decorator === "Composition");
     if (!compositionFieldType) {
       throw new Error("Composition field type not found in FIELD_TYPE_OPTIONS");
+=======
+    // Find the Relationship field type option
+    const relationshipFieldType = FIELD_TYPE_OPTIONS.find((option) => option.decorator === "Relationship");
+    if (!relationshipFieldType) {
+      throw new Error("Relationship field type not found in FIELD_TYPE_OPTIONS");
+>>>>>>> framework/main
     }
 
     // Create the field info for the composition relationship
     const fieldInfo: FieldInfo = {
       name: fieldName,
+<<<<<<< HEAD
       type: compositionFieldType,
+=======
+      type: relationshipFieldType,
+>>>>>>> framework/main
       required: false, // Composition relationships are typically optional
       additionalConfig: {
         targetModel: newModelName,
@@ -442,12 +542,16 @@ export class NewModelTool implements AIEnhancedTool {
     await this.addFieldTool.addFieldProgrammatically(
       parentModelUri,
       fieldInfo,
+<<<<<<< HEAD
       parentModelInfo.name, // Use parent model name, not new model name
+=======
+>>>>>>> framework/main
       cache,
       true // silent mode - suppress success/error messages
     );
   }
 
+<<<<<<< HEAD
   /**
    * Creates a new model file programmatically without user interaction.
    *
@@ -481,6 +585,8 @@ export class NewModelTool implements AIEnhancedTool {
     }
   }
 
+=======
+>>>>>>> framework/main
   public toCamelCase(str: string): string {
     return str.charAt(0).toLowerCase() + str.slice(1);
   }

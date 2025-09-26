@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "module": "Node16",
+    "target": "esnext", 
+    "moduleResolution": "node16",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "strict": true,
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": false,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "rootDir": ".",
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*", "index.ts"],
+  "exclude": ["node_modules", "dist", "test"]
+}

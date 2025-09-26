@@ -1,0 +1,11 @@
+{
+  "editor.formatOnSave": true,
+  "editor.inlineSuggest.enabled": true,
+  "github.copilot.advanced": {},
+  "github.copilot.enable": {
+    "*": true,
+    "markdown": true,
+    "plaintext": true
+  },
+  "typescript.preferences.importModuleSpecifier": "relative"
+}

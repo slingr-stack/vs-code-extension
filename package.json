@@ -1,0 +1,32 @@
+{
+  "name": "slingr-monorepo",
+  "version": "1.0.0",
+  "description": "Slingr Monorepo - Framework, CLI, and VS Code Extension",
+  "private": true,
+  "workspaces": [
+    "framework",
+    "cli",
+    "vs-code-extension"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "test:ci": "npm run test --workspace=slingr-framework && npm run test --workspace=@slingr/cli",
+    "lint": "npm run lint --workspaces --if-present",
+    "install:all": "npm install && npm install --workspaces",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slingr-stack/framework.git"
+  },
+  "author": "Slingr",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/slingr-stack/framework/issues"
+  },
+  "homepage": "https://github.com/slingr-stack/framework#readme",
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}

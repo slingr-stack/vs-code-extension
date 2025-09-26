@@ -116,4 +116,8 @@ Use the VS Code debugger with the test configurations:
 ### For New Cache Features
 1. Add tests to `cache.test.ts`
 2. Test with both real and mock data
+<<<<<<< HEAD
 3. Verify event handling and performance
+=======
+3. Verify event handling and performance
+>>>>>>> framework/main
