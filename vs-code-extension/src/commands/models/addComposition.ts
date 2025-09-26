@@ -5,6 +5,7 @@ import { UserInputService } from "../../services/userInputService";
 import { ProjectAnalysisService } from "../../services/projectAnalysisService";
 import { SourceCodeService } from "../../services/sourceCodeService";
 import { FileSystemService } from "../../services/fileSystemService";
+import { ModelService } from "../../services/modelService";
 import { ExplorerProvider } from "../../explorer/explorerProvider";
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 
@@ -17,12 +18,14 @@ export class AddCompositionTool {
   private projectAnalysisService: ProjectAnalysisService;
   private sourceCodeService: SourceCodeService;
   private fileSystemService: FileSystemService;
+  private modelService: ModelService;
 
   constructor() {
     this.userInputService = new UserInputService();
     this.projectAnalysisService = new ProjectAnalysisService();
     this.sourceCodeService = new SourceCodeService();
     this.fileSystemService = new FileSystemService();
+    this.modelService = new ModelService();
   }
 
   /**
@@ -174,11 +177,11 @@ export class AddCompositionTool {
     const outerModelDecorator = cache.getModelDecoratorByName("Model", outerModelClass);
     const dataSource = outerModelDecorator?.arguments?.[0]?.dataSource;
 
-    // Generate the inner model code
-    const innerModelCode = this.generateInnerModelCode(innerModelName, outerModelName, dataSource);
+    // Generate the inner model code using ModelService
+    const innerModelCode = await this.generateInnerModelCodeWithService(innerModelName, dataSource, document.uri.fsPath, outerModelName);
 
     // Add required imports
-    const requiredImports = new Set(["Model", "Field", "Relationship", "BaseModel"]);
+    const requiredImports = new Set(["Model", "Field", "Relationship", "BaseModel", "OwnerReference"]);
     await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, requiredImports);
 
     // Find insertion point after the outer model
@@ -379,40 +382,44 @@ export class AddCompositionTool {
     const outerModelDecorator = cache.getModelDecoratorByName("Model", outerModelClass);
     const dataSource = outerModelDecorator?.arguments?.[0]?.dataSource;
 
-    // Generate the inner model code
-    const innerModelCode = this.generateInnerModelCode(innerModelName, outerModelName, dataSource);
+    // Generate the inner model code using ModelService
+    const innerModelCode = await this.generateInnerModelCodeWithService(innerModelName, dataSource, document.uri.fsPath, outerModelName);
 
     // Use the new insertModel method to insert after the outer model
     await this.sourceCodeService.insertModel(
       document,
       innerModelCode,
       outerModelName, // Insert after the outer model
-      new Set(["Model", "Field", "Relationship"]) // Ensure required decorators are imported
+      new Set(["Model", "Field", "Relationship", "UUID", "OwnerReference"]) // Ensure required decorators are imported
     );
   }
 
   /**
-   * Generates the TypeScript code for the inner model.
+   * Generates the TypeScript code for the inner model using ModelService.
    */
-  private generateInnerModelCode(innerModelName: string, outerModelName: string, dataSource: string): string {
-    const lines: string[] = [];
-
-    if (dataSource) {
-      lines.push(`@Model({`);
-      lines.push(`\tdataSource: ${dataSource}`);
-    } else {
-      lines.push(`@Model()`);
-    }
-    lines.push(`})`);
-    lines.push(`class ${innerModelName} extends BaseModel {`);
-    lines.push(``);
-    lines.push(`\t@Field()`);
-    lines.push(`\t@UUID()`);
-	  lines.push(`\t@PrimaryKey()`);
-	  lines.push(`\tid!: string`);
-    lines.push(`}`);
-
-    return lines.join("\n");
+  private async generateInnerModelCodeWithService(
+    innerModelName: string, 
+    dataSource: string | undefined, 
+    targetFilePath: string,
+    outerModelName: string
+  ): Promise<string> {
+    // Generate owner field code
+    const ownerFieldCode = this.generateOwnerFieldCode(outerModelName);
+    
+    // Use ModelService to generate the complete model content
+    // Inner models are components (not exported) and need the default ID field
+    return await this.modelService.generateModelFileContent(
+      innerModelName,
+      ownerFieldCode, // include owner field in the class body
+      dataSource,
+      new Set(["OwnerReference"]), // add OwnerReference to imports
+      true, // isComponent = true since it's an inner model
+      targetFilePath,
+      undefined, // no cache needed
+      undefined, // no docs
+      false, // includeImports = false since we're adding to existing file
+      true // includeDefaultId = true for inner models
+    );
   }
 
   /**
@@ -470,6 +477,24 @@ export class AddCompositionTool {
     const typeDeclaration = isArray ? `${innerModelName}[]` : innerModelName;
     lines.push(`${fieldInfo.name}!: ${typeDeclaration};`);
 
+    return lines.join("\n");
+  }
+
+  /**
+   * Generates the TypeScript code for the owner field.
+   */
+  private generateOwnerFieldCode(ownerModelName: string): string {
+    const lines: string[] = [];
+    
+    // Add Field decorator
+    lines.push("@Field({})");
+    
+    // Add OwnerReference decorator
+    lines.push("@OwnerReference()");
+    
+    // Add property declaration
+    lines.push(`owner!: ${ownerModelName};`);
+    
     return lines.join("\n");
   }
 }

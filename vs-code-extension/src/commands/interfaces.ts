@@ -25,8 +25,8 @@ export interface AIEnhancedTool {
     processWithAI(
         userInput: string,
         targetUri: vscode.Uri,
+        modelName: string,
         cache: MetadataCache,
-        
         additionalContext?: any
     ): Promise<void>;
 }

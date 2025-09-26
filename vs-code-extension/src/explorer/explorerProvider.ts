@@ -984,6 +984,17 @@ export class ExplorerProvider
       }
     }
 
+    // Check if this is a reference field and adjust the itemType accordingly
+    let actualItemType = itemType;
+    if (itemType === "field") {
+      if (propData.decorators.some((d) => d.name === "Reference")) {
+        actualItemType = "referenceField";
+      }
+      else if (propData.decorators.some((d) => d.name === "Composition")) {
+        actualItemType = "compositionField";
+      }
+    }
+
     const item = new AppTreeItem(
       propData.name,
       vscode.TreeItemCollapsibleState.None,

@@ -5,6 +5,7 @@ import { UserInputService } from "../../services/userInputService";
 import { ProjectAnalysisService } from "../../services/projectAnalysisService";
 import { SourceCodeService } from "../../services/sourceCodeService";
 import { FileSystemService } from "../../services/fileSystemService";
+import { ModelService } from "../../services/modelService";
 import { ExplorerProvider } from "../../explorer/explorerProvider";
 import * as path from "path";
 
@@ -19,6 +20,7 @@ export class AddReferenceTool {
   private projectAnalysisService: ProjectAnalysisService;
   private sourceCodeService: SourceCodeService;
   private fileSystemService: FileSystemService;
+  private modelService: ModelService;
   private explorerProvider: ExplorerProvider;
 
   constructor(explorerProvider: ExplorerProvider) {
@@ -26,6 +28,7 @@ export class AddReferenceTool {
     this.projectAnalysisService = new ProjectAnalysisService();
     this.sourceCodeService = new SourceCodeService();
     this.fileSystemService = new FileSystemService();
+    this.modelService = new ModelService();
     this.explorerProvider = explorerProvider;
   }
 
@@ -301,8 +304,10 @@ export class AddReferenceTool {
     const sourceModelDir = path.dirname(sourceModel.declaration.uri.fsPath);
     const targetDir = sourceModelDir;
 
+    const targetFilePath = path.join(targetDir, `${finalModelName}.ts`);
+
     // Generate model content
-    const modelContent = await this.generateNewModelContent(finalModelName, sourceModel, dataSource);
+    const modelContent = await this.modelService.generateModelFileContent(finalModelName, '', dataSource, undefined, false, targetFilePath, cache, undefined, true, true);
 
     // Create the file
     const fileName = `${finalModelName}.ts`;
@@ -320,48 +325,8 @@ export class AddReferenceTool {
     }
   }
 
-  /**
-   * Generates the TypeScript code for a new referenced model.
-   */
-  private async generateNewModelContent(
-    modelName: string, 
-    sourceModel: DecoratedClass, 
-    dataSource?: string
-  ): Promise<string> {
-    const lines: string[] = [];
 
-    // Add basic framework imports
-    lines.push(`import { Model, BaseModel, Field, UUID, PrimaryKey } from 'slingr-framework';`);
 
-    // Add datasource import if needed
-    if (dataSource) {
-      const dataSourceImport = await this.sourceCodeService.extractImport(sourceModel, dataSource);
-      if (dataSourceImport) {
-        lines.push(dataSourceImport);
-      }
-    }
-
-    lines.push(``);
-
-    // Add model decorator and class
-    if (dataSource) {
-      lines.push(`@Model({`);
-      lines.push(`\tdataSource: ${dataSource}`);
-      lines.push(`})`);
-    } else {
-      lines.push(`@Model()`);
-    }
-    lines.push(`export class ${modelName} extends BaseModel {`);
-    lines.push(``);
-    lines.push(`\t@Field()`);
-    lines.push(`\t@UUID()`);
-	  lines.push(`\t@PrimaryKey()`);
-	  lines.push(`\tid!: string`);
-    lines.push(`}`);
-    lines.push(``);
-
-    return lines.join("\n");
-  }
 
 
 

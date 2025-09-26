@@ -34,4 +34,6 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# Keep package-lock.json at root and in each package
+# VS Code extension files
+.vscode-test/
+*.vsix

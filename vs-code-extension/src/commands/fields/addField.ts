@@ -254,22 +254,7 @@ export class AddFieldTool implements AIEnhancedTool {
     cache?: MetadataCache
   ): Promise<void> {
     const lines = document.getText().split("\n");
-    const newImports = new Set<string>(["Field"]);
-    
-    // Add the appropriate decorator import based on field type
-    if (fieldInfo.type.decorator === "Relationship" && fieldInfo.additionalConfig?.relationshipType) {
-      // For generic Relationship, use specific decorator if possible
-      const relationshipType = fieldInfo.additionalConfig.relationshipType;
-      if (relationshipType === "reference") {
-        newImports.add("Reference");
-      } else if (relationshipType === "composition") {
-        newImports.add("Composition");
-      } else {
-        newImports.add("Relationship");
-      }
-    } else {
-      newImports.add(fieldInfo.type.decorator);
-    }
+    const newImports = new Set<string>(["Field", fieldInfo.type.decorator]);
 
     // Add imports using source code service logic (we need to call a helper method)
     await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, newImports);

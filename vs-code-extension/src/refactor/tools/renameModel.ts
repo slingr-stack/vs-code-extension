@@ -193,6 +193,11 @@ export class RenameModelTool implements IRefactorTool {
             workspaceEdit.replace(declarationUri, declarationRange, newName, {label: `Rename model declaration from '${oldModelMetadata.name}' to '${newName}'`, needsConfirmation: true} );
         }
 
+        // Add file rename operation if a new URI is specified
+        if (payload.newUri) {
+            workspaceEdit.renameFile(change.uri, payload.newUri, {}, {label: `Rename model file to match new class name`, needsConfirmation: true} );
+        }
+
         return workspaceEdit;
     }
 }

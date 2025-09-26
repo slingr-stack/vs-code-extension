@@ -11,6 +11,7 @@ import { DeleteFieldTool } from "../../refactor/tools/deleteField";
 import { FieldInfo } from "../interfaces";
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 import { ExtractFieldsController } from "./extractFieldsController";
+import { ModelService } from "../../services/modelService";
 
 /**
  * Refactor tool for extracting multiple fields from a model to a new composition model.
@@ -23,12 +24,14 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
   private addCompositionTool: AddCompositionTool;
   private addFieldTool: AddFieldTool;
   private deleteFieldTool: DeleteFieldTool;
+  private modelService: ModelService;
 
   constructor() {
     super();
     this.addCompositionTool = new AddCompositionTool();
     this.addFieldTool = new AddFieldTool();
     this.deleteFieldTool = new DeleteFieldTool();
+    this.modelService = new ModelService();
   }
 
   /**
@@ -169,58 +172,12 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
   }
 
   /**
-   * Generates inner model code with the specified fields already included.
-   */
-  private generateInnerModelCodeWithFields(
-    innerModelName: string,
-    dataSource: string | undefined,
-    fields: PropertyMetadata[]
-  ): string {
-    const lines: string[] = [];
-
-    // Add model decorator
-    if (dataSource) {
-      lines.push(`@Model({`);
-      lines.push(`\tdataSource: ${dataSource}`);
-      lines.push(`})`);
-    } else {
-      lines.push(`@Model()`);
-    }
-
-    // Add class declaration
-    lines.push(`class ${innerModelName} extends BaseModel {`);
-    lines.push(``);
-
-    // Add each field using the enhanced method that preserves all decorator information
-    for (const property of fields) {
-      const fieldCode = this.generateFieldCodeFromPropertyMetadata(property);
-      lines.push(...fieldCode.split("\n").map((line) => (line ? `\t${line}` : "")));
-      lines.push(``); // Empty line between fields
-    }
-
-    lines.push(`}`);
-
-    return lines.join("\n");
-  }
-
-
-
-  /**
    * Extracts the dataSource from a model using the cache.
    */
   private extractDataSourceFromModel(model: DecoratedClass, cache: MetadataCache): string | undefined {
     const modelDecorator = model.decorators.find((d) => d.name === "Model");
     return modelDecorator?.arguments?.[0]?.dataSource;
   }
-
-  /**
-   * Generates an enum name from a field name for Choice fields.
-   */
-  private generateEnumName(fieldName: string): string {
-    const pascalCase = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
-    return pascalCase;
-  }
-
 
   /**
    * Determines the inner model name and whether the field should be an array.
@@ -296,22 +253,45 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
 
     const dataSource = this.extractDataSourceFromModel(outerModelClass, cache);
 
-    // Generate the inner model code with fields
-    const innerModelCode = this.generateInnerModelCodeWithFields(
-      innerModelName,
-      dataSource,
-      fieldsToAdd
-    );
+    // Generate class body from fields
+    const classBodyLines: string[] = [];
+    for (const property of fieldsToAdd) {
+      const fieldCode = this.generateFieldCodeFromPropertyMetadata(property);
+      classBodyLines.push(fieldCode);
+      classBodyLines.push(""); // Empty line between fields
+    }
+    
+    // Add owner field
+    const ownerFieldCode = this.generateOwnerFieldCode(outerModelName);
+    classBodyLines.push(ownerFieldCode);
+    
+    const classBody = classBodyLines.join("\n");
 
-    // Add required imports - collect from the PropertyMetadata decorators
-    const requiredImports = new Set(["Model", "Field", "Composition"]);
-    // Add field-specific imports based on the decorators in PropertyMetadata
+    // Collect required imports from PropertyMetadata decorators
+    const existingImports = new Set<string>();
     for (const property of fieldsToAdd) {
       for (const decorator of property.decorators) {
-        requiredImports.add(decorator.name);
+        existingImports.add(decorator.name);
       }
     }
-    await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, requiredImports);
+    // Add OwnerReference import for the owner field
+    existingImports.add("OwnerReference");
+
+    // Ensure required imports are added to the document
+    await this.sourceCodeService.ensureSlingrFrameworkImports(document, edit, existingImports);
+
+    // Generate the model content without imports (since we're adding to existing file)
+    const modelContent = await this.modelService.generateModelFileContent(
+      innerModelName,
+      classBody,
+      dataSource,
+      existingImports,
+      true, // isComponent = true since it's an inner model
+      document.uri.fsPath,
+      cache,
+      undefined, // no docs
+      false // includeImports = false since we're adding to existing file
+    );
 
     // Find insertion point after the outer model
     const lines = document.getText().split("\n");
@@ -324,9 +304,9 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
       console.warn(`Could not find model ${outerModelName}, inserting at end of file`);
     }
 
-    // Insert the inner model with appropriate spacing
+    // Add the model content at the correct position with proper spacing
     const spacing = insertionLine < lines.length ? "\n\n" : "\n";
-    edit.insert(document.uri, new vscode.Position(insertionLine, 0), `${spacing}${innerModelCode}\n`);
+    edit.insert(document.uri, new vscode.Position(insertionLine, 0), `\n${modelContent}\n`);
   }
 
   /**
@@ -404,19 +384,21 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
   }
 
   /**
-   * Merges two workspace edits into one.
+   * Generates the TypeScript code for the owner field.
    */
-  private mergeWorkspaceEdits(target: vscode.WorkspaceEdit, source: vscode.WorkspaceEdit): void {
-    // Merge text edits
-    source.entries().forEach(([uri, edits]) => {
-      const existing = target.get(uri) || [];
-      target.set(uri, [...existing, ...edits]);
-    });
-
-    // Merge file operations if any
-    if (source.size > 0) {
-      // Copy any file operations from source to target
-      // This is a simplified merge - in practice you might need more sophisticated merging
-    }
+  private generateOwnerFieldCode(ownerModelName: string): string {
+    const lines: string[] = [];
+    
+    // Add Field decorator
+    lines.push("@Field({})");
+    
+    // Add OwnerReference decorator
+    lines.push("@OwnerReference()");
+    
+    // Add property declaration
+    lines.push(`owner!: ${ownerModelName};`);
+    
+    return lines.join("\n");
   }
+
 }

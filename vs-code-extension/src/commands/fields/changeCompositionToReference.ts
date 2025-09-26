@@ -9,6 +9,7 @@ import { ExplorerProvider } from "../../explorer/explorerProvider";
 import { DeleteFieldTool } from "../../refactor/tools/deleteField";
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 import * as path from "path";
+import { ModelService } from "../../services/modelService";
 
 /**
  * Tool for converting composition relationships to reference relationships.
@@ -19,6 +20,7 @@ export class ChangeCompositionToReferenceTool {
   private userInputService: UserInputService;
   private projectAnalysisService: ProjectAnalysisService;
   private sourceCodeService: SourceCodeService;
+  private modelService: ModelService;
   private fileSystemService: FileSystemService;
   private deleteFieldTool: DeleteFieldTool;
 
@@ -26,6 +28,7 @@ export class ChangeCompositionToReferenceTool {
     this.userInputService = new UserInputService();
     this.projectAnalysisService = new ProjectAnalysisService();
     this.sourceCodeService = new SourceCodeService();
+    this.modelService = new ModelService();
     this.fileSystemService = new FileSystemService();
     this.deleteFieldTool = new DeleteFieldTool();
   }
@@ -180,15 +183,16 @@ export class ChangeCompositionToReferenceTool {
     const convertedClassBody = this.convertComponentClassBody(classBody);
     
     // Step 6: Generate the complete model file content
-    const modelFileContent = await this.sourceCodeService.generateModelFileContent(
+    const docs = cache.getModelDecoratorByName("Model", componentModel)?.arguments?.[0]?.docs;
+    const modelFileContent = await this.modelService.generateModelFileContent(
       componentModel.name,
       convertedClassBody,
-      "BaseModel",
       dataSource,
       undefined,
       false,
       targetFilePath,
-      cache
+      cache,
+      docs
     );
     
     // Step 8: Add related enums to the file content
@@ -431,9 +435,6 @@ export class ChangeCompositionToReferenceTool {
     
     if (enumStartLine !== -1 && enumEndLine !== -1) {
       // Include any trailing empty lines that belong to this enum
-      /* while (enumEndLine + 1 < lines.length && lines[enumEndLine + 1].trim() === '') {
-        enumEndLine++;
-      } */
       
       // Create the range to delete (include the newline of the last line)
       const rangeToDelete = new vscode.Range(
