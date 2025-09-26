@@ -1,11 +1,10 @@
 import * as vscode from "vscode";
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cache";
-import { FieldInfo, FieldTypeOption } from "../interfaces";
+import { FieldInfo, FieldTypeDefinition, genericBuildDecoratorString } from "../../utils/fieldTypeRegistry";
 import { UserInputService } from "../../services/userInputService";
 import { ProjectAnalysisService } from "../../services/projectAnalysisService";
 import { SourceCodeService } from "../../services/sourceCodeService";
 import { FileSystemService } from "../../services/fileSystemService";
-import { ExplorerProvider } from "../../explorer/explorerProvider";
 import { DeleteFieldTool } from "../../refactor/tools/deleteField";
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 import * as path from "path";
@@ -475,11 +474,18 @@ export class ChangeCompositionToReferenceTool {
     workspaceEdit: vscode.WorkspaceEdit
   ): Promise<void> {
     // Create field info for the reference field
-    const fieldType: FieldTypeOption = {
-      label: "Relationship",
+    const fieldType: FieldTypeDefinition = {
+      label: "Reference",
       decorator: "Reference",
       tsType: isArray ? `${targetModelName}[]` : targetModelName,
-      description: "Reference relationship",
+      description: "Reference relationship to independent models",
+      supportedArgs: [
+        { name: 'docs', type: 'string' },
+        { name: 'load', type: 'boolean' },
+        { name: 'onDelete', type: 'enum' },
+        { name: 'elementType', type: 'string' },
+      ],
+      buildDecoratorString: genericBuildDecoratorString
     };
 
     const fieldInfo: FieldInfo = {

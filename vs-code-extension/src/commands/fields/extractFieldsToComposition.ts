@@ -1,14 +1,10 @@
 import * as vscode from "vscode";
-import {
-  ChangeObject,
-  ManualRefactorContext,
-  ExtractFieldsToCompositionPayload,
-} from "../../refactor/refactorInterfaces";
+import { ChangeObject, ManualRefactorContext, ExtractFieldsToCompositionPayload } from "../../refactor/refactorInterfaces";
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cache";
 import { AddCompositionTool } from "../models/addComposition";
 import { AddFieldTool } from "./addField";
 import { DeleteFieldTool } from "../../refactor/tools/deleteField";
-import { FieldInfo } from "../interfaces";
+import { FieldInfo, FIELD_TYPE_REGISTRY } from "../../utils/fieldTypeRegistry";
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 import { ExtractFieldsController } from "./extractFieldsController";
 import { ModelService } from "../../services/modelService";
@@ -332,12 +328,11 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
       throw new Error(`Field '${fieldName}' already exists in model ${outerModelName}`);
     }
 
-    // Create field info for the composition field
+    // Create field info for the composition field using registry
+    const compositionType = FIELD_TYPE_REGISTRY['Composition'];
     const fieldType = {
-      label: "Relationship",
-      decorator: "Composition",
+      ...compositionType,
       tsType: isArray ? `${innerModelName}[]` : innerModelName,
-      description: "Composition relationship",
     };
 
     const fieldInfo: FieldInfo = {
@@ -390,7 +385,7 @@ export class ExtractFieldsToCompositionTool extends ExtractFieldsController {
     const lines: string[] = [];
     
     // Add Field decorator
-    lines.push("@Field({})");
+    lines.push("@Field()");
     
     // Add OwnerReference decorator
     lines.push("@OwnerReference()");

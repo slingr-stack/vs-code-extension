@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { DecoratedClass, MetadataCache } from "../cache/cache";
-import { FieldInfo } from "../utils/fieldTypeRegistry";
+import { FieldInfo, FIELD_TYPE_REGISTRY } from "../utils/fieldTypeRegistry";
 import { detectIndentation, applyIndentation } from "../utils/detectIndentation";
 import { FileSystemService } from "./fileSystemService";
 import { ProjectAnalysisService } from "./projectAnalysisService";
@@ -361,26 +361,6 @@ export class SourceCodeService {
   }
 
   /**
-   * Finds the file path for a given model name in the cache.
-   */
-  private findModelFilePath(cache: MetadataCache, modelName: string): string | undefined {
-    // Get all data models and find the one we're looking for
-    const modelClasses = cache.getDataModelClasses();
-    const targetModel = modelClasses.find((model) => model.name === modelName);
-
-    if (!targetModel) {
-      return undefined;
-    }
-
-    // Get the model's declaration location to determine the file path
-    if (targetModel.declaration && targetModel.declaration.uri) {
-      return targetModel.declaration.uri.fsPath;
-    }
-
-    return undefined;
-  }
-
-  /**
    * Finds the datasource path by name in the workspace.
    * 
    * @param dataSourceName - The name of the datasource to find
@@ -593,44 +573,11 @@ export class SourceCodeService {
   public extractImportsFromClassBody(classBody: string): Set<string> {
     const imports = new Set<string>();
 
-    // Look for decorator patterns
-    const decoratorPatterns = [
-      /@Text\b/g,
-      /@LongText\b/g,
-      /@Email\b/g,
-      /@Html\b/g,
-      /@Integer\b/g,
-      /@Money\b/g,
-      /@Number\b/g,
-      /@Boolean\b/g,
-      /@Date\b/g,
-      /@DateRange\b/g,
-      /@Choice\b/g,
-      /@Reference\b/g,
-      /@Composition\b/g,
-      /@Relationship\b/g,
-    ];
-
-    const decoratorNames = [
-      "Text",
-      "LongText",
-      "Email",
-      "Html",
-      "Integer",
-      "Money",
-      "Number",
-      "Boolean",
-      "Date",
-      "DateRange",
-      "Choice",
-      "Reference",
-      "Composition",
-      "Relationship",
-    ];
-
-    decoratorPatterns.forEach((pattern, index) => {
-      if (pattern.test(classBody)) {
-        imports.add(decoratorNames[index]);
+    // Check for each decorator in the registry
+    Object.values(FIELD_TYPE_REGISTRY).forEach((fieldType) => {
+      const decoratorPattern = new RegExp(`@${fieldType.decorator}\\b`, 'g');
+      if (decoratorPattern.test(classBody)) {
+        imports.add(fieldType.decorator);
       }
     });
 

@@ -3,7 +3,6 @@ import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cac
 import { DefineFieldsTool } from "./defineFields";
 import { AIEnhancedTool, FIELD_TYPE_OPTIONS, FieldTypeDefinition, FieldInfo } from "../../utils/fieldTypeRegistry";
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
-import { AIService } from "../../services/aiService";
 import { UserInputService } from "../../services/userInputService";
 import { ProjectAnalysisService } from "../../services/projectAnalysisService";
 import { SourceCodeService } from "../../services/sourceCodeService";

@@ -1,9 +1,5 @@
 import * as vscode from "vscode";
-import {
-  ChangeObject,
-  ManualRefactorContext,
-  ExtractFieldsToReferencePayload,
-} from "../../refactor/refactorInterfaces";
+import { ChangeObject, ManualRefactorContext, ExtractFieldsToReferencePayload } from "../../refactor/refactorInterfaces";
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cache";
 import { NewModelTool } from "../models/newModel";
 import { AddFieldTool } from "./addField";

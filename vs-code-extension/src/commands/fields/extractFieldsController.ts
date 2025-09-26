@@ -6,7 +6,7 @@ import { UserInputService } from "../../services/userInputService";
 import { SourceCodeService } from "../../services/sourceCodeService";
 import { isModelFile } from "../../utils/metadata";
 import * as vscode from "vscode";
-import { FIELD_TYPE_OPTIONS } from "../interfaces";
+import { FIELD_TYPE_OPTIONS } from "../../utils/fieldTypeRegistry";
 
 export abstract class ExtractFieldsController implements IRefactorTool {
   protected userInputService: UserInputService;

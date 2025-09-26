@@ -90,7 +90,7 @@ export interface FieldInfo {
 
 
 // A generic function to build the decorator string 
-function genericBuildDecoratorString(newTypeName: string, transferredArgs: Map<string, any>): string {
+export function genericBuildDecoratorString(newTypeName: string, transferredArgs: Map<string, any>): string {
     if (transferredArgs.size === 0) {
         return `@${newTypeName}()`;
     }

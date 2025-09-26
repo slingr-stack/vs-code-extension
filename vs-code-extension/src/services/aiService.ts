@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import { MetadataCache, DecoratedClass } from "../cache/cache";
-import { FieldInfo } from "../utils/fieldTypeRegistry";
 import { AppTreeItem } from "../explorer/appTreeItem";
 import { FIELD_TYPE_REGISTRY } from "../utils/fieldTypeRegistry";
 import { ApplicationContext, ModelContext } from "./projectAnalysisService";
@@ -265,11 +264,11 @@ Generate TypeScript field definitions for the following description:
 4. For relationships, reference existing models when possible
 5. For enums/choices, create enum definitions and use @Choice decorator
 6. Include reasonable default parameters for decorators when appropriate
-7. Add brief documentation comments for complex fields
+7. Add brief documentation comments for complex fields 
 8. Follow the existing code style and patterns from the project
 9. Ensure no duplicate field names with existing fields in the model
 10. Add any necessary relative import statements for used decorators and types. Imports for types should be from the folder: 'src/framework/shared/types'
-11. Before adding a property in a decorator, check if the property is supported by that decorator type'.
+11. Before adding a property in a decorator, check if the property is supported by that decorator type.
 
 ## OUTPUT FORMAT
 

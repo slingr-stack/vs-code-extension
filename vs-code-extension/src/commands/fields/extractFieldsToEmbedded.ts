@@ -1,10 +1,6 @@
 // src/commands/fields/extractFieldsToEmbedded.ts
 import * as vscode from "vscode";
-import {
-  ChangeObject,
-  ManualRefactorContext,
-  ExtractFieldsToEmbeddedPayload,
-} from "../../refactor/refactorInterfaces";
+import { ChangeObject, ManualRefactorContext, ExtractFieldsToEmbeddedPayload } from "../../refactor/refactorInterfaces";
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cache";
 import { DeleteFieldTool } from "../../refactor/tools/deleteField";
 import { ExtractFieldsController } from "./extractFieldsController";

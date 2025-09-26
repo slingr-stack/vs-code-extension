@@ -1,12 +1,11 @@
 import * as vscode from "vscode";
 import { MetadataCache, DecoratedClass } from "../../cache/cache";
-import { AIEnhancedTool, FieldInfo, FieldTypeDefinition } from "../../utils/fieldTypeRegistry";
+import { FieldInfo, FieldTypeDefinition, FIELD_TYPE_REGISTRY } from "../../utils/fieldTypeRegistry";
 import { UserInputService } from "../../services/userInputService";
 import { ProjectAnalysisService } from "../../services/projectAnalysisService";
 import { SourceCodeService } from "../../services/sourceCodeService";
 import { FileSystemService } from "../../services/fileSystemService";
 import { ModelService } from "../../services/modelService";
-import { ExplorerProvider } from "../../explorer/explorerProvider";
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 
 /**
@@ -213,14 +212,11 @@ export class AddCompositionTool {
     isArray: boolean,
     cache: MetadataCache
   ): Promise<void> {
-    // Create field info for the composition field
+    // Create field info for the composition field using registry
+    const compositionType = FIELD_TYPE_REGISTRY['Composition'];
     const fieldType: FieldTypeDefinition = {
-      label: "Relationship",
-      decorator: "Composition",
+      ...compositionType,
       tsType: isArray ? `${innerModelName}[]` : innerModelName,
-      description: "Composition relationship",
-      supportedArgs: undefined,
-      buildDecoratorString: () => "@Composition()"
     };
 
     const fieldInfo: FieldInfo = {
@@ -433,14 +429,11 @@ export class AddCompositionTool {
     isArray: boolean,
     cache: MetadataCache
   ): Promise<void> {
-    // Create field info for the composition field
+    // Create field info for the composition field using registry
+    const compositionType = FIELD_TYPE_REGISTRY['Composition'];
     const fieldType: FieldTypeDefinition = {
-      label: "Relationship",
-      decorator: "Composition",
+      ...compositionType,
       tsType: isArray ? `${innerModelName}[]` : innerModelName,
-      description: "Composition relationship",
-      supportedArgs: undefined,
-      buildDecoratorString: () => "@Composition()"
     };
 
     const fieldInfo: FieldInfo = {
