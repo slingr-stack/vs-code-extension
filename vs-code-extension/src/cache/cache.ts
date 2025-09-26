@@ -221,7 +221,6 @@ export class MetadataCache {
      * Sets up file system watchers to detect changes, creations, and deletions
      * of TypeScript files and folder structure changes in src/data.
      */
-<<<<<<< HEAD
     private async setupFileWatcher(): Promise<void> {
         // Watch for TypeScript file changes
         this.fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.ts');
@@ -229,15 +228,6 @@ export class MetadataCache {
         this.fileWatcher.onDidCreate(async uri => await this.queueFileChange(uri, 'create'));
         this.fileWatcher.onDidChange(async uri => await this.queueFileChange(uri, 'change'));
         this.fileWatcher.onDidDelete(async uri => await this.queueFileChange(uri, 'delete'));
-=======
-    private setupFileWatcher(): void {
-        // Watch for TypeScript file changes
-        this.fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.ts');
-
-        this.fileWatcher.onDidCreate(uri => this.queueFileChange(uri, 'create'));
-        this.fileWatcher.onDidChange(uri => this.queueFileChange(uri, 'change'));
-        this.fileWatcher.onDidDelete(uri => this.queueFileChange(uri, 'delete'));
->>>>>>> framework/main
 
         // Watch for folder structure changes in src/data directory
         // ignoreCreateEvents: false, ignoreChangeEvents: true, ignoreDeleteEvents: false
@@ -253,21 +243,13 @@ export class MetadataCache {
      * @param uri The URI of the file that changed.
      * @param type The type of change (create, change, delete).
      */
-<<<<<<< HEAD
     private async queueFileChange(uri: vscode.Uri, type: FileChangeType): Promise<void> {
-=======
-    private queueFileChange(uri: vscode.Uri, type: FileChangeType): void {
->>>>>>> framework/main
         if (uri.path.includes('/node_modules/')) {
             return;
         }
 
         this.fileChangeQueue.push({ uri, type });
-<<<<<<< HEAD
         await this.processQueue(); 
-=======
-        this.processQueue();
->>>>>>> framework/main
     }
 
     /**
@@ -335,11 +317,7 @@ export class MetadataCache {
             return;
         }
 
-<<<<<<< HEAD
         //this.isProcessingQueue = true;
-=======
-        this.isProcessingQueue = true;
->>>>>>> framework/main
         const { uri, type } = this.fileChangeQueue.shift()!;
         const filePath = uri.fsPath.replace(/\\/g, '/');
 
@@ -415,11 +393,7 @@ export class MetadataCache {
             console.error(`Error processing file change for ${uri.fsPath}:`, error);
         } finally {
             this.isProcessingQueue = false;
-<<<<<<< HEAD
             await this.processQueue();
-=======
-            this.processQueue();
->>>>>>> framework/main
         }
     }
 
@@ -912,11 +886,7 @@ export class MetadataCache {
         
         for (const file of Object.values(this.cache)) {
             const sourceFile = this.tsMorphProject.getSourceFile(file.uri.fsPath);
-<<<<<<< HEAD
             if (!sourceFile) continue;
-=======
-            if (!sourceFile) {continue;}
->>>>>>> framework/main
 
             // Collect classes and their properties
             for (const cls of Object.values(file.classes)) {
@@ -1072,15 +1042,12 @@ export class MetadataCache {
         return dataModels;
     }
 
-<<<<<<< HEAD
     public getModelByName(name: string): DecoratedClass | null {
         const models = this.getDataModels();
         return models.find(m => m.name === name) || null;
     }
 
 
-=======
->>>>>>> framework/main
     /**
      * Returns all @Model decorated classes that are stored in the src/data folder.
      * This is a more specific version of getDataModels() that only returns
@@ -1093,7 +1060,6 @@ export class MetadataCache {
         );
     }
 
-<<<<<<< HEAD
     public getModelDecoratorByName(name: string, model: DecoratedClass): DecoratorMetadata | null {
         return model.decorators.find(decorator => decorator.name === name) || null;
     }
@@ -1118,8 +1084,6 @@ export class MetadataCache {
         });
     }
 
-=======
->>>>>>> framework/main
     /**
      * Returns all data sources found in the cache.
      * @returns An array of DataSourceMetadata objects.

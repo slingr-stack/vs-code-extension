@@ -8,8 +8,4 @@ vsc-extension-quickstart.md
 **/eslint.config.mjs
 **/*.map
 **/*.ts
-<<<<<<< HEAD
 **/.vscode-test.*
-=======
-**/.vscode-test.*
->>>>>>> framework/main

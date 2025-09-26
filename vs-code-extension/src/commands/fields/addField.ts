@@ -1,12 +1,7 @@
 import * as vscode from "vscode";
 import { MetadataCache, DecoratedClass, PropertyMetadata } from "../../cache/cache";
-<<<<<<< HEAD
 import { DefineFieldsTool } from "./defineFields";
 import { AIEnhancedTool, FIELD_TYPE_OPTIONS, FieldTypeDefinition, FieldInfo } from "../../utils/fieldTypeRegistry";
-=======
-import { DefineFieldsTool } from "../fields/defineFields";
-import { AIEnhancedTool, FIELD_TYPE_OPTIONS, FieldTypeOption, FieldInfo } from "../interfaces";
->>>>>>> framework/main
 import { detectIndentation, applyIndentation } from "../../utils/detectIndentation";
 import { AIService } from "../../services/aiService";
 import { UserInputService } from "../../services/userInputService";
@@ -39,7 +34,6 @@ import { FileSystemService } from "../../services/fileSystemService";
  * ```
  */
 export class AddFieldTool implements AIEnhancedTool {
-<<<<<<< HEAD
   private userInputService: UserInputService;
   private projectAnalysisService: ProjectAnalysisService;
   private sourceCodeService: SourceCodeService;
@@ -52,20 +46,6 @@ export class AddFieldTool implements AIEnhancedTool {
     this.sourceCodeService = new SourceCodeService();
     this.fileSystemService = new FileSystemService();
     this.defineFieldsTool = new DefineFieldsTool();
-=======
-    private userInputService: UserInputService;
-    private projectAnalysisService: ProjectAnalysisService;
-    private sourceCodeService: SourceCodeService;
-    private fileSystemService: FileSystemService;
-    private defineFieldsTool: DefineFieldsTool;
-
-  constructor() {
-        this.userInputService = new UserInputService();
-        this.projectAnalysisService = new ProjectAnalysisService();
-        this.sourceCodeService = new SourceCodeService();
-        this.fileSystemService = new FileSystemService();
-        this.defineFieldsTool = new DefineFieldsTool();
->>>>>>> framework/main
   }
 
   /**
@@ -79,27 +59,19 @@ export class AddFieldTool implements AIEnhancedTool {
   async processWithAI(
     userInput: string,
     targetUri: vscode.Uri,
-<<<<<<< HEAD
     modelName: string,
-=======
->>>>>>> framework/main
     cache: MetadataCache,
     additionalContext?: any
   ): Promise<void> {
     // The current addField method handles user interaction internally,
     // so we just call it with the provided parameters
-<<<<<<< HEAD
     await this.addField(targetUri, modelName, cache);
-=======
-    await this.addField(targetUri, cache);
->>>>>>> framework/main
   }
 
   /**
    * Adds a new field to an existing model file.
    *
    * @param targetUri - The URI of the model file where the field should be added
-<<<<<<< HEAD
    * @param modelName - The name of the model class to which the field will be added
    * @param cache - The metadata cache for context about existing models (optional)
    * @returns Promise that resolves when the field is added
@@ -112,15 +84,6 @@ export class AddFieldTool implements AIEnhancedTool {
       if (!modelClass) {
         throw new Error("No model class found in this file. Make sure the class has a @Model decorator.");
       }
-=======
-   * @param cache - The metadata cache for context about existing models (optional)
-   * @returns Promise that resolves when the field is added
-   */
-  public async addField(targetUri: vscode.Uri, cache?: MetadataCache): Promise<void> {
-    try {
-      // Step 1: Validate target file
-      const { modelClass, document } = await this.validateAndPrepareTarget(targetUri, cache);
->>>>>>> framework/main
 
       // Step 2: Get field information from user
       const fieldInfo = await this.gatherFieldInformation(modelClass, cache);
@@ -135,11 +98,7 @@ export class AddFieldTool implements AIEnhancedTool {
       const fieldCode = this.generateFieldCode(fieldInfo);
 
       // Step 5: Insert field into model class
-<<<<<<< HEAD
       await this.sourceCodeService.insertField(document, modelClass.name, fieldInfo, fieldCode, cache);
-=======
-      await this.sourceCodeService.insertField(document, modelClass.name,fieldInfo, fieldCode, cache);
->>>>>>> framework/main
 
       // Step 5.5: If it's a Choice field, also create the enum
       if (fieldInfo.type.decorator === "Choice") {
@@ -180,10 +139,7 @@ export class AddFieldTool implements AIEnhancedTool {
    *
    * @param targetUri - The URI of the model file where the field should be added
    * @param fieldInfo - Predefined field information
-<<<<<<< HEAD
    * @param modelName - The name of the model class to which the field will be added
-=======
->>>>>>> framework/main
    * @param cache - The metadata cache for context about existing models
    * @param silent - If true, suppresses success/error messages (defaults to false)
    * @returns Promise that resolves when the field is added
@@ -191,16 +147,12 @@ export class AddFieldTool implements AIEnhancedTool {
   public async addFieldProgrammatically(
     targetUri: vscode.Uri,
     fieldInfo: FieldInfo,
-<<<<<<< HEAD
     modelName: string,
-=======
->>>>>>> framework/main
     cache: MetadataCache,
     silent: boolean = false
   ): Promise<void> {
     try {
       // Step 1: Validate target file
-<<<<<<< HEAD
       const { modelClass, document } = await this.validateAndPrepareTarget(targetUri, modelName, cache);
 
       // Step 2: Check if field already exists
@@ -213,29 +165,13 @@ export class AddFieldTool implements AIEnhancedTool {
           }
           return;
         }
-=======
-      const { modelClass, document } = await this.validateAndPrepareTarget(targetUri, cache);
-
-      // Step 2: Check if field already exists
-      const existingFields = Object.keys(modelClass.properties || {});
-      if (existingFields.includes(fieldInfo.name)) {
-        const message = `Field '${fieldInfo.name}' already exists in model ${modelClass.name}`;
-        if (!silent) {
-          vscode.window.showWarningMessage(message);
-        }
-        return;
->>>>>>> framework/main
       }
 
       // Step 3: Generate basic field structure
       const fieldCode = this.generateFieldCode(fieldInfo);
 
       // Step 4: Insert field into model class
-<<<<<<< HEAD
       await this.sourceCodeService.insertField(document, modelName, fieldInfo, fieldCode, cache);
-=======
-      await this.sourceCodeService.insertField(document, modelClass.name,fieldInfo, fieldCode, cache);
->>>>>>> framework/main
 
       // Step 5: If it's a Choice field, also create the enum
       if (fieldInfo.type.decorator === "Choice") {
@@ -257,7 +193,6 @@ export class AddFieldTool implements AIEnhancedTool {
   }
 
   /**
-<<<<<<< HEAD
    * Creates a WorkspaceEdit for adding a field programmatically without applying it.
    * This method prepares all the necessary changes (field insertion, imports, enums) 
    * and returns them as a WorkspaceEdit that can be applied later or combined with other edits.
@@ -424,20 +359,13 @@ export class AddFieldTool implements AIEnhancedTool {
   }
 
   /**
-=======
->>>>>>> framework/main
    * Validates the target file and prepares it for field addition.
    */
   private async validateAndPrepareTarget(
     targetUri: vscode.Uri,
-<<<<<<< HEAD
     modelName: string,
     cache?: MetadataCache
   ): Promise<{ modelClass: DecoratedClass | null; document: vscode.TextDocument }> {
-=======
-    cache?: MetadataCache
-  ): Promise<{ modelClass: DecoratedClass; document: vscode.TextDocument }> {
->>>>>>> framework/main
     // Ensure the file is a TypeScript file
     if (!targetUri.fsPath.endsWith(".ts")) {
       throw new Error("Target file must be a TypeScript file (.ts)");
@@ -451,14 +379,7 @@ export class AddFieldTool implements AIEnhancedTool {
       throw new Error("Metadata cache is required for field addition");
     }
 
-<<<<<<< HEAD
     const modelClass = cache.getModelByName(modelName);
-=======
-    const modelClass = await this.projectAnalysisService.findModelClass(document, cache);
-    if (!modelClass) {
-      throw new Error("No model class found in this file. Make sure the class has a @Model decorator.");
-    }
->>>>>>> framework/main
 
     return { modelClass, document };
   }
@@ -508,14 +429,9 @@ export class AddFieldTool implements AIEnhancedTool {
     // Step 4: Handle special field types
     let additionalConfig: Record<string, any> = {};
 
-<<<<<<< HEAD
     // Handle all relationship field types
     if (this.isRelationshipField(fieldType.decorator)) {
       const relationshipConfig = await this.getRelationshipConfiguration(fieldType.decorator, cache);
-=======
-    if (fieldType.decorator === "Relationship") {
-      const relationshipConfig = await this.getRelationshipConfiguration(cache);
->>>>>>> framework/main
       if (!relationshipConfig) {
         return null; // User cancelled
       }
@@ -533,11 +449,7 @@ export class AddFieldTool implements AIEnhancedTool {
   /**
    * Shows a quick pick for field type selection.
    */
-<<<<<<< HEAD
   private async selectFieldType(): Promise<FieldTypeDefinition | null> {
-=======
-  private async selectFieldType(): Promise<FieldTypeOption | null> {
->>>>>>> framework/main
     const items = FIELD_TYPE_OPTIONS.map((option) => ({
       label: option.label,
       description: option.description,
@@ -582,7 +494,6 @@ export class AddFieldTool implements AIEnhancedTool {
   }
 
   /**
-<<<<<<< HEAD
    * Checks if a field decorator represents a relationship field.
    */
   private isRelationshipField(decorator: string): boolean {
@@ -593,11 +504,6 @@ export class AddFieldTool implements AIEnhancedTool {
    * Gets relationship configuration for relationship fields.
    */
   private async getRelationshipConfiguration(decorator: string, cache?: MetadataCache): Promise<Record<string, any> | null> {
-=======
-   * Gets relationship configuration for Relationship fields.
-   */
-  private async getRelationshipConfiguration(cache?: MetadataCache): Promise<Record<string, any> | null> {
->>>>>>> framework/main
     // Step 1: Get available models
     const availableModels = this.getAvailableModels(cache);
     if (availableModels.length === 0) {
@@ -611,17 +517,10 @@ export class AddFieldTool implements AIEnhancedTool {
     const targetModel = await vscode.window.showQuickPick(
       availableModels.map((model) => ({
         label: model,
-<<<<<<< HEAD
         description: `${this.getRelationshipDescription(decorator)} to ${model} model`,
       })),
       {
         placeHolder: `Select the target model for this ${decorator.toLowerCase()}`,
-=======
-        description: `Reference to ${model} model`,
-      })),
-      {
-        placeHolder: "Select the target model for this relationship",
->>>>>>> framework/main
       }
     );
 
@@ -629,7 +528,6 @@ export class AddFieldTool implements AIEnhancedTool {
       return null; // User cancelled
     }
 
-<<<<<<< HEAD
     // Step 3: For generic Relationship decorator, let user select relationship type
     let relationshipType: string;
     if (decorator === "Relationship") {
@@ -658,34 +556,10 @@ export class AddFieldTool implements AIEnhancedTool {
     } else {
       // For specific decorators, derive the relationship type
       relationshipType = decorator.toLowerCase();
-=======
-    // Step 3: Let user select relationship type
-    const relationshipType = await vscode.window.showQuickPick(
-      [
-        {
-          label: "Reference",
-          description: "Reference relationship - points to another entity",
-          value: "reference",
-        },
-        {
-          label: "Composition",
-          description: "Composition relationship - contains/owns another entity",
-          value: "composition",
-        },
-      ],
-      {
-        placeHolder: "Select the relationship type",
-      }
-    );
-
-    if (!relationshipType) {
-      return null; // User cancelled
->>>>>>> framework/main
     }
 
     return {
       targetModel: targetModel.label,
-<<<<<<< HEAD
       relationshipType: relationshipType,
     };
   }
@@ -707,11 +581,6 @@ export class AddFieldTool implements AIEnhancedTool {
         return "Relationship";
     }
   }
-=======
-      relationshipType: relationshipType.value,
-    };
-  }
->>>>>>> framework/main
   /**
    * Gets available models from the cache.
    */
@@ -736,7 +605,6 @@ export class AddFieldTool implements AIEnhancedTool {
       lines.push("  required: true");
       lines.push("})");
     } else {
-<<<<<<< HEAD
       lines.push("@Field()");
     }
 
@@ -760,16 +628,6 @@ export class AddFieldTool implements AIEnhancedTool {
         // Use specific decorators directly (Reference, Composition, SharedComposition)
         lines.push(`@${fieldInfo.type.decorator}()`);
       }
-=======
-      lines.push("@Field({})");
-    }
-
-    // Add type-specific decorator
-    if (fieldInfo.type.decorator === "Relationship" && fieldInfo.additionalConfig?.relationshipType) {
-      lines.push(`@${fieldInfo.type.decorator}({`);
-      lines.push(`  type: '${fieldInfo.additionalConfig.relationshipType}'`);
-      lines.push(`})`);
->>>>>>> framework/main
     } else {
       lines.push(`@${fieldInfo.type.decorator}()`);
     }
@@ -779,20 +637,10 @@ export class AddFieldTool implements AIEnhancedTool {
     if (fieldInfo.type.decorator === "Choice") {
       const enumName = this.generateEnumName(fieldInfo.name);
       lines.push(`${fieldInfo.name}!: ${enumName};`);
-<<<<<<< HEAD
     } else if (this.isRelationshipField(fieldInfo.type.decorator)) {
       // For relationship fields, use the target model type as single values (not arrays)
       const targetModel = fieldInfo.additionalConfig?.targetModel || "any";
       lines.push(`${fieldInfo.name}!: ${targetModel};`);
-=======
-    } else if (fieldInfo.type.decorator === "Relationship") {
-      // For Relationship fields, use the target model type
-      const targetModel = fieldInfo.additionalConfig?.targetModel || "any";
-      // Check if it's a composition relationship to determine if it should be an array
-      const isComposition = fieldInfo.additionalConfig?.relationshipType === "composition";
-      const typeDeclaration = isComposition ? `${targetModel}[]` : targetModel;
-      lines.push(`${fieldInfo.name}!: ${typeDeclaration};`);
->>>>>>> framework/main
     } else {
       lines.push(`${fieldInfo.name}!: ${fieldInfo.type.tsType};`);
     }
