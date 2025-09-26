@@ -1,13 +1,16 @@
 {
   "version": "0.2.0",
   "configurations": [
+    // ========================================
+    // FRAMEWORK CONFIGURATIONS
+    // ========================================
     {
       "type": "node",
       "request": "launch",
-      "name": "Debug Jest Tests",
-      "program": "${workspaceFolder}/node_modules/jest/bin/jest.js",
-      "args": ["--runInBand"],
-      "cwd": "${workspaceFolder}",
+      "name": "Debug Framework Tests",
+      "program": "${workspaceFolder}/framework/node_modules/jest/bin/jest.js",
+      "args": ["--runInBand", "--verbose"],
+      "cwd": "${workspaceFolder}/framework",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**", "node_modules/**"],
@@ -18,11 +21,156 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Debug Framework - Current Test File",
+      "program": "${workspaceFolder}/framework/node_modules/jest/bin/jest.js",
+      "args": ["--runInBand", "${relativeFile}"],
+      "cwd": "${workspaceFolder}/framework",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"],
+      "env": {
+        "NODE_ENV": "test"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Build Framework",
+      "program": "${workspaceFolder}/framework/node_modules/typescript/bin/tsc",
+      "args": ["--project", "tsconfig.build.json"],
+      "cwd": "${workspaceFolder}/framework",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"]
+    },
+
+    // ========================================
+    // CLI CONFIGURATIONS
+    // ========================================
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug CLI Tests",
+      "program": "${workspaceFolder}/cli/node_modules/jest/bin/jest.js",
+      "args": ["--runInBand"],
+      "cwd": "${workspaceFolder}/cli",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"],
+      "env": {
+        "NODE_ENV": "test"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug CLI - Create App",
+      "program": "${workspaceFolder}/cli/bin/dev.js",
+      "args": ["create-app", "--help"],
+      "cwd": "${workspaceFolder}/cli",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug CLI - Run Command",
+      "program": "${workspaceFolder}/cli/bin/dev.js",
+      "args": ["run", "--help"],
+      "cwd": "${workspaceFolder}/cli",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Run CLI - Development Server",
+      "program": "${workspaceFolder}/cli/bin/dev.js",
+      "args": ["run"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"]
+    },
+
+    // ========================================
+    // VS CODE EXTENSION CONFIGURATIONS
+    // ========================================
+    {
+      "name": "Run Extension (vs-code-extension)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/vs-code-extension"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/vs-code-extension/out/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile - vs-code-extension"
+    },
+    {
+      "name": "Debug Extension Tests",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/vs-code-extension",
+        "--extensionTestsPath=${workspaceFolder}/vs-code-extension/out/test/suite/index"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/vs-code-extension/out/test/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile - vs-code-extension"
+    },
+
+    // ========================================
+    // GENERAL DEBUGGING CONFIGURATIONS
+    // ========================================
+    {
+      "type": "node",
+      "request": "launch",
       "name": "Debug Current File",
       "program": "${file}",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**", "node_modules/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug All Tests (Monorepo)",
+      "program": "${workspaceFolder}/node_modules/npm/bin/npm-cli.js",
+      "args": ["run", "test"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"],
+      "env": {
+        "NODE_ENV": "test"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run CLI + Extension",
+      "configurations": [
+        "Run CLI - Development Server",
+        "Run Extension (vs-code-extension)"
+      ],
+      "stopAll": true,
+      "presentation": {
+        "hidden": false,
+        "group": "1_main"
+      }
+    },
+    {
+      "name": "Debug All Components",
+      "configurations": [
+        "Debug Framework Tests",
+        "Debug CLI Tests"
+      ],
+      "stopAll": true,
+      "presentation": {
+        "hidden": false,
+        "group": "2_debug"
+      }
     }
   ]
 }
